@@ -25,7 +25,49 @@
   "metresPerDegLat": 110574,
   "units": "Geometry in tiles is integer decimetres relative to each tile origin (origin itself in metres). x east, y north. Every ring/polyline in pts/holes is delta-encoded: first vertex absolute, each next vertex as difference from the previous."
  },
+ "formatMinor": 1,
  "codes": {
+  "roof": [
+   "unknown",
+   "flat",
+   "gabled",
+   "hipped",
+   "pyramidal",
+   "skillion",
+   "half-hipped",
+   "mansard",
+   "gambrel",
+   "dome",
+   "onion",
+   "round",
+   "saltbox",
+   "cone"
+  ],
+  "material": [
+   "unknown",
+   "plaster",
+   "brick",
+   "stone",
+   "sandstone",
+   "concrete",
+   "glass",
+   "metal",
+   "wood",
+   "timber_framing",
+   "tiles",
+   "roof_tiles",
+   "slate",
+   "metal_sheet",
+   "tar_paper",
+   "gravel",
+   "grass",
+   "copper"
+  ],
+  "tree": [
+   "broadleaved",
+   "needleleaved",
+   "palm"
+  ],
   "use": [
    "house",
    "apartments",
@@ -151,6 +193,9 @@
   "buildings": "columnar; id = OSM way id (negative = relation id); rs = [start,len] pairs into pts (x,y dm); ent = entrance x,y; h/z in dm; res = night residents, jobs = day occupants; est=1 when height was estimated",
   "roads": "columnar edges between global junction ids a→b; lf/lb lanes forward/backward; flags = roadFlags bitmask; ps = [start,len] into pts",
   "junctions": "inc = approaches [edge,dir]; yield aligned with inc (1 = must yield); conn = [fromEdge,fromDir,fromLane,toEdge,toDir,toLane,turn], lane 0 = rightmost; phases[i] = [{g: indices into conn, d: green s, y: amber s, r: all-red s}]",
+  "trees": "flat [x, y, kind, heightDm] per tree (height 0 = unknown)",
+  "lamps": "flat [x, y] per street lamp",
+  "appearance": "buildings.roof = roof shape code (0 unknown); col/rcol = mapped building/roof colour; mat/rmat = material codes; rh = roof height dm",
   "terrain": "n×n int16 samples (base64, little-endian) every step metres from tile origin, value×scale = metres"
  },
  "districts": [
@@ -397,7 +442,7 @@
     "hardware": 1,
     "power": 2
    },
-   "bytes": 469824
+   "bytes": 486123
   },
   {
    "key": "-1_-2",
@@ -414,7 +459,7 @@
     "school": 2,
     "power": 1
    },
-   "bytes": 218088
+   "bytes": 238034
   },
   {
    "key": "-1_-3",
@@ -429,7 +474,7 @@
     "clinic": 1,
     "school": 1
    },
-   "bytes": 113323
+   "bytes": 121807
   },
   {
    "key": "-1_-4",
@@ -444,7 +489,7 @@
     "fuel": 1,
     "supermarket": 2
    },
-   "bytes": 215162
+   "bytes": 229008
   },
   {
    "key": "-1_-5",
@@ -459,7 +504,7 @@
     "supermarket": 2,
     "fuel": 1
    },
-   "bytes": 125632
+   "bytes": 140800
   },
   {
    "key": "-1_-6",
@@ -470,7 +515,7 @@
    "residents": 696,
    "jobs": 1436,
    "services": {},
-   "bytes": 55103
+   "bytes": 58073
   },
   {
    "key": "-1_0",
@@ -488,7 +533,7 @@
     "supermarket": 2,
     "power": 1
    },
-   "bytes": 399233
+   "bytes": 423478
   },
   {
    "key": "-1_1",
@@ -505,7 +550,7 @@
     "clinic": 2,
     "supermarket": 1
    },
-   "bytes": 274915
+   "bytes": 311743
   },
   {
    "key": "-1_2",
@@ -524,7 +569,7 @@
     "townhall": 1,
     "train_station": 1
    },
-   "bytes": 496050
+   "bytes": 576340
   },
   {
    "key": "-1_3",
@@ -539,7 +584,7 @@
     "power": 2,
     "police": 1
    },
-   "bytes": 241151
+   "bytes": 259464
   },
   {
    "key": "-1_4",
@@ -550,7 +595,7 @@
    "residents": 1500,
    "jobs": 43,
    "services": {},
-   "bytes": 90024
+   "bytes": 95243
   },
   {
    "key": "-1_5",
@@ -567,7 +612,7 @@
     "townhall": 1,
     "police": 1
    },
-   "bytes": 218543
+   "bytes": 226519
   },
   {
    "key": "-2_-1",
@@ -588,7 +633,7 @@
     "water": 1,
     "fuel": 1
    },
-   "bytes": 296559
+   "bytes": 318138
   },
   {
    "key": "-2_-2",
@@ -603,7 +648,7 @@
     "school": 1,
     "supermarket": 1
    },
-   "bytes": 230514
+   "bytes": 257074
   },
   {
    "key": "-2_-3",
@@ -618,7 +663,7 @@
     "townhall": 1,
     "pharmacy": 1
    },
-   "bytes": 113322
+   "bytes": 125861
   },
   {
    "key": "-2_-4",
@@ -631,7 +676,7 @@
    "services": {
     "hardware": 1
    },
-   "bytes": 70609
+   "bytes": 74861
   },
   {
    "key": "-2_-5",
@@ -645,7 +690,7 @@
     "bus_station": 1,
     "school": 1
    },
-   "bytes": 177207
+   "bytes": 195710
   },
   {
    "key": "-2_-6",
@@ -658,7 +703,7 @@
    "services": {
     "pharmacy": 1
    },
-   "bytes": 257352
+   "bytes": 282451
   },
   {
    "key": "-2_0",
@@ -675,7 +720,7 @@
     "train_station": 1,
     "bus_station": 1
    },
-   "bytes": 244730
+   "bytes": 278465
   },
   {
    "key": "-2_1",
@@ -689,7 +734,7 @@
     "power": 4,
     "supermarket": 2
    },
-   "bytes": 215031
+   "bytes": 236798
   },
   {
    "key": "-2_2",
@@ -705,7 +750,7 @@
     "power": 3,
     "clinic": 1
    },
-   "bytes": 349164
+   "bytes": 386765
   },
   {
    "key": "-2_3",
@@ -721,7 +766,7 @@
     "supermarket": 1,
     "power": 1
    },
-   "bytes": 194653
+   "bytes": 204235
   },
   {
    "key": "-2_4",
@@ -737,7 +782,7 @@
     "supermarket": 3,
     "fuel": 2
    },
-   "bytes": 127147
+   "bytes": 130012
   },
   {
    "key": "-2_5",
@@ -751,7 +796,7 @@
     "power": 4,
     "supermarket": 1
    },
-   "bytes": 187800
+   "bytes": 193109
   },
   {
    "key": "-3_-1",
@@ -770,7 +815,7 @@
     "townhall": 1,
     "supermarket": 2
    },
-   "bytes": 286985
+   "bytes": 310173
   },
   {
    "key": "-3_-2",
@@ -784,7 +829,7 @@
     "school": 2,
     "fuel": 1
    },
-   "bytes": 171356
+   "bytes": 207475
   },
   {
    "key": "-3_-3",
@@ -798,7 +843,7 @@
     "pharmacy": 1,
     "power": 1
    },
-   "bytes": 178988
+   "bytes": 194419
   },
   {
    "key": "-3_-4",
@@ -816,7 +861,7 @@
     "police": 1,
     "fuel": 1
    },
-   "bytes": 179710
+   "bytes": 198575
   },
   {
    "key": "-3_-5",
@@ -830,7 +875,7 @@
     "fire_station": 1,
     "pharmacy": 2
    },
-   "bytes": 129731
+   "bytes": 141990
   },
   {
    "key": "-3_-6",
@@ -845,7 +890,7 @@
     "pharmacy": 1,
     "fuel": 3
    },
-   "bytes": 257045
+   "bytes": 274456
   },
   {
    "key": "-3_0",
@@ -861,7 +906,7 @@
     "power": 10,
     "supermarket": 1
    },
-   "bytes": 321024
+   "bytes": 351990
   },
   {
    "key": "-3_1",
@@ -878,7 +923,7 @@
     "townhall": 1,
     "police": 3
    },
-   "bytes": 408102
+   "bytes": 463332
   },
   {
    "key": "-3_2",
@@ -894,7 +939,7 @@
     "pharmacy": 1,
     "power": 5
    },
-   "bytes": 267294
+   "bytes": 298888
   },
   {
    "key": "-3_3",
@@ -909,7 +954,7 @@
     "power": 1,
     "clinic": 1
    },
-   "bytes": 161949
+   "bytes": 183890
   },
   {
    "key": "-3_4",
@@ -923,7 +968,7 @@
     "hardware": 1,
     "water": 2
    },
-   "bytes": 57918
+   "bytes": 59625
   },
   {
    "key": "-3_5",
@@ -936,7 +981,7 @@
    "services": {
     "power": 3
    },
-   "bytes": 110991
+   "bytes": 112569
   },
   {
    "key": "-4_-1",
@@ -953,7 +998,7 @@
     "supermarket": 2,
     "pharmacy": 2
    },
-   "bytes": 313009
+   "bytes": 328967
   },
   {
    "key": "-4_-2",
@@ -967,7 +1012,7 @@
     "power": 5,
     "pharmacy": 1
    },
-   "bytes": 139382
+   "bytes": 149836
   },
   {
    "key": "-4_-3",
@@ -983,7 +1028,7 @@
     "supermarket": 2,
     "clinic": 1
    },
-   "bytes": 188857
+   "bytes": 200225
   },
   {
    "key": "-4_-4",
@@ -996,7 +1041,7 @@
    "services": {
     "power": 3
    },
-   "bytes": 177844
+   "bytes": 192771
   },
   {
    "key": "-4_-5",
@@ -1007,7 +1052,7 @@
    "residents": 2782,
    "jobs": 178,
    "services": {},
-   "bytes": 179346
+   "bytes": 202039
   },
   {
    "key": "-4_-6",
@@ -1021,7 +1066,7 @@
     "hardware": 1,
     "power": 2
    },
-   "bytes": 183012
+   "bytes": 201774
   },
   {
    "key": "-4_0",
@@ -1038,7 +1083,7 @@
     "townhall": 1,
     "clinic": 1
    },
-   "bytes": 389115
+   "bytes": 422517
   },
   {
    "key": "-4_1",
@@ -1056,7 +1101,7 @@
     "clinic": 1,
     "fuel": 1
    },
-   "bytes": 449381
+   "bytes": 495498
   },
   {
    "key": "-4_2",
@@ -1073,7 +1118,7 @@
     "power": 2,
     "clinic": 1
    },
-   "bytes": 159490
+   "bytes": 170601
   },
   {
    "key": "-4_3",
@@ -1086,7 +1131,7 @@
    "services": {
     "power": 1
    },
-   "bytes": 73732
+   "bytes": 80073
   },
   {
    "key": "-4_4",
@@ -1100,7 +1145,7 @@
     "pharmacy": 1,
     "townhall": 1
    },
-   "bytes": 145567
+   "bytes": 152390
   },
   {
    "key": "-4_5",
@@ -1113,7 +1158,7 @@
    "services": {
     "police": 1
    },
-   "bytes": 88074
+   "bytes": 90157
   },
   {
    "key": "-5_-1",
@@ -1130,7 +1175,7 @@
     "clinic": 1,
     "pharmacy": 1
    },
-   "bytes": 351587
+   "bytes": 361275
   },
   {
    "key": "-5_-2",
@@ -1143,7 +1188,7 @@
    "services": {
     "supermarket": 1
    },
-   "bytes": 104366
+   "bytes": 107132
   },
   {
    "key": "-5_-3",
@@ -1161,7 +1206,7 @@
     "fuel": 2,
     "train_station": 1
    },
-   "bytes": 291519
+   "bytes": 298483
   },
   {
    "key": "-5_-4",
@@ -1176,7 +1221,7 @@
     "pharmacy": 1,
     "police": 1
    },
-   "bytes": 308122
+   "bytes": 321126
   },
   {
    "key": "-5_-5",
@@ -1189,7 +1234,7 @@
    "services": {
     "power": 1
    },
-   "bytes": 40751
+   "bytes": 42826
   },
   {
    "key": "-5_-6",
@@ -1204,7 +1249,7 @@
     "power": 1,
     "train_station": 1
    },
-   "bytes": 154671
+   "bytes": 157892
   },
   {
    "key": "-5_0",
@@ -1221,7 +1266,7 @@
     "hardware": 2,
     "supermarket": 1
    },
-   "bytes": 211501
+   "bytes": 239002
   },
   {
    "key": "-5_1",
@@ -1232,7 +1277,7 @@
    "residents": 1118,
    "jobs": 245,
    "services": {},
-   "bytes": 193100
+   "bytes": 238237
   },
   {
    "key": "-5_2",
@@ -1248,7 +1293,7 @@
     "clinic": 1,
     "power": 1
    },
-   "bytes": 241540
+   "bytes": 248674
   },
   {
    "key": "-5_3",
@@ -1262,7 +1307,7 @@
     "townhall": 1,
     "hardware": 1
    },
-   "bytes": 147831
+   "bytes": 151431
   },
   {
    "key": "-5_4",
@@ -1275,7 +1320,7 @@
    "services": {
     "military": 1
    },
-   "bytes": 26157
+   "bytes": 26474
   },
   {
    "key": "-5_5",
@@ -1288,7 +1333,7 @@
    "services": {
     "military": 1
    },
-   "bytes": 20510
+   "bytes": 20623
   },
   {
    "key": "-6_-1",
@@ -1301,7 +1346,7 @@
    "services": {
     "clinic": 1
    },
-   "bytes": 70028
+   "bytes": 71224
   },
   {
    "key": "-6_-2",
@@ -1312,7 +1357,7 @@
    "residents": 0,
    "jobs": 0,
    "services": {},
-   "bytes": 16640
+   "bytes": 16718
   },
   {
    "key": "-6_-3",
@@ -1325,7 +1370,7 @@
    "services": {
     "train_station": 1
    },
-   "bytes": 116790
+   "bytes": 120740
   },
   {
    "key": "-6_-4",
@@ -1339,7 +1384,7 @@
     "townhall": 1,
     "pharmacy": 1
    },
-   "bytes": 190029
+   "bytes": 195648
   },
   {
    "key": "-6_-5",
@@ -1350,7 +1395,7 @@
    "residents": 513,
    "jobs": 123,
    "services": {},
-   "bytes": 39510
+   "bytes": 40307
   },
   {
    "key": "-6_-6",
@@ -1364,7 +1409,7 @@
     "power": 1,
     "hardware": 1
    },
-   "bytes": 38412
+   "bytes": 39525
   },
   {
    "key": "-6_0",
@@ -1379,7 +1424,7 @@
     "supermarket": 2,
     "power": 2
    },
-   "bytes": 178216
+   "bytes": 182099
   },
   {
    "key": "-6_1",
@@ -1390,7 +1435,7 @@
    "residents": 0,
    "jobs": 635,
    "services": {},
-   "bytes": 40972
+   "bytes": 41347
   },
   {
    "key": "-6_2",
@@ -1404,7 +1449,7 @@
     "fire_station": 1,
     "supermarket": 1
    },
-   "bytes": 90429
+   "bytes": 93441
   },
   {
    "key": "-6_3",
@@ -1417,7 +1462,7 @@
    "services": {
     "military": 1
    },
-   "bytes": 24496
+   "bytes": 24627
   },
   {
    "key": "-6_4",
@@ -1431,7 +1476,7 @@
     "clinic": 1,
     "military": 3
    },
-   "bytes": 71259
+   "bytes": 72196
   },
   {
    "key": "-6_5",
@@ -1444,7 +1489,7 @@
    "services": {
     "pharmacy": 1
    },
-   "bytes": 115228
+   "bytes": 117204
   },
   {
    "key": "0_-1",
@@ -1464,7 +1509,7 @@
     "hospital": 1,
     "hardware": 1
    },
-   "bytes": 450018
+   "bytes": 471479
   },
   {
    "key": "0_-2",
@@ -1483,7 +1528,7 @@
     "fuel": 1,
     "bus_station": 1
    },
-   "bytes": 492483
+   "bytes": 522948
   },
   {
    "key": "0_-3",
@@ -1501,7 +1546,7 @@
     "clinic": 2,
     "train_station": 1
    },
-   "bytes": 418666
+   "bytes": 442243
   },
   {
    "key": "0_-4",
@@ -1515,7 +1560,7 @@
     "pharmacy": 1,
     "clinic": 1
    },
-   "bytes": 252449
+   "bytes": 289224
   },
   {
    "key": "0_-5",
@@ -1528,7 +1573,7 @@
    "services": {
     "pharmacy": 2
    },
-   "bytes": 223063
+   "bytes": 254513
   },
   {
    "key": "0_-6",
@@ -1539,7 +1584,7 @@
    "residents": 2101,
    "jobs": 701,
    "services": {},
-   "bytes": 60731
+   "bytes": 63213
   },
   {
    "key": "0_0",
@@ -1558,7 +1603,7 @@
     "supermarket": 1,
     "fuel": 1
    },
-   "bytes": 343226
+   "bytes": 375109
   },
   {
    "key": "0_1",
@@ -1571,7 +1616,7 @@
    "services": {
     "power": 3
    },
-   "bytes": 293917
+   "bytes": 312727
   },
   {
    "key": "0_2",
@@ -1589,7 +1634,7 @@
     "pharmacy": 1,
     "supermarket": 1
    },
-   "bytes": 501228
+   "bytes": 545454
   },
   {
    "key": "0_3",
@@ -1607,7 +1652,7 @@
     "pharmacy": 3,
     "fuel": 1
    },
-   "bytes": 416829
+   "bytes": 426991
   },
   {
    "key": "0_4",
@@ -1626,7 +1671,7 @@
     "fire_station": 1,
     "hospital": 1
    },
-   "bytes": 316121
+   "bytes": 324032
   },
   {
    "key": "0_5",
@@ -1640,7 +1685,7 @@
     "supermarket": 2,
     "fuel": 1
    },
-   "bytes": 77644
+   "bytes": 79290
   },
   {
    "key": "1_-1",
@@ -1659,7 +1704,7 @@
     "fuel": 1,
     "townhall": 1
    },
-   "bytes": 325076
+   "bytes": 360411
   },
   {
    "key": "1_-2",
@@ -1675,7 +1720,7 @@
     "power": 3,
     "clinic": 6
    },
-   "bytes": 386890
+   "bytes": 416366
   },
   {
    "key": "1_-3",
@@ -1692,7 +1737,7 @@
     "power": 1,
     "school": 2
    },
-   "bytes": 264033
+   "bytes": 286896
   },
   {
    "key": "1_-4",
@@ -1707,7 +1752,7 @@
     "pharmacy": 2,
     "supermarket": 1
    },
-   "bytes": 182747
+   "bytes": 201848
   },
   {
    "key": "1_-5",
@@ -1724,7 +1769,7 @@
     "supermarket": 1,
     "police": 1
    },
-   "bytes": 252186
+   "bytes": 271717
   },
   {
    "key": "1_-6",
@@ -1737,7 +1782,7 @@
    "services": {
     "pharmacy": 1
    },
-   "bytes": 217572
+   "bytes": 231286
   },
   {
    "key": "1_0",
@@ -1753,7 +1798,7 @@
     "clinic": 4,
     "hospital": 1
    },
-   "bytes": 382479
+   "bytes": 441352
   },
   {
    "key": "1_1",
@@ -1767,7 +1812,7 @@
     "stadium": 1,
     "power": 5
    },
-   "bytes": 218680
+   "bytes": 233476
   },
   {
    "key": "1_2",
@@ -1783,7 +1828,7 @@
     "power": 2,
     "police": 1
    },
-   "bytes": 205018
+   "bytes": 245641
   },
   {
    "key": "1_3",
@@ -1800,7 +1845,7 @@
     "school": 7,
     "fuel": 1
    },
-   "bytes": 228846
+   "bytes": 251356
   },
   {
    "key": "1_4",
@@ -1816,7 +1861,7 @@
     "supermarket": 1,
     "pharmacy": 1
    },
-   "bytes": 196797
+   "bytes": 208678
   },
   {
    "key": "1_5",
@@ -1829,7 +1874,7 @@
    "services": {
     "supermarket": 1
    },
-   "bytes": 52636
+   "bytes": 54899
   },
   {
    "key": "2_-1",
@@ -1843,7 +1888,7 @@
     "military": 1,
     "townhall": 1
    },
-   "bytes": 133130
+   "bytes": 142245
   },
   {
    "key": "2_-2",
@@ -1857,7 +1902,7 @@
     "school": 2,
     "pharmacy": 1
    },
-   "bytes": 145561
+   "bytes": 152044
   },
   {
    "key": "2_-3",
@@ -1871,7 +1916,7 @@
     "clinic": 1,
     "pharmacy": 1
    },
-   "bytes": 127959
+   "bytes": 135408
   },
   {
    "key": "2_-4",
@@ -1882,7 +1927,7 @@
    "residents": 28,
    "jobs": 709,
    "services": {},
-   "bytes": 31849
+   "bytes": 32629
   },
   {
    "key": "2_-5",
@@ -1893,7 +1938,7 @@
    "residents": 5,
    "jobs": 1168,
    "services": {},
-   "bytes": 49977
+   "bytes": 52178
   },
   {
    "key": "2_-6",
@@ -1904,7 +1949,7 @@
    "residents": 0,
    "jobs": 2358,
    "services": {},
-   "bytes": 58088
+   "bytes": 61118
   },
   {
    "key": "2_0",
@@ -1919,7 +1964,7 @@
     "supermarket": 1,
     "school": 1
    },
-   "bytes": 197909
+   "bytes": 233092
   },
   {
    "key": "2_1",
@@ -1935,7 +1980,7 @@
     "townhall": 1,
     "fuel": 1
    },
-   "bytes": 248982
+   "bytes": 261126
   },
   {
    "key": "2_2",
@@ -1953,7 +1998,7 @@
     "school": 2,
     "police": 1
    },
-   "bytes": 326645
+   "bytes": 338988
   },
   {
    "key": "2_3",
@@ -1968,7 +2013,7 @@
     "pharmacy": 1,
     "fuel": 1
    },
-   "bytes": 156511
+   "bytes": 168129
   },
   {
    "key": "2_4",
@@ -1982,7 +2027,7 @@
     "school": 2,
     "power": 2
    },
-   "bytes": 64550
+   "bytes": 68347
   },
   {
    "key": "2_5",
@@ -1993,7 +2038,7 @@
    "residents": 12,
    "jobs": 5,
    "services": {},
-   "bytes": 28187
+   "bytes": 29212
   },
   {
    "key": "3_-1",
@@ -2007,7 +2052,7 @@
     "water": 1,
     "police": 1
    },
-   "bytes": 51547
+   "bytes": 52387
   },
   {
    "key": "3_-2",
@@ -2024,7 +2069,7 @@
     "supermarket": 1,
     "power": 1
    },
-   "bytes": 205467
+   "bytes": 230838
   },
   {
    "key": "3_-3",
@@ -2038,7 +2083,7 @@
     "power": 1,
     "military": 1
    },
-   "bytes": 49222
+   "bytes": 55272
   },
   {
    "key": "3_-4",
@@ -2049,7 +2094,7 @@
    "residents": 0,
    "jobs": 134,
    "services": {},
-   "bytes": 30259
+   "bytes": 33029
   },
   {
    "key": "3_-5",
@@ -2060,7 +2105,7 @@
    "residents": 0,
    "jobs": 398,
    "services": {},
-   "bytes": 27845
+   "bytes": 28122
   },
   {
    "key": "3_-6",
@@ -2071,7 +2116,7 @@
    "residents": 0,
    "jobs": 454,
    "services": {},
-   "bytes": 18332
+   "bytes": 18457
   },
   {
    "key": "3_0",
@@ -2084,7 +2129,7 @@
    "services": {
     "fire_station": 1
    },
-   "bytes": 46259
+   "bytes": 47961
   },
   {
    "key": "3_1",
@@ -2097,7 +2142,7 @@
    "services": {
     "supermarket": 1
    },
-   "bytes": 82297
+   "bytes": 85763
   },
   {
    "key": "3_2",
@@ -2108,7 +2153,7 @@
    "residents": 834,
    "jobs": 347,
    "services": {},
-   "bytes": 83259
+   "bytes": 106371
   },
   {
    "key": "3_3",
@@ -2121,7 +2166,7 @@
    "services": {
     "power": 2
    },
-   "bytes": 54260
+   "bytes": 58207
   },
   {
    "key": "3_4",
@@ -2134,7 +2179,7 @@
    "services": {
     "power": 5
    },
-   "bytes": 40507
+   "bytes": 42613
   },
   {
    "key": "3_5",
@@ -2147,7 +2192,7 @@
    "services": {
     "school": 1
    },
-   "bytes": 18522
+   "bytes": 19372
   },
   {
    "key": "4_-1",
@@ -2163,7 +2208,7 @@
     "fuel": 5,
     "train_station": 1
    },
-   "bytes": 152274
+   "bytes": 153625
   },
   {
    "key": "4_-2",
@@ -2185,7 +2230,7 @@
     "power": 2,
     "train_station": 1
    },
-   "bytes": 382520
+   "bytes": 388421
   },
   {
    "key": "4_-3",
@@ -2200,7 +2245,7 @@
     "power": 1,
     "water": 1
    },
-   "bytes": 154551
+   "bytes": 156242
   },
   {
    "key": "4_-4",
@@ -2211,7 +2256,7 @@
    "residents": 0,
    "jobs": 2,
    "services": {},
-   "bytes": 27974
+   "bytes": 28059
   },
   {
    "key": "4_-5",
@@ -2222,7 +2267,7 @@
    "residents": 0,
    "jobs": 19,
    "services": {},
-   "bytes": 30478
+   "bytes": 30561
   },
   {
    "key": "4_-6",
@@ -2233,7 +2278,7 @@
    "residents": 0,
    "jobs": 0,
    "services": {},
-   "bytes": 22484
+   "bytes": 22562
   },
   {
    "key": "4_0",
@@ -2244,7 +2289,7 @@
    "residents": 0,
    "jobs": 1661,
    "services": {},
-   "bytes": 36025
+   "bytes": 36494
   },
   {
    "key": "4_1",
@@ -2255,7 +2300,7 @@
    "residents": 0,
    "jobs": 946,
    "services": {},
-   "bytes": 31862
+   "bytes": 32247
   },
   {
    "key": "4_2",
@@ -2268,7 +2313,7 @@
    "services": {
     "military": 2
    },
-   "bytes": 28826
+   "bytes": 31531
   },
   {
    "key": "4_3",
@@ -2281,7 +2326,7 @@
    "services": {
     "military": 1
    },
-   "bytes": 19705
+   "bytes": 19837
   },
   {
    "key": "4_4",
@@ -2292,7 +2337,7 @@
    "residents": 149,
    "jobs": 12,
    "services": {},
-   "bytes": 25606
+   "bytes": 25743
   },
   {
    "key": "4_5",
@@ -2306,7 +2351,7 @@
     "military": 1,
     "power": 1
    },
-   "bytes": 36991
+   "bytes": 37484
   },
   {
    "key": "5_-1",
@@ -2320,7 +2365,7 @@
     "supermarket": 1,
     "power": 3
    },
-   "bytes": 83919
+   "bytes": 84311
   },
   {
    "key": "5_-2",
@@ -2334,7 +2379,7 @@
     "fuel": 1,
     "clinic": 2
    },
-   "bytes": 213267
+   "bytes": 216332
   },
   {
    "key": "5_-3",
@@ -2350,7 +2395,7 @@
     "supermarket": 1,
     "power": 1
    },
-   "bytes": 246536
+   "bytes": 249919
   },
   {
    "key": "5_-4",
@@ -2361,7 +2406,7 @@
    "residents": 115,
    "jobs": 17,
    "services": {},
-   "bytes": 38078
+   "bytes": 38388
   },
   {
    "key": "5_-5",
@@ -2372,7 +2417,7 @@
    "residents": 0,
    "jobs": 0,
    "services": {},
-   "bytes": 25408
+   "bytes": 25612
   },
   {
    "key": "5_-6",
@@ -2383,7 +2428,7 @@
    "residents": 5,
    "jobs": 170,
    "services": {},
-   "bytes": 36927
+   "bytes": 37078
   },
   {
    "key": "5_0",
@@ -2397,7 +2442,7 @@
     "supermarket": 1,
     "water": 1
    },
-   "bytes": 57255
+   "bytes": 59019
   },
   {
    "key": "5_1",
@@ -2408,7 +2453,7 @@
    "residents": 280,
    "jobs": 1833,
    "services": {},
-   "bytes": 75006
+   "bytes": 76563
   },
   {
    "key": "5_2",
@@ -2421,7 +2466,7 @@
    "services": {
     "military": 1
    },
-   "bytes": 69270
+   "bytes": 70718
   },
   {
    "key": "5_3",
@@ -2432,7 +2477,7 @@
    "residents": 0,
    "jobs": 1,
    "services": {},
-   "bytes": 16093
+   "bytes": 16176
   },
   {
    "key": "5_4",
@@ -2443,7 +2488,7 @@
    "residents": 0,
    "jobs": 0,
    "services": {},
-   "bytes": 14895
+   "bytes": 14974
   },
   {
    "key": "5_5",
@@ -2454,7 +2499,7 @@
    "residents": 47,
    "jobs": 66,
    "services": {},
-   "bytes": 42500
+   "bytes": 42697
   }
  ],
  "stats": {
@@ -2473,7 +2518,7 @@
    "source": "Copernicus GLO-30",
    "tiles": 1
   },
-  "bytes": 24387611
+  "bytes": 26221242
  },
  "sources": {
   "osm": [
@@ -2493,6 +2538,6 @@
   ],
   "attribution": "© OpenStreetMap contributors (ODbL 1.0). Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA."
  },
- "fetchedAt": "2026-11-07T17:18:48.973Z",
- "compiledAt": "2026-11-07T17:19:02.732Z"
+ "fetchedAt": "2026-11-07T18:18:11.250Z",
+ "compiledAt": "2026-11-07T18:18:23.485Z"
 }
