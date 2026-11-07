@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readOPL } from './opl.mjs';
 import { makeProj, assembleRings, ccw, simplifyRing, simplify, clipRing, inRing, bboxOf, Grid, segDist, signedArea } from './geom.mjs';
-import { buildBuildings, USES, POI_KINDS } from './buildings.mjs';
+import { buildBuildings, USES, POI_KINDS, ROOFS, MATERIALS } from './buildings.mjs';
 import { buildRoads, CLASSES, CTRL, TURN, FLAG } from './roads.mjs';
 import { loadTerrain } from './terrain.mjs';
 
@@ -144,7 +144,7 @@ for (const j of roads.junctions) j.z = j.p ? terrain.at(j.p[0], j.p[1]) : 0;
 const nT = Math.ceil(R / TILE);
 const tiles = new Map();
 const tileKey = (x, y) => `${Math.floor(x / TILE)}_${Math.floor(y / TILE)}`;
-const tile = k => { let t = tiles.get(k); if (!t) { const [i, j] = k.split('_').map(Number); t = { i, j, b: [], e: [], jn: [], a: [], l: [], p: [] }; tiles.set(k, t); } return t; };
+const tile = k => { let t = tiles.get(k); if (!t) { const [i, j] = k.split('_').map(Number); t = { i, j, b: [], e: [], jn: [], a: [], l: [], p: [], tr: [], lm: [] }; tiles.set(k, t); } return t; };
 const inside = (x, y) => Math.abs(x) <= nT * TILE && Math.abs(y) <= nT * TILE;
 buildings.forEach(b => { if (inside(b.c[0], b.c[1])) tile(tileKey(b.c[0], b.c[1])).b.push(b); });
 roads.edges.forEach(e => { const m = e.pts[Math.floor(e.pts.length / 2)]; if (inside(m[0], m[1])) tile(tileKey(m[0], m[1])).e.push(e); });
@@ -164,6 +164,19 @@ for (const ln of lines) for (let s = 1; s < ln.pts.length; s++) {
   if (last && last.src === ln && last.pts[last.pts.length - 1] === a) last.pts.push(b); else t.l.push({ src: ln, kind: ln.kind, pts: [a, b], tunnel: ln.tunnel, bridge: ln.bridge, name: ln.name });
 }
 for (const p of freePois) if (inside(p.p[0], p.p[1])) tile(tileKey(p.p[0], p.p[1])).p.push(p);
+// Trees (individually mapped trees and tree rows) and street lamps
+const TREE_KINDS = ['broadleaved', 'needleleaved', 'palm'];
+const treeKind = t => t.leaf_type === 'needleleaved' ? 1 : t.leaf_type === 'palm' ? 2 : 0;
+let nTrees = 0, nLamps = 0;
+for (const n of osm.tagged) {
+  if (n.tags.natural === 'tree') { const p = P.fwd(n.lon, n.lat); if (inside(p[0], p[1])) { tile(tileKey(p[0], p[1])).tr.push({ p, kind: treeKind(n.tags), h: parseFloat(n.tags.height) || 0 }); nTrees++; } }
+  else if (n.tags.highway === 'street_lamp') { const p = P.fwd(n.lon, n.lat); if (inside(p[0], p[1])) { tile(tileKey(p[0], p[1])).lm.push(p); nLamps++; } }
+}
+for (const w of osm.ways.values()) {
+  if (w.tags.natural !== 'tree_row') continue; const pts = ringOf(w.refs); if (!pts) continue;
+  for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let s = 0; s < L; s += 9) { const p = [a[0] + (b[0] - a[0]) * s / L, a[1] + (b[1] - a[1]) * s / L]; if (inside(p[0], p[1])) { tile(tileKey(p[0], p[1])).tr.push({ p, kind: treeKind(w.tags), h: 0 }); nTrees++; } } }
+}
+log(`  ${nTrees} trees, ${nLamps} street lamps`);
 
 // ---------- Write ----------
 fs.rmSync(outDir, { recursive: true, force: true });
@@ -177,9 +190,10 @@ const tileMeta = []; let totalBytes = 0;
 for (const [k, t] of [...tiles].sort()) {
   const ox = t.i * TILE, oy = t.j * TILE;
   const rel = p => [dm(p[0] - ox), dm(p[1] - oy)];
-  const B = { n: t.b.length, id: [], use: [], lv: [], h: [], z: [], dist: [], res: [], jobs: [], est: [], ent: [], name: {}, addr: {}, kinds: {}, holes: {}, rs: [], pts: [] };
+  const B = { n: t.b.length, id: [], use: [], lv: [], h: [], z: [], dist: [], res: [], jobs: [], est: [], ent: [], name: {}, addr: {}, kinds: {}, holes: {}, roof: [], col: {}, rcol: {}, mat: {}, rmat: {}, rh: {}, rs: [], pts: [] };
   t.b.forEach((b, i) => {
     B.id.push(osmId(b.id)); B.use.push(USE[b.use]); B.lv.push(b.levels); B.h.push(dm(b.height)); B.z.push(dm(b.z)); B.dist.push(b.district); B.res.push(b.res); B.jobs.push(b.jobs); B.est.push(b.estH ? 1 : 0);
+    B.roof.push(b.roof); if (b.wallCol) B.col[i] = b.wallCol; if (b.roofCol) B.rcol[i] = b.roofCol; if (b.mat) B.mat[i] = b.mat; if (b.roofMat) B.rmat[i] = b.roofMat; if (b.roofH) B.rh[i] = dm(b.roofH);
     B.ent.push(...rel(b.ent)); if (b.name) B.name[i] = b.name; if (b.addr) B.addr[i] = b.addr; if (b.kinds.length) B.kinds[i] = b.kinds.map(x => POI_KINDS.indexOf(x));
     if (b.holes.length) B.holes[i] = b.holes.map(h => delta(h.flatMap(rel)));
     B.rs.push(B.pts.length / 2, b.ring.length); B.pts.push(...delta(b.ring.flatMap(rel)));
@@ -202,8 +216,9 @@ for (const [k, t] of [...tiles].sort()) {
   const L = { kind: [], flags: [], name: {}, ps: [], pts: [] };
   t.l.forEach((l, i) => { L.kind.push(LK[l.kind]); L.flags.push((l.tunnel ? 1 : 0) | (l.bridge ? 2 : 0)); if (l.name) L.name[i] = l.name; L.ps.push(L.pts.length / 2, l.pts.length); L.pts.push(...delta(l.pts.flatMap(rel))); });
   const POI = t.p.map(p => [POI_KINDS.indexOf(p.kind), ...rel(p.p), p.name]);
+  const TREES = t.tr.flatMap(tr => [...rel(tr.p), tr.kind, dm(tr.h)]), LAMPS = t.lm.flatMap(l => rel(l));
   const terr = terrain.tile(ox, oy, TILE, 25);
-  const json = JSON.stringify({ v: PACK_VERSION, key: k, origin: [ox, oy], buildings: B, roads: E, junctions: J, areas: A, lines: L, pois: POI, terrain: terr });
+  const json = JSON.stringify({ v: PACK_VERSION, key: k, origin: [ox, oy], buildings: B, roads: E, junctions: J, areas: A, lines: L, pois: POI, trees: TREES, lamps: LAMPS, terrain: terr });
   fs.writeFileSync(path.join(outDir, 'tiles', k + '.json'), json);
   totalBytes += json.length;
   const svc = {}; t.b.forEach(b => b.kinds.forEach(x => svc[x] = (svc[x] || 0) + 1)); t.p.forEach(p => svc[p.kind] = (svc[p.kind] || 0) + 1);
@@ -214,11 +229,12 @@ const manifest = {
   format: 'sco-citypack', version: PACK_VERSION, slug, name: area.city, displayName: area.displayName, country: area.country,
   center: { lon: area.lon, lat: area.lat }, radiusKm: area.radiusKm, tileSize: TILE, grid: { min: -nT, max: nT - 1 },
   projection: { type: 'local-equirectangular', origin: [area.lon, area.lat], metresPerDegLon: P.kx, metresPerDegLat: P.ky, units: 'Geometry in tiles is integer decimetres relative to each tile origin (origin itself in metres). x east, y north. Every ring/polyline in pts/holes is delta-encoded: first vertex absolute, each next vertex as difference from the previous.' },
-  codes: { use: USES, poi: POI_KINDS, roadClass: CLASSES, control: CTRL, turn: TURN, roadFlags: FLAG, area: AREA_KINDS, line: LINE_KINDS },
+  formatMinor: 1, codes: { roof: ROOFS, material: MATERIALS, tree: ['broadleaved', 'needleleaved', 'palm'], use: USES, poi: POI_KINDS, roadClass: CLASSES, control: CTRL, turn: TURN, roadFlags: FLAG, area: AREA_KINDS, line: LINE_KINDS },
   schema: {
     buildings: 'columnar; id = OSM way id (negative = relation id); rs = [start,len] pairs into pts (x,y dm); ent = entrance x,y; h/z in dm; res = night residents, jobs = day occupants; est=1 when height was estimated',
     roads: 'columnar edges between global junction ids a→b; lf/lb lanes forward/backward; flags = roadFlags bitmask; ps = [start,len] into pts',
     junctions: 'inc = approaches [edge,dir]; yield aligned with inc (1 = must yield); conn = [fromEdge,fromDir,fromLane,toEdge,toDir,toLane,turn], lane 0 = rightmost; phases[i] = [{g: indices into conn, d: green s, y: amber s, r: all-red s}]',
+    trees: 'flat [x, y, kind, heightDm] per tree (height 0 = unknown)', lamps: 'flat [x, y] per street lamp', appearance: 'buildings.roof = roof shape code (0 unknown); col/rcol = mapped building/roof colour; mat/rmat = material codes; rh = roof height dm',
     terrain: 'n×n int16 samples (base64, little-endian) every step metres from tile origin, value×scale = metres',
   },
   districts: dKeep, tiles: tileMeta,

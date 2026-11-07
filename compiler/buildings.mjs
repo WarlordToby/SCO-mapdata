@@ -1,5 +1,7 @@
 import { assembleRings, ccw, signedArea, centroid, simplifyRing, inRing, bboxOf, Grid } from './geom.mjs';
 
+export const ROOFS = ['unknown', 'flat', 'gabled', 'hipped', 'pyramidal', 'skillion', 'half-hipped', 'mansard', 'gambrel', 'dome', 'onion', 'round', 'saltbox', 'cone'];
+export const MATERIALS = ['unknown', 'plaster', 'brick', 'stone', 'sandstone', 'concrete', 'glass', 'metal', 'wood', 'timber_framing', 'tiles', 'roof_tiles', 'slate', 'metal_sheet', 'tar_paper', 'gravel', 'grass', 'copper'];
 export const USES = ['house', 'apartments', 'retail', 'office', 'industrial', 'warehouse', 'civic', 'school', 'hospital', 'police', 'fire_station', 'religious', 'transport', 'hotel', 'minor', 'military', 'sports', 'unknown', 'farm', 'utility', 'parking', 'university'];
 const U = Object.fromEntries(USES.map((u, i) => [u, i]));
 
@@ -124,6 +126,12 @@ export function buildBuildings(osm, P, landuse) {
     if (!height) height = ({ industrial: 9, warehouse: 10, sports: 12, transport: 10, farm: 7, minor: 2.8 })[use] && levels === 1 ? ({ industrial: 9, warehouse: 10, sports: 12, transport: 10, farm: 7, minor: 2.8 })[use]
       : use === 'religious' ? Math.min(45, 12 + Math.sqrt(b.area) * 0.6) : levels * 3.1 + (rl ? rl * 1.6 : 1.2);
     b.levels = levels; b.height = Math.round(height * 10) / 10; b.estH = est;
+    // Appearance tags when mapped: roof shape, colours, materials
+    const rs = (t['roof:shape'] || '').toLowerCase().replace('_', '-'); b.roof = Math.max(0, ROOFS.indexOf(rs === 'hip' ? 'hipped' : rs));
+    const col = v => { if (!v) return ''; const s = String(v).trim().toLowerCase(); return /^#[0-9a-f]{3,6}$/.test(s) || /^[a-z]+$/.test(s) ? s : ''; };
+    b.wallCol = col(t['building:colour'] || t['building:color']); b.roofCol = col(t['roof:colour'] || t['roof:color']);
+    b.mat = Math.max(0, MATERIALS.indexOf((t['building:material'] || '').toLowerCase())); b.roofMat = Math.max(0, MATERIALS.indexOf((t['roof:material'] || '').toLowerCase()));
+    b.roofH = parseNum(t['roof:height']) || 0;
 
     // Occupancy (night residents / day workers)
     const floor = b.area * levels;

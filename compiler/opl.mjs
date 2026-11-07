@@ -10,7 +10,7 @@ function parseTags(s) {
 }
 
 // Node tags we care about (others are dropped to save memory).
-const NODE_KEYS = ['highway', 'entrance', 'amenity', 'shop', 'office', 'place', 'emergency', 'craft', 'tourism', 'healthcare', 'railway', 'public_transport', 'crossing', 'direction', 'traffic_signals:direction', 'name', 'addr:housenumber', 'addr:street', 'military', 'man_made', 'power', 'barrier'];
+const NODE_KEYS = ['highway', 'entrance', 'amenity', 'shop', 'office', 'place', 'emergency', 'craft', 'tourism', 'healthcare', 'railway', 'public_transport', 'crossing', 'direction', 'traffic_signals:direction', 'name', 'addr:housenumber', 'addr:street', 'military', 'man_made', 'power', 'barrier', 'natural', 'leaf_type', 'leaf_cycle', 'height', 'genus', 'species', 'denotation'];
 
 export async function readOPL(file) {
   const nodes = new Map();     // id -> [lon, lat]
