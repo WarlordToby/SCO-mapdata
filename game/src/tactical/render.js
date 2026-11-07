@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { FLAG } from './city.js';
 import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
-import { U, flatMat, buildingMat, treeMat, waterMat, parkMat, makeSky, skyAt, AREA, GROUND, ROOF_PITCH, ROOF_FLAT, wallStyle, wallColor, obb, barrierMat, BARRIER_LOOK } from './look.js';
+import { U, flatMat, buildingMat, treeMat, waterMat, parkMat, makeSky, skyAt, AREA, GROUND, ROOF_PITCH, ROOF_FLAT, wallStyle, wallColor, obb, barrierMat, BARRIER_LOOK, groundLCMat, REGION_LOOK } from './look.js';
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -26,6 +26,7 @@ const strHash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^
 export class Renderer {
   constructor(canvas, city) {
     this.city = city; this.canvas = canvas;
+    U.uArid.value = city.m.climate?.arid ? 1 : 0; this.look = REGION_LOOK[city.m.region] || REGION_LOOK['eu-west']; this.lcMats = new Map();
     this.r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
     this.r.outputColorSpace = THREE.SRGBColorSpace; this.r.toneMapping = THREE.ACESFilmicToneMapping; this.r.toneMappingExposure = 1.05;
     this.r.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -116,7 +117,13 @@ export class Renderer {
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const k = (j * n + i) * 3; pos[k] = T.ox + i * T.step; pos[k + 1] = T.data[j * n + i] * T.scale - city.zMin - 0.05; pos[k + 2] = -(T.oy + j * T.step); cols[k] = col.r; cols[k + 1] = col.g; cols[k + 2] = col.b; }
     for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) { const a = j * n + i, b = a + 1, c = a + n, d = c + 1; idx.push(a, c, b, b, c, d); }
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); tg.setAttribute('color', new THREE.BufferAttribute(cols, 3)); tg.setIndex(idx); tg.computeVertexNormals();
-    const ground = new THREE.Mesh(tg, L ? M.groundL : M.ground); ground.receiveShadow = true; ground.userData.tile = tile.key; g.add(ground);
+    let gmat = L ? M.groundL : M.ground;
+    if (t.landcover) { // satellite land cover colours the open ground
+      const key = tile.key + (L ? 'L' : ''); let lm = this.lcMats.get(key);
+      if (!lm) { const tex = new THREE.DataTexture(t.landcover.data, t.landcover.n, t.landcover.n, THREE.RedFormat, THREE.UnsignedByteType); tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true; lm = groundLCMat(tex, t.origin, L); this.lcMats.set(key, lm); }
+      gmat = lm;
+    }
+    const ground = new THREE.Mesh(tg, gmat); ground.receiveShadow = true; ground.userData.tile = tile.key; g.add(ground);
     // land use: gardens/lawns around housing, paved commercial & industrial ground, nature; water and car parks separately
     const groups = { garden: [[], []], paved: [[], []], nature: [[], []], water: [[], []] }, park = [[], [], []];
     const KIND_GROUP = { residential: 'garden', allotments: 'garden', cemetery: 'nature', commercial: 'paved', retail: 'paved', industrial: 'paved', railway: 'paved', construction: 'paved', military: 'paved', farmyard: 'paved', water: 'water' };
@@ -215,9 +222,9 @@ export class Renderer {
       const b = city.buildings[bi], useName = uses[b.use];
       const seed = (Math.abs(b.osm) * 2654435761 >>> 0) % 251;
       const dn = city.districts[b.district]?.name || '';
-      const old = OLD_TOWN.test(dn) && b.area < 900;
+      const look = this.look, old = look === REGION_LOOK['eu-west'] && OLD_TOWN.test(dn) && b.area < 900;
       // colours: mapped colours first, otherwise a regional palette
-      let wall = wallColor(useName, seed, old).clone(), roofC;
+      let wall = wallColor(useName, seed, old, look).clone(), roofC;
       if (b.col) { try { wall.setStyle(b.col); } catch (e) { } }
       const rs = city.codes.roof ? city.codes.roof[b.roof || 0] : 'unknown';
       const ob = obb(b.ring), rect = ob ? b.area / ob.area : 0;
@@ -226,9 +233,9 @@ export class Renderer {
       if (['gabled', 'half-hipped', 'saltbox', 'gambrel'].includes(rs)) shape = 'gabled';
       else if (['hipped', 'mansard'].includes(rs)) shape = 'hipped';
       else if (['pyramidal', 'cone', 'dome', 'onion', 'round'].includes(rs)) shape = 'pyramid';
-      else if (rs === 'unknown' && ob && residential && rect > 0.78 && b.area < 900 && b.levels <= 6 && ob.wid < 18 && ob.wid > 4) shape = seed % 5 < 3 ? 'gabled' : 'hipped';
+      else if (rs === 'unknown' && ob && residential && rect > 0.78 && b.area < 900 && b.levels <= 6 && ob.wid < 18 && ob.wid > 4 && ((seed * 37) % 100) / 100 < (useName === 'house' ? look.pitchHouse : look.pitchOther)) shape = ((seed * 13) % 100) / 100 < look.hip ? 'hipped' : 'gabled';
       if (shape !== 'flat' && (!ob || rect < 0.6)) shape = 'flat';
-      roofC = (shape === 'flat' ? ROOF_FLAT[seed % ROOF_FLAT.length] : ROOF_PITCH[(seed >> 2) % ROOF_PITCH.length]).clone();
+      roofC = (shape === 'flat' ? look.roofFlat[seed % look.roofFlat.length] : look.roofPitch[(seed >> 2) % look.roofPitch.length]).clone();
       if (b.rcol) { try { roofC.setStyle(b.rcol); } catch (e) { } }
       const slope = (useName === 'house' || old ? 50 : 38) * Math.PI / 180;
       const roofH = shape === 'flat' ? 0 : Math.min(10, b.rh ? b.rh / 10 : (ob.wid / 2) * Math.tan(slope));
@@ -306,6 +313,19 @@ export class Renderer {
       const nTry = Math.min(1600, (x1 - x0) * (y1 - y0) * dens);
       for (let k = 0; k < nTry; k++) { const x = x0 + R() * (x1 - x0), y = y0 + R() * (y1 - y0); if (!inRing([x, y], a.ring) || a.holes.some(h => inRing([x, y], h))) continue; (kind === 'forest' && R() < 0.3 ? items.needle : items.broad).push([x, y, 0]); }
     }
+    // trees where satellite land cover shows tree cover (street trees, gardens, unmapped woods), clear of buildings and mapped woods
+    if (t.landcover) {
+      const lcg = t.landcover, wooded = t.areas.filter(a => ['forest', 'park', 'cemetery', 'scrub'].includes(codes[a.kind]));
+      let added = 0;
+      for (let j = 0; j < lcg.n && added < 2500; j++) for (let i = 0; i < lcg.n; i++) {
+        if (lcg.data[j * lcg.n + i] !== 1 || R() > 0.42) continue;
+        const x = t.origin[0] + (i + 0.15 + R() * 0.7) * lcg.step, y = t.origin[1] + (j + 0.15 + R() * 0.7) * lcg.step;
+        let blocked = false;
+        city.bGrid.near(x, y, 12, bi => { if (!blocked) { const b = city.buildings[bi]; if (Math.abs(b.c[0] - x) < 60 && Math.abs(b.c[1] - y) < 60 && inRing([x, y], b.ring)) blocked = true; } });
+        if (blocked || wooded.some(a => inRing([x, y], a.ring))) continue;
+        items.broad.push([x, y, 0]); added++;
+      }
+    }
     for (const [k, list] of Object.entries(items)) {
       if (!list.length) continue;
       const m = new THREE.InstancedMesh(this.treeGeo[k], locked ? this.mat.treeL : this.mat.tree, list.length);
@@ -314,7 +334,7 @@ export class Renderer {
         const h = hh || 8 + R() * 8; s.set(h / 12 * (0.85 + R() * 0.3), h / 12, h / 12 * (0.85 + R() * 0.3));
         q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), R() * 6.28); p.set(x, city.heightAt(x, y), -y);
         mat4.compose(p, q, s); m.setMatrixAt(i, mat4);
-        c.setHSL(k === 'needle' ? 0.33 : 0.24 + R() * 0.08, 0.35 + R() * 0.15, 0.27 + R() * 0.1); m.setColorAt(i, c);
+        c.setHSL(k === 'needle' ? 0.33 : 0.24 + R() * 0.08 - U.uArid.value * 0.05, (0.35 + R() * 0.15) * (1 - U.uArid.value * 0.35), 0.27 + R() * 0.1); m.setColorAt(i, c);
       });
       m.castShadow = GFX[this.gfx].treeShadows; m.receiveShadow = false; m.userData.tree = true; m.computeBoundingSphere();
       g.add(m);

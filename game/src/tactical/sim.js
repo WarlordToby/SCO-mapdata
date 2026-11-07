@@ -12,6 +12,21 @@ export const TH = { // per-threat creature profiles
   lycan: { vault: 0.5, hp: 300, speed: 5.5, dmg: 32, range: 2.2, aggro: 90, convert: 0.06, bDmg: 0.8, nest: 0, size: 1.6, sense: 350 },
   swarm: { vault: 0.7, hp: 18, speed: 3.0, dmg: 4, range: 1.5, aggro: 35, convert: 0, bDmg: 0.4, nest: 0.12, size: 0.55, sense: 220 },
 };
+const NAMES = { // [first names, family names] by region
+  'eu-north': ['Erik Anna Lars Sofia Mikko Aino Johan Ingrid Oskar Elina Nils Freja', 'Lindqvist Virtanen Hansen Nilsson Korhonen Berg Johansson Laine Dahl Eriksen Mäkinen Holm'],
+  'eu-east': ['Piotr Anna Tomáš Katarzyna Ivan Elena Marek Zsófia Andrei Ioana Milan Petra', 'Kowalski Nowak Horváth Novák Popescu Dvořák Wiśniewska Ionescu Kovač Szabó Petrović Varga'],
+  'post-soviet': ['Alexei Olga Dmitri Natalia Sergei Irina Andriy Oksana Nursultan Aigerim Giorgi Tamar', 'Ivanov Petrova Smirnov Kuznetsova Shevchenko Bondarenko Volkov Nazarbayeva Beridze Popov Sokolova Kovalenko'],
+  'mediterranean': ['Marco Giulia Javier Lucía Nikos Eleni João Ana Mehmet Ayşe Luca Carmen', 'Rossi García Papadopoulos Silva Yılmaz Fernández Ricci Costa Demir Martínez Bianchi Kaya'],
+  'mena': ['Omar Fatima Ahmed Layla Youssef Mariam Karim Nour Hassan Zainab Ali Salma', 'Haddad Al-Sayed Mansour Rahimi Khalil Nasser Farouk Hosseini Aziz Saleh Bakr Tahan'],
+  'subsaharan': ['Chinedu Amina Kwame Wanjiru Tunde Fatou Kofi Zawadi Emeka Aisha Jabari Nia', 'Okafor Mensah Kamau Diallo Adeyemi Mwangi Traoré Nkosi Osei Abubakar Otieno Sow'],
+  'south-asia': ['Arjun Priya Rahul Ananya Imran Ayesha Vikram Sana Rohan Fatima Sandeep Nadia', 'Sharma Khan Patel Rahman Singh Iqbal Gupta Chowdhury Reddy Malik Das Hussain'],
+  'east-asia': ['Wei Li Jun Mei Hao Xin Min-jun Ji-woo Yu Fang Seo-yeon Chen', 'Wang Li Zhang Liu Chen Kim Park Lee Huang Zhao Choi Lin'],
+  'japan': ['Haruto Yui Sota Aoi Ren Hina Kenji Yuki Takumi Sakura Daiki Mei', 'Sato Suzuki Takahashi Tanaka Watanabe Ito Yamamoto Nakamura Kobayashi Kato Yoshida Yamada'],
+  'southeast-asia': ['Nguyen Siti Arif Mai Somchai Putri Rizal Linh Budi Maria Anh Dewi', 'Tran Santos Wijaya Pham Srisai Reyes Hidayat Le Tanaka Cruz Lim Rahman'],
+  'latam': ['José María Juan Camila Luis Valentina Carlos Ana Diego Sofía Pedro Gabriela', 'Silva González Rodríguez Santos Hernández Pérez Oliveira López Gómez Souza Torres Ramírez'],
+  'north-america': ['James Emily Michael Sarah David Jessica Daniel Ashley Robert Megan Kevin Lauren', 'Smith Johnson Williams Brown Jones Miller Davis Wilson Anderson Taylor Thomas Martin'],
+  'oceania': ['Jack Olivia Liam Charlotte Noah Amelia Thabo Lerato Cooper Isla Riley Zoe', 'Smith Jones Williams Brown Nkosi Wilson Taylor Botha Murphy Walker Ndlovu Kelly'],
+};
 const FIRST = ['Claire', 'Julien', 'Nathalie', 'Marc', 'Isabelle', 'Thomas', 'Sophie', 'Laurent', 'Camille', 'Antoine', 'Hélène', 'Pierre', 'Élodie', 'François', 'Amélie', 'Nicolas', 'Inès', 'Yann', 'Léa', 'Karim'];
 const LAST = ['Muller', 'Schmitt', 'Meyer', 'Klein', 'Weber', 'Wagner', 'Roth', 'Hoffmann', 'Fischer', 'Bernard', 'Lefèvre', 'Moreau', 'Laurent', 'Girard', 'Fournier', 'Haddad', 'Keller', 'Zimmermann', 'Durand', 'Petit'];
 
@@ -61,7 +76,8 @@ export class Sim {
       const cands = C.buildings.filter(b => b.use === use && C.unlockedAt(b.c[0], b.c[1]) && !have.has(b.idx) && b.occ > 0).sort(() => Math.random() - .5);
       const k = role === 'executive' ? 3 : role === 'politician' ? 3 : 2;
       for (const b of cands.slice(0, k)) {
-        const name = `${titles[Math.floor(Math.random() * titles.length)]} ${FIRST[Math.floor(Math.random() * FIRST.length)]} ${LAST[Math.floor(Math.random() * LAST.length)]}`;
+        const nm = NAMES[this.city.m.region], F = nm ? nm[0].split(' ') : FIRST, Ln = nm ? nm[1].split(' ') : LAST;
+        const name = `${titles[Math.floor(Math.random() * titles.length)]} ${F[Math.floor(Math.random() * F.length)]} ${Ln[Math.floor(Math.random() * Ln.length)]}`;
         this.hvts.push({ id: 'h' + this.hvts.length, name, role, b, state: 'inside', danger: 0, unit: null, x: b.ent[0], y: b.ent[1] }); have.add(b.idx); b.hvt = true;
       }
     }

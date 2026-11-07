@@ -1,6 +1,7 @@
 // Road network compiler: junction-to-junction edges with lanes, lane-level connections through each junction,
 // right-of-way rules, generated signal plans, turn restrictions and connectivity.
 import { bearingXY, polyLen } from './geom.mjs';
+import { latinName } from './regions.mjs';
 
 export const CLASSES = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'service', 'track', 'pedestrian', 'footway', 'cycleway', 'steps'];
 const C = Object.fromEntries(CLASSES.map((c, i) => [c, i]));
@@ -102,7 +103,7 @@ export function buildRoads(osm, P) {
     if (h.round) flags |= FLAG.roundabout; if (['private', 'no', 'destination'].includes(t.access)) flags |= FLAG.private;
     if (h.drive) flags |= FLAG.drive; if (h.walk) flags |= FLAG.walk; if (/_link$/.test(t.highway || '')) flags |= FLAG.link;
     if (t['busway'] || t['lanes:bus'] || t.psv === 'designated') flags |= FLAG.bus;
-    return { id: edges.length, a, b, oa, ob, way: h.w.id, cls: C[cls], lf, lb, turnF, turnB, speed: parseSpeed(t.maxspeed, cls), layer: parseInt(t.layer) || 0, name: t.name || t.ref || '', flags, pts, len: polyLen(pts), width: parseFloat(t.width) || 0 };
+    return { id: edges.length, a, b, oa, ob, way: h.w.id, cls: C[cls], lf, lb, turnF, turnB, speed: parseSpeed(t.maxspeed, cls), layer: parseInt(t.layer) || 0, name: latinName(t) || t.ref || '', flags, pts, len: polyLen(pts), width: parseFloat(t.width) || 0 };
   }
   // 3b. Point barriers on the carriageway (bollards, blocks, cycle barriers…) close a way to motor traffic but not to people.
   const NOCAR = new Set(['bollard', 'block', 'jersey_barrier', 'cycle_barrier', 'planter', 'bus_trap', 'debris', 'log', 'chain', 'rope', 'kissing_gate', 'stile', 'turnstile', 'full-height_turnstile', 'motorcycle_barrier', 'barrier_board', 'sump_buster']);

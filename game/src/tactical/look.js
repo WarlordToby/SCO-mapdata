@@ -2,7 +2,7 @@
 // building/roof geometry and street furniture. "Blend" style: realistic up close, clean tactical map when zoomed out.
 import * as THREE from 'three';
 
-export const U = { uTac: { value: 0 }, uNight: { value: 0 }, uLocked: { value: 0 }, uTime: { value: 0 }, uSkyHor: { value: new THREE.Color(0xb9cde0) }, uSkyTop: { value: new THREE.Color(0x4f7fb8) } };
+export const U = { uArid: { value: 0 }, uTac: { value: 0 }, uNight: { value: 0 }, uLocked: { value: 0 }, uTime: { value: 0 }, uSkyHor: { value: new THREE.Color(0xb9cde0) }, uSkyTop: { value: new THREE.Color(0x4f7fb8) } };
 const LUM = 'vec3(0.299, 0.587, 0.114)';
 const TAC = `vec3 tacPal(vec3 c){ float l = dot(c, ${LUM}); return mix(vec3(l), c, 0.8) * 0.62 + 0.3; }`;
 const HASH = `float hh(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }`;
@@ -17,22 +17,58 @@ const NOISE = `float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3
 export function flatMat(opts = {}, locked = false, mottle = 0) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, ...opts });
   m.onBeforeCompile = sh => {
-    sh.uniforms.uTac = U.uTac;
+    sh.uniforms.uTac = U.uTac; sh.uniforms.uArid = U.uArid;
     sh.vertexShader = 'varying vec3 vWP2;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP2 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = `uniform float uTac; varying vec3 vWP2;\n${TAC}\n${NOISE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    sh.fragmentShader = `uniform float uTac; uniform float uArid; varying vec3 vWP2;\n${TAC}\n${NOISE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       ${mottle ? `{ vec2 q = vWP2.xz; float n1 = fbm(q * 0.025), n2 = fbm(q * 0.11 + 13.0);
         ${mottle === 2 ? `vec3 grass = vec3(0.105, 0.16, 0.06), earth = vec3(0.17, 0.15, 0.11), shrub = vec3(0.065, 0.105, 0.04);
         float gm = smoothstep(0.34, 0.52, n1);
         vec3 nat = mix(mix(earth, grass, smoothstep(0.25, 0.6, n2)), shrub, smoothstep(0.72, 0.85, fbm(q * 0.06 + 3.0)));
+        nat = mix(nat, mix(vec3(0.3, 0.25, 0.17), vec3(0.2, 0.17, 0.11), smoothstep(0.3, 0.7, n2)), uArid * 0.9);
         diffuseColor.rgb = mix(diffuseColor.rgb, nat, gm * 0.9);` : ''}
         ${mottle === 3 ? `vec3 lawn = vec3(0.105, 0.16, 0.06), shrub = vec3(0.065, 0.105, 0.04), paving = vec3(0.23, 0.22, 0.2);
         vec3 gard = mix(lawn, shrub, smoothstep(0.6, 0.8, n2));
         gard = mix(gard, paving, smoothstep(0.62, 0.74, fbm(q * 0.045 + 21.0)) * 0.7);
+        gard = mix(gard, mix(vec3(0.24, 0.2, 0.13), vec3(0.11, 0.12, 0.06), smoothstep(0.55, 0.8, n2)), uArid * 0.85);
         diffuseColor.rgb = gard;` : ''}
         diffuseColor.rgb *= 0.92 + 0.16 * n2; }` : ''}
       diffuseColor.rgb = mix(diffuseColor.rgb, tacPal(diffuseColor.rgb) * ${locked ? '0.72' : '1.0'}, uTac);`);
   };
   m.customProgramCacheKey = () => 'flat' + locked + mottle;
+  return m;
+}
+
+// Ground with satellite land cover (WorldCover 10 m classes in a per-tile texture): forest, shrubs, grass, crops,
+// built-up ground, bare sand/rock, wetland. Borders are broken up with noise so the 10 m cells do not show.
+export function groundLCMat(tex, origin, locked = false) {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uTac = U.uTac; sh.uniforms.uArid = U.uArid; sh.uniforms.uLC = { value: tex }; sh.uniforms.uLCo = { value: new THREE.Vector2(origin[0], origin[1]) };
+    sh.vertexShader = 'varying vec3 vWP2;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP2 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = `uniform float uTac; uniform float uArid; uniform sampler2D uLC; uniform vec2 uLCo; varying vec3 vWP2;\n${TAC}\n${NOISE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { vec2 q = vec2(vWP2.x, -vWP2.z), uv = (q - uLCo) / 1000.0;
+        vec2 jit = (vec2(fbm(q * 0.09), fbm(q * 0.09 + 5.3)) - 0.5) * 0.014;
+        float code = floor(texture2D(uLC, clamp(uv + jit, 0.0005, 0.9995)).r * 255.0 + 0.5);
+        float n2 = fbm(q * 0.11 + 13.0), n3 = fbm(q * 0.035);
+        vec3 grass = mix(vec3(0.1, 0.15, 0.055), vec3(0.22, 0.19, 0.12), uArid * 0.8);
+        vec3 c = diffuseColor.rgb;
+        if (code < 0.5) c = mix(c, grass, 0.5);
+        else if (code < 1.5) c = mix(vec3(0.04, 0.07, 0.03), vec3(0.06, 0.09, 0.035), n2);
+        else if (code < 2.5) c = mix(vec3(0.1, 0.1, 0.055), vec3(0.17, 0.15, 0.09), n2 * uArid + 0.2);
+        else if (code < 3.5) c = grass;
+        else if (code < 4.5) c = mix(vec3(0.2, 0.18, 0.085), vec3(0.13, 0.16, 0.06), step(0.5, fract(n3 * 9.0)));
+        else if (code < 5.5) c = mix(mix(vec3(0.19, 0.18, 0.16), vec3(0.21, 0.165, 0.12), smoothstep(0.35, 0.65, n3)), vec3(0.11, 0.14, 0.07), smoothstep(0.62, 0.8, n2) * (1.0 - uArid)) + uArid * vec3(0.05, 0.04, 0.02);
+        else if (code < 6.5) c = mix(vec3(0.36, 0.3, 0.2), vec3(0.3, 0.26, 0.19), n2);
+        else if (code < 7.5) c = vec3(0.8, 0.82, 0.85);
+        else if (code < 8.5) c = vec3(0.13, 0.14, 0.12);
+        else if (code < 9.5) c = vec3(0.07, 0.1, 0.07);
+        else if (code < 10.5) c = vec3(0.04, 0.07, 0.04);
+        else c = vec3(0.14, 0.14, 0.09);
+        diffuseColor.rgb = c * (0.9 + 0.2 * n2); }
+      diffuseColor.rgb = mix(diffuseColor.rgb, tacPal(diffuseColor.rgb) * ${locked ? '0.72' : '1.0'}, uTac);
+      ${locked ? `diffuseColor.rgb = vec3(dot(diffuseColor.rgb, ${LUM})) * 0.55 + 0.04;` : ''}`);
+  };
+  m.customProgramCacheKey = () => 'groundLC' + locked;
   return m;
 }
 
@@ -198,7 +234,27 @@ export function wallStyle(useName, b, dense) {
   if ((useName === 'apartments' || useName === 'unknown') && (b.kinds?.length || dense)) return 3;
   return 0;
 }
-export function wallColor(useName, seed, old) {
+// Regional building traditions: wall and roof palettes, and how often unmapped roofs are pitched (houses / others).
+const L = (house, apts, roofPitch, roofFlat, pitchHouse, pitchOther, hip) => ({ house: pal(house), apartments: pal(apts), roofPitch: pal(roofPitch), roofFlat: pal(roofFlat), pitchHouse, pitchOther, hip });
+const FLAT = [0xa8a59e, 0x9c9a93, 0x8e8d89, 0xb3ada2, 0x97958e];
+export const REGION_LOOK = {
+  'eu-west': { house: WALLS.house, apartments: WALLS.apartments, roofPitch: ROOF_PITCH, roofFlat: ROOF_FLAT, pitchHouse: 1, pitchOther: 1, hip: 0.4 },
+  'eu-north': L([0x9e3b2e, 0xe3cf8f, 0xd9d6cc, 0x8e9a84, 0xe6e0d0], [0xd8cfc0, 0xc9c1b2, 0xb8a690, 0xe0d8c8], [0x3c3f42, 0x7a3a2c, 0x4c5055, 0x2f3236], FLAT, 1, 0.6, 0.2),
+  'eu-east': L([0xe6dcc8, 0xd9c9a8, 0xe8d2c0, 0xcfd6c9], [0xd6d0c4, 0xc4c2bc, 0xe0d4bc, 0xcac6bc], [0x9a4a35, 0x5d6166, 0x7c4a3a, 0x4f6a5a], FLAT, 1, 0.5, 0.4),
+  'post-soviet': L([0xd9cfb8, 0xc8b9a0, 0xb8c4c0, 0xe0d8c8], [0xcfccc4, 0xbfc4c6, 0xd8cbb6, 0xc4b8a4, 0xe2ddd2], [0x5c6b5a, 0x7a3d33, 0x6b6f72, 0x4a6a7a], FLAT, 0.9, 0.15, 0.5),
+  'mediterranean': L([0xf2eee4, 0xe8d6b0, 0xd9b48a, 0xf4e9d6, 0xe6c9a0], [0xeee8dc, 0xe2d2b6, 0xd8c4a4, 0xf0e4cc], [0xb45a3a, 0xc06a45, 0xa65538], [0xd8d0c0, 0xc9c0ae, 0xbfb6a4], 0.6, 0.3, 0.4),
+  'mena': L([0xd8c4a0, 0xcdb48e, 0xe8dcc6, 0xbfa682, 0xf0ebe0, 0xd4b896], [0xd8c8aa, 0xc8b28c, 0xe6dac4, 0xbca27e, 0xece4d4], [0xa8805a], [0xc9b99c, 0xb8aa90, 0xd2c4a8], 0.03, 0, 0.5),
+  'subsaharan': L([0xd9c3a0, 0xc9a27e, 0xe6dccb, 0xb9cbb8, 0xd8b8a0, 0xc8b4a0], [0xd8cfc0, 0xcbbfa8, 0xe0d8c8, 0xbfc8c8], [0x8c8f91, 0x9a6b4f, 0x7d7f80, 0xa8774f, 0xb0b4b5, 0x6f5a4a], [0xa9a49a, 0x9b968c], 0.85, 0.3, 0.6),
+  'south-asia': L([0xe8dcc0, 0xd9c2a5, 0xc9d6dc, 0xe6cfa8, 0xd8a888, 0xf0e6d2, 0xc7d9b8], [0xe2d8c4, 0xd4c4aa, 0xc8d0d4, 0xe0c8a4, 0xeae0cc], [0x9a5a40], [0xb3ab9c, 0x9d968a, 0xc0b6a4], 0.05, 0, 0.5),
+  'east-asia': L([0xe2e0dc, 0xcfd2d4, 0xd8d0c4, 0xc8c4bc], [0xe4e2de, 0xd2d4d6, 0xc8ccd0, 0xdcd4c8], [0x5a6370, 0x3f5f7a, 0x4a4f55], [0xa8aaa8, 0x9ea2a4, 0xb2b0aa], 0.25, 0.05, 0.5),
+  'japan': L([0xe6e2da, 0xcfcac0, 0xb7b1a8, 0xdcd7cc, 0xc9c3b8], [0xe2ded6, 0xd0ccc4, 0xbcb8b0, 0xd8d2c8], [0x4a4f55, 0x3a3f45, 0x4d5f73, 0x6b5b4d, 0x5a5e62], FLAT, 0.95, 0.2, 0.55),
+  'southeast-asia': L([0xeee8dc, 0xe6d6b8, 0xd4e0d0, 0xe8c9a8, 0xd8e0e8], [0xe8e4dc, 0xdcd6c8, 0xd0d8d8, 0xe2d4bc], [0xa8452f, 0xc0603a, 0x46607a, 0x8a8f92, 0x9a5a3a], FLAT, 0.65, 0.15, 0.5),
+  'latam': L([0xe8dcc6, 0xd99a6c, 0xe2c36a, 0x9fc2c4, 0xe6b8a8, 0xc9d8a8, 0xf0e8dc, 0xd8c8b0], [0xe4dccc, 0xd8ccb8, 0xccc4b8, 0xe8d8c0], [0xb45a3a, 0xa8553a], [0xb0a898, 0xa49c8e, 0xbcb2a0], 0.25, 0.05, 0.3),
+  'north-america': L([0xe8e6e0, 0xc9c2b4, 0xa86450, 0x9aa8b0, 0xd8cfbe, 0xb8b0a0, 0x8a9a8a], [0xa86450, 0x9a5a48, 0xc8bca8, 0xb8b4ac, 0xd4ccbc], [0x55585c, 0x6b625a, 0x4a4c50, 0x5e5248], FLAT, 0.9, 0.2, 0.35),
+  'oceania': L([0xe8dcc4, 0xb5735a, 0xd6cbb6, 0xc9b8a0, 0xe2e0d8], [0xd8d0c4, 0xc8c0b4, 0xb8735a], [0x8c4632, 0x5f6b6e, 0x7d8a8c, 0x4f5558, 0xa05a40], FLAT, 0.95, 0.3, 0.7),
+};
+export function wallColor(useName, seed, old, look) {
+  if (look && look !== REGION_LOOK['eu-west'] && ['house', 'apartments', 'unknown'].includes(useName)) { const a = useName === 'house' ? look.house : look.apartments; return a[seed % a.length]; }
   const key = old && ['house', 'apartments', 'unknown', 'retail'].includes(useName) ? 'old' : WALLS[useName] ? useName : ['hotel', 'police', 'fire_station', 'university'].includes(useName) ? 'civic' : ['warehouse', 'farm', 'utility', 'transport', 'sports', 'parking'].includes(useName) ? 'industrial' : useName === 'military' ? 'industrial' : 'apartments';
   const a = WALLS[key]; return a[seed % a.length];
 }

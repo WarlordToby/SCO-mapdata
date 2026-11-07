@@ -1,3 +1,4 @@
+import { latinName } from './regions.mjs';
 import { assembleRings, ccw, signedArea, centroid, simplifyRing, inRing, bboxOf, Grid } from './geom.mjs';
 
 export const ROOFS = ['unknown', 'flat', 'gabled', 'hipped', 'pyramidal', 'skillion', 'half-hipped', 'mansard', 'gambrel', 'dome', 'onion', 'round', 'saltbox', 'cone'];
@@ -88,7 +89,7 @@ export function buildBuildings(osm, P, landuse) {
     let host = null;
     for (const i of g.query(p[0], p[1])) { const b = blds[i]; if (p[0] < b.bb[0] || p[0] > b.bb[2] || p[1] < b.bb[1] || p[1] > b.bb[3]) continue; if (inRing(p, b.ring)) { host = b; break; } }
     if (host) host.pois.push(n.tags);
-    else if (k) freePois.push({ kind: k, p, name: n.tags.name || '' });
+    else if (k) freePois.push({ kind: k, p, name: latinName(n.tags) });
   }
 
   // Local built density (for height estimates of untagged buildings)
@@ -137,7 +138,7 @@ export function buildBuildings(osm, P, landuse) {
     const floor = b.area * levels;
     b.res = use === 'house' ? Math.max(1, Math.min(5, Math.round(floor * 0.5 / 45))) : use === 'apartments' ? Math.max(2, Math.round(floor * 0.7 / 45)) : use === 'unknown' && d > 0.25 ? Math.round(floor * 0.35 / 45) : 0;
     b.jobs = Math.round(floor / ({ retail: 70, office: 35, industrial: 100, warehouse: 200, school: 20, university: 25, hospital: 35, police: 35, fire_station: 60, civic: 50, hotel: 60, transport: 60, military: 50, apartments: 800, house: 1e9, unknown: 400 }[use] || 1e9));
-    b.name = t.name || b.pois.find(p => p.name)?.name || '';
+    b.name = latinName(t) || latinName(b.pois.find(p => p.name)) || '';
     const hn = t['addr:housenumber'] || b.pois.find(p => p['addr:housenumber'])?.['addr:housenumber'], st = t['addr:street'] || b.pois.find(p => p['addr:street'])?.['addr:street'];
     b.addr = hn && st ? `${hn} ${st}` : st || '';
   }

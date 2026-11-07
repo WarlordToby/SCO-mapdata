@@ -34,7 +34,7 @@ export function decodeTile(t) {
   const rings = ringsFrom(B.pts, B.rs, ox, oy);
   const buildings = [];
   for (let i = 0; i < B.n; i++) buildings.push({
-    osm: B.id[i], use: B.use[i], levels: B.lv[i], h: B.h[i] / 10, z: B.z[i] / 10, district: B.dist[i], res: B.res[i], jobs: B.jobs[i], est: !!B.est[i],
+    osm: B.id[i], use: B.use[i], levels: B.lv[i], h: B.h[i] / 10, z: B.z[i] / 10, district: B.dist[i], res: B.res[i], jobs: B.jobs[i], est: B.est[i] >= 1, gen: B.est[i] === 2,
     ent: [ox + B.ent[i * 2] / 10, oy + B.ent[i * 2 + 1] / 10], name: B.name[i] || '', addr: B.addr[i] || '', kinds: B.kinds[i] || [],
     ring: rings[i], holes: (B.holes[i] || []).map(h => holeRing(h, ox, oy)),
   });
@@ -54,5 +54,7 @@ export function decodeTile(t) {
   const bin = atob(t.terrain.b64), buf = new Int16Array(bin.length / 2);
   for (let i = 0; i < buf.length; i++) buf[i] = (bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8)) << 16 >> 16;
   const terrain = { n: t.terrain.n, step: t.terrain.step, scale: t.terrain.scale, data: buf, ox, oy };
-  return { key: t.key, origin: [ox, oy], buildings, edges, junctions, areas, lines, pois, barriers, terrain, trees: t.trees, lamps: t.lamps };
+  let landcover = null;
+  if (t.landcover) { const lb = atob(t.landcover.b64), arr = new Uint8Array(lb.length); for (let i = 0; i < lb.length; i++) arr[i] = lb.charCodeAt(i); landcover = { n: t.landcover.n, step: t.landcover.step, data: arr }; }
+  return { key: t.key, origin: [ox, oy], landcover, buildings, edges, junctions, areas, lines, pois, barriers, terrain, trees: t.trees, lamps: t.lamps };
 }

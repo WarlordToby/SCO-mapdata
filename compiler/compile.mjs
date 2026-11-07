@@ -8,6 +8,9 @@ import { buildBuildings, USES, POI_KINDS, ROOFS, MATERIALS } from './buildings.m
 import { buildRoads, CLASSES, CTRL, TURN, FLAG } from './roads.mjs';
 import { loadTerrain } from './terrain.mjs';
 import { buildBarriers, BARRIER_KINDS, BARRIER_PROPS } from './barriers.mjs';
+import { loadLandcover, LC_CLASSES } from './landcover.mjs';
+import { fillBuildings } from './fill.mjs';
+import { regionOf, latinName } from './regions.mjs';
 
 export const PACK_VERSION = 1;
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, arr) => (v.startsWith('--') ? [...a, [v.slice(2), arr[i + 1]]] : a), []));
@@ -20,6 +23,8 @@ const t0 = Date.now(); const log = (...a) => console.log(`[${((Date.now() - t0) 
 
 const P = makeProj(area.lon, area.lat);
 const R = area.radiusKm * 1000;
+const E = Math.ceil(R / TILE) * TILE; // pack extent (half-width)
+const region = regionOf(area.country);
 log(`Reading OSM data for ${area.city}…`);
 const osm = await readOPL(path.join(work, 'area.opl'));
 log(`  ${osm.nodes.size} nodes, ${osm.ways.size} ways, ${osm.rels.length} relations`);
@@ -61,6 +66,10 @@ const luAreas = areas.filter(a => ['residential', 'commercial', 'retail', 'indus
 luAreas.forEach((a, i) => { a.bb = bboxOf(a.ring); luGrid.insert(a.bb, i); });
 const landuseAt = p => { for (const i of luGrid.query(p[0], p[1])) { const a = luAreas[i]; if (p[0] >= a.bb[0] && p[0] <= a.bb[2] && p[1] >= a.bb[1] && p[1] <= a.bb[3] && inRing(p, a.ring)) return a.kind; } return null; };
 
+// ---------- Land cover (WorldCover): water incl. the sea, climate ----------
+const lc = loadLandcover(area.landcover ? path.join(work, area.landcover) : null, P, E);
+if (lc) { const wp = lc.water(); areas.push(...wp); log(`  land cover: ${JSON.stringify(lc.climate)}; ${wp.length} water bodies from land cover`); }
+
 // ---------- Buildings ----------
 log('Compiling buildings…');
 const { buildings, freePois } = buildBuildings(osm, P, landuseAt);
@@ -80,12 +89,17 @@ for (const w of osm.ways.values()) {
   else if (['river', 'canal', 'stream'].includes(t.waterway)) k = t.waterway;
   if (!k) continue;
   const pts = ringOf(w.refs); if (!pts || pts.length < 2) continue;
-  lines.push({ kind: k, pts, tunnel: t.tunnel && t.tunnel !== 'no', bridge: t.bridge && t.bridge !== 'no', name: t.name || '' });
+  lines.push({ kind: k, pts, tunnel: t.tunnel && t.tunnel !== 'no', bridge: t.bridge && t.bridge !== 'no', name: latinName(t) });
 }
+
+// ---------- Generated buildings where built-up land is not mapped ----------
+const fill = fillBuildings({ buildings, roads, areas, lc, region, E, seed: Math.round(area.lat * 1e4) ^ Math.round(area.lon * 1e4) });
+buildings.push(...fill.added);
+log(`  ${fill.added.length} generated buildings (${region}) where land cover shows unmapped built-up land`);
 
 // ---------- Districts ----------
 const districts = osm.tagged.filter(n => ['suburb', 'quarter', 'neighbourhood', 'borough', 'village', 'town', 'hamlet'].includes(n.tags.place) && n.tags.name)
-  .map(n => { const p = P.fwd(n.lon, n.lat); return { name: n.tags.name, kind: n.tags.place, x: Math.round(p[0]), y: Math.round(p[1]) }; })
+  .map(n => { const p = P.fwd(n.lon, n.lat); return { name: latinName(n.tags), kind: n.tags.place, x: Math.round(p[0]), y: Math.round(p[1]) }; })
   .filter(d => Math.abs(d.x) < R * 1.1 && Math.abs(d.y) < R * 1.1);
 // Prefer quarters/suburbs over tiny neighbourhoods when both exist nearby
 const rank = { borough: 0, suburb: 1, town: 1, quarter: 2, village: 2, neighbourhood: 3, hamlet: 3 };
@@ -99,7 +113,7 @@ for (const r of osm.rels) {
   if (r.tags.boundary !== 'administrative' || !r.tags.name) continue;
   const lvl = +r.tags.admin_level; if (!(lvl >= 9)) continue;
   const rings = assembleRings(r.members.filter(m => m.type === 'w' && m.role !== 'inner' && osm.ways.has(m.ref)).map(m => osm.ways.get(m.ref).refs)).map(ringOf).filter(Boolean);
-  if (rings.length) bounds.push({ name: r.tags.name, lvl, rings });
+  if (rings.length) bounds.push({ name: latinName(r.tags), lvl, rings });
 }
 const byLvl = {}; bounds.forEach(b => (byLvl[b.lvl] = byLvl[b.lvl] || []).push(b));
 const lvlPick = Object.keys(byLvl).map(Number).sort((a, b) => a - b).find(l => byLvl[l].filter(b => b.rings.some(r => Math.abs(signedArea(r)) > 2e4 && inRing([0, 0], r) || b.rings.some(rr => rr.some(([x, y]) => Math.abs(x) < R && Math.abs(y) < R)))).length >= 4);
@@ -185,6 +199,9 @@ for (const w of osm.ways.values()) {
 }
 log(`  ${nTrees} trees, ${nLamps} street lamps`);
 
+// every tile of the grid exists (ground, terrain, land cover), even with nothing mapped on it (open sea, fields)
+for (let i = -nT; i < nT; i++) for (let j = -nT; j < nT; j++) tile(`${i}_${j}`);
+
 // ---------- Write ----------
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(outDir, 'tiles'), { recursive: true });
@@ -199,7 +216,7 @@ for (const [k, t] of [...tiles].sort()) {
   const rel = p => [dm(p[0] - ox), dm(p[1] - oy)];
   const B = { n: t.b.length, id: [], use: [], lv: [], h: [], z: [], dist: [], res: [], jobs: [], est: [], ent: [], name: {}, addr: {}, kinds: {}, holes: {}, roof: [], col: {}, rcol: {}, mat: {}, rmat: {}, rh: {}, rs: [], pts: [] };
   t.b.forEach((b, i) => {
-    B.id.push(osmId(b.id)); B.use.push(USE[b.use]); B.lv.push(b.levels); B.h.push(dm(b.height)); B.z.push(dm(b.z)); B.dist.push(b.district); B.res.push(b.res); B.jobs.push(b.jobs); B.est.push(b.estH ? 1 : 0);
+    B.id.push(osmId(b.id)); B.use.push(USE[b.use]); B.lv.push(b.levels); B.h.push(dm(b.height)); B.z.push(dm(b.z)); B.dist.push(b.district); B.res.push(b.res); B.jobs.push(b.jobs); B.est.push(b.gen ? 2 : b.estH ? 1 : 0);
     B.roof.push(b.roof); if (b.wallCol) B.col[i] = b.wallCol; if (b.roofCol) B.rcol[i] = b.roofCol; if (b.mat) B.mat[i] = b.mat; if (b.roofMat) B.rmat[i] = b.roofMat; if (b.roofH) B.rh[i] = dm(b.roofH);
     B.ent.push(...rel(b.ent)); if (b.name) B.name[i] = b.name; if (b.addr) B.addr[i] = b.addr; if (b.kinds.length) B.kinds[i] = b.kinds.map(x => POI_KINDS.indexOf(x));
     if (b.holes.length) B.holes[i] = b.holes.map(h => delta(h.flatMap(rel)));
@@ -228,7 +245,8 @@ for (const [k, t] of [...tiles].sort()) {
   const POI = t.p.map(p => [POI_KINDS.indexOf(p.kind), ...rel(p.p), p.name]);
   const TREES = t.tr.flatMap(tr => [...rel(tr.p), tr.kind, dm(tr.h)]), LAMPS = t.lm.flatMap(l => rel(l));
   const terr = terrain.tile(ox, oy, TILE, 25);
-  const json = JSON.stringify({ v: PACK_VERSION, key: k, origin: [ox, oy], buildings: B, roads: E, junctions: J, areas: A, lines: L, pois: POI, trees: TREES, lamps: LAMPS, barriers: BR, terrain: terr });
+  const landcover = lc ? lc.tile(ox, oy, TILE) : null;
+  const json = JSON.stringify({ v: PACK_VERSION, key: k, origin: [ox, oy], buildings: B, roads: E, junctions: J, areas: A, lines: L, pois: POI, trees: TREES, lamps: LAMPS, barriers: BR, landcover, terrain: terr });
   fs.writeFileSync(path.join(outDir, 'tiles', k + '.json'), json);
   totalBytes += json.length;
   const svc = {}; t.b.forEach(b => b.kinds.forEach(x => svc[x] = (svc[x] || 0) + 1)); t.p.forEach(p => svc[p.kind] = (svc[p.kind] || 0) + 1);
@@ -239,7 +257,7 @@ const manifest = {
   format: 'sco-citypack', version: PACK_VERSION, slug, name: area.city, displayName: area.displayName, country: area.country,
   center: { lon: area.lon, lat: area.lat }, radiusKm: area.radiusKm, tileSize: TILE, grid: { min: -nT, max: nT - 1 },
   projection: { type: 'local-equirectangular', origin: [area.lon, area.lat], metresPerDegLon: P.kx, metresPerDegLat: P.ky, units: 'Geometry in tiles is integer decimetres relative to each tile origin (origin itself in metres). x east, y north. Every ring/polyline in pts/holes is delta-encoded: first vertex absolute, each next vertex as difference from the previous.' },
-  formatMinor: 2, codes: { barrier: BARRIER_KINDS, barrierProps: BARRIER_PROPS, roof: ROOFS, material: MATERIALS, tree: ['broadleaved', 'needleleaved', 'palm'], use: USES, poi: POI_KINDS, roadClass: CLASSES, control: CTRL, turn: TURN, roadFlags: FLAG, area: AREA_KINDS, line: LINE_KINDS },
+  formatMinor: 3, region, climate: lc ? lc.climate : null, codes: { landcover: LC_CLASSES, barrier: BARRIER_KINDS, barrierProps: BARRIER_PROPS, roof: ROOFS, material: MATERIALS, tree: ['broadleaved', 'needleleaved', 'palm'], use: USES, poi: POI_KINDS, roadClass: CLASSES, control: CTRL, turn: TURN, roadFlags: FLAG, area: AREA_KINDS, line: LINE_KINDS },
   schema: {
     buildings: 'columnar; id = OSM way id (negative = relation id); rs = [start,len] pairs into pts (x,y dm); ent = entrance x,y; h/z in dm; res = night residents, jobs = day occupants; est=1 when height was estimated',
     roads: 'columnar edges between global junction ids a→b; lf/lb lanes forward/backward; flags = roadFlags bitmask; ps = [start,len] into pts',
@@ -249,8 +267,8 @@ const manifest = {
     terrain: 'n×n int16 samples (base64, little-endian) every step metres from tile origin, value×scale = metres',
   },
   districts: dKeep, tiles: tileMeta,
-  stats: { buildings: packB.length, buildingsWithEstimatedHeight: packB.filter(b => b.estH).length, residents: packB.reduce((s, b) => s + b.res, 0), jobs: packB.reduce((s, b) => s + b.jobs, 0), edges: packE, junctions: packJ, signals: roads.stats.signals, connections: roads.stats.connections, restrictions: roads.stats.restrictions, areas: areas.length, lines: lines.length, terrain: terrain.info, barriers: barriers.stats, bytes: totalBytes },
-  sources: { osm: area.extracts, dem: area.dem, attribution: '© OpenStreetMap contributors (ODbL 1.0). Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA.' + ((area.cadastre || []).length ? ' Property boundaries: Plan cadastral © DGFiP / Etalab, Licence Ouverte 2.0.' : '') },
+  stats: { buildings: packB.length, buildingsWithEstimatedHeight: packB.filter(b => b.estH).length, residents: packB.reduce((s, b) => s + b.res, 0), jobs: packB.reduce((s, b) => s + b.jobs, 0), edges: packE, junctions: packJ, signals: roads.stats.signals, connections: roads.stats.connections, restrictions: roads.stats.restrictions, areas: areas.length, lines: lines.length, terrain: terrain.info, barriers: barriers.stats, generatedBuildings: fill.added.length, bytes: totalBytes },
+  sources: { osm: area.extracts, dem: area.dem, attribution: '© OpenStreetMap contributors (ODbL 1.0). Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA.' + ((area.cadastre || []).length ? ' Property boundaries: Plan cadastral © DGFiP / Etalab, Licence Ouverte 2.0.' : '') + (lc ? ' Land cover: ESA WorldCover 10 m 2021 v200, © ESA WorldCover project / contains modified Copernicus Sentinel data (2021), CC BY 4.0.' : '') },
   fetchedAt: area.fetchedAt, compiledAt: new Date().toISOString(),
 };
 fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 1));
