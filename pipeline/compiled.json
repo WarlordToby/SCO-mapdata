@@ -4,763 +4,763 @@
  "cities": [
   {
    "slug": "ae-dubai",
-   "bytes": 832270,
-   "buildings": 5179
+   "bytes": 996249,
+   "buildings": 8593
   },
   {
    "slug": "af-kabul",
-   "bytes": 4225371,
-   "buildings": 117733
+   "bytes": 4390161,
+   "buildings": 120210
   },
   {
    "slug": "am-yerevan",
-   "bytes": 3571375,
-   "buildings": 37256
+   "bytes": 3676149,
+   "buildings": 38495
   },
   {
    "slug": "ao-luanda",
-   "bytes": 1130309,
-   "buildings": 2570
+   "bytes": 3415907,
+   "buildings": 92590
   },
   {
    "slug": "ar-buenos-aires",
-   "bytes": 2251027,
-   "buildings": 20463
+   "bytes": 3096920,
+   "buildings": 47725
   },
   {
    "slug": "ar-cordoba",
-   "bytes": 1555692,
-   "buildings": 7157
+   "bytes": 3852480,
+   "buildings": 87179
   },
   {
    "slug": "ar-rosario",
-   "bytes": 1097024,
-   "buildings": 10342
+   "bytes": 1920870,
+   "buildings": 37511
   },
   {
    "slug": "at-vienna",
-   "bytes": 7832387,
-   "buildings": 43733
+   "bytes": 7918097,
+   "buildings": 44130
   },
   {
    "slug": "au-brisbane",
-   "bytes": 4554222,
-   "buildings": 36737
+   "bytes": 4930264,
+   "buildings": 45750
   },
   {
    "slug": "au-melbourne",
-   "bytes": 6838927,
-   "buildings": 59433
+   "bytes": 7010013,
+   "buildings": 62407
   },
   {
    "slug": "au-sydney",
-   "bytes": 4617886,
-   "buildings": 28149
+   "bytes": 4994864,
+   "buildings": 37114
   },
   {
    "slug": "az-baku",
-   "bytes": 1147074,
-   "buildings": 3858
+   "bytes": 1407215,
+   "buildings": 11092
   },
   {
    "slug": "bd-chittagong",
-   "bytes": 3709352,
-   "buildings": 109840
+   "bytes": 3858716,
+   "buildings": 112197
   },
   {
    "slug": "bd-dhaka",
-   "bytes": 5201679,
-   "buildings": 148095
+   "bytes": 5297271,
+   "buildings": 149637
   },
   {
    "slug": "be-brussels",
-   "bytes": 11115140,
-   "buildings": 143359
+   "bytes": 11212639,
+   "buildings": 143990
   },
   {
    "slug": "bf-ouagadougou",
-   "bytes": 2398242,
-   "buildings": 53969
+   "bytes": 4660743,
+   "buildings": 143970
   },
   {
    "slug": "bg-sofia",
-   "bytes": 5067614,
-   "buildings": 34919
+   "bytes": 5203664,
+   "buildings": 36364
   },
   {
    "slug": "bo-santa-cruz-de-la-sierra",
-   "bytes": 1870718,
-   "buildings": 8742
+   "bytes": 3543527,
+   "buildings": 64763
   },
   {
    "slug": "br-rio-de-janeiro",
-   "bytes": 2419334,
-   "buildings": 35542
+   "bytes": 2555084,
+   "buildings": 38454
   },
   {
    "slug": "br-salvador",
-   "bytes": 2200995,
-   "buildings": 30035
+   "bytes": 2731125,
+   "buildings": 45634
   },
   {
    "slug": "br-sao-paulo",
-   "bytes": 7685888,
-   "buildings": 119123
+   "bytes": 7781376,
+   "buildings": 120540
   },
   {
    "slug": "by-minsk",
-   "bytes": 5439673,
-   "buildings": 14965
+   "bytes": 5565271,
+   "buildings": 15493
   },
   {
    "slug": "ca-calgary",
-   "bytes": 6153865,
-   "buildings": 63119
-  },
-  {
-   "slug": "ca-montreal",
-   "bytes": 8347304,
-   "buildings": 67709
-  },
-  {
-   "slug": "ca-toronto",
-   "bytes": 6379128,
-   "buildings": 77744
-  },
-  {
-   "slug": "cd-kinshasa",
-   "bytes": 1753897,
-   "buildings": 30709
-  },
-  {
-   "slug": "cd-lubumbashi",
-   "bytes": 3455925,
-   "buildings": 90374
-  },
-  {
-   "slug": "ci-abidjan",
-   "bytes": 2560329,
-   "buildings": 47166
-  },
-  {
-   "slug": "cl-santiago",
-   "bytes": 3897081,
-   "buildings": 37425
-  },
-  {
-   "slug": "cm-douala",
-   "bytes": 4778716,
-   "buildings": 76763
-  },
-  {
-   "slug": "cm-yaounde",
-   "bytes": 5937566,
-   "buildings": 102726
-  },
-  {
-   "slug": "cn-beijing",
-   "bytes": 1738861,
-   "buildings": 15410
-  },
-  {
-   "slug": "cn-guangzhou",
-   "bytes": 1747810,
-   "buildings": 13013
-  },
-  {
-   "slug": "cn-shanghai",
-   "bytes": 2014725,
-   "buildings": 20196
-  },
-  {
-   "slug": "co-bogota",
-   "bytes": 3578413,
-   "buildings": 29600
-  },
-  {
-   "slug": "co-cali",
-   "bytes": 2392922,
-   "buildings": 4154
-  },
-  {
-   "slug": "co-medellin",
-   "bytes": 4418002,
+   "bytes": 6317661,
    "buildings": 64377
   },
   {
+   "slug": "ca-montreal",
+   "bytes": 8474549,
+   "buildings": 69033
+  },
+  {
+   "slug": "ca-toronto",
+   "bytes": 6488537,
+   "buildings": 78120
+  },
+  {
+   "slug": "cd-kinshasa",
+   "bytes": 3874712,
+   "buildings": 113747
+  },
+  {
+   "slug": "cd-lubumbashi",
+   "bytes": 3944280,
+   "buildings": 106504
+  },
+  {
+   "slug": "ci-abidjan",
+   "bytes": 3220000,
+   "buildings": 69253
+  },
+  {
+   "slug": "cl-santiago",
+   "bytes": 4703424,
+   "buildings": 62573
+  },
+  {
+   "slug": "cm-douala",
+   "bytes": 5144469,
+   "buildings": 89533
+  },
+  {
+   "slug": "cm-yaounde",
+   "bytes": 5993509,
+   "buildings": 103155
+  },
+  {
+   "slug": "cn-beijing",
+   "bytes": 2226880,
+   "buildings": 28278
+  },
+  {
+   "slug": "cn-guangzhou",
+   "bytes": 2110996,
+   "buildings": 21400
+  },
+  {
+   "slug": "cn-shanghai",
+   "bytes": 2326279,
+   "buildings": 26935
+  },
+  {
+   "slug": "co-bogota",
+   "bytes": 4334157,
+   "buildings": 54292
+  },
+  {
+   "slug": "co-cali",
+   "bytes": 4144079,
+   "buildings": 63892
+  },
+  {
+   "slug": "co-medellin",
+   "bytes": 5131048,
+   "buildings": 85947
+  },
+  {
    "slug": "cu-havana",
-   "bytes": 2463829,
-   "buildings": 44346
+   "bytes": 2537978,
+   "buildings": 45355
   },
   {
    "slug": "cz-prague",
-   "bytes": 6532135,
-   "buildings": 39486
+   "bytes": 6644855,
+   "buildings": 39903
   },
   {
    "slug": "de-berlin",
-   "bytes": 9452180,
-   "buildings": 39341
+   "bytes": 9571602,
+   "buildings": 39678
   },
   {
    "slug": "de-hamburg",
-   "bytes": 5447318,
-   "buildings": 31716
+   "bytes": 5655466,
+   "buildings": 35386
   },
   {
    "slug": "de-munich",
-   "bytes": 7049636,
-   "buildings": 47887
+   "bytes": 7149869,
+   "buildings": 48131
   },
   {
    "slug": "dk-copenhagen",
-   "bytes": 5269078,
-   "buildings": 40135
+   "bytes": 5401286,
+   "buildings": 40961
   },
   {
    "slug": "do-santo-domingo",
-   "bytes": 1409543,
-   "buildings": 10701
+   "bytes": 2430406,
+   "buildings": 44671
   },
   {
    "slug": "dz-algiers",
-   "bytes": 2647244,
-   "buildings": 39928
+   "bytes": 2813041,
+   "buildings": 43490
   },
   {
    "slug": "ec-guayaquil",
-   "bytes": 1413313,
-   "buildings": 9583
+   "bytes": 2490726,
+   "buildings": 45902
   },
   {
    "slug": "ec-quito",
-   "bytes": 3240395,
-   "buildings": 36816
+   "bytes": 4112667,
+   "buildings": 63039
   },
   {
    "slug": "eg-alexandria",
-   "bytes": 1886288,
-   "buildings": 9554
+   "bytes": 2651601,
+   "buildings": 33180
   },
   {
    "slug": "eg-cairo",
-   "bytes": 3757030,
-   "buildings": 16810
+   "bytes": 5171004,
+   "buildings": 61696
   },
   {
    "slug": "es-barcelona",
-   "bytes": 8595194,
-   "buildings": 53668
+   "bytes": 8703253,
+   "buildings": 54886
   },
   {
    "slug": "es-madrid",
-   "bytes": 6705442,
-   "buildings": 49285
+   "bytes": 6805538,
+   "buildings": 50022
   },
   {
    "slug": "et-addis-ababa",
-   "bytes": 1853076,
-   "buildings": 11325
+   "bytes": 4198270,
+   "buildings": 101337
   },
   {
    "slug": "fr-paris",
-   "bytes": 12462596,
-   "buildings": 79009
+   "bytes": 12540169,
+   "buildings": 79639
   },
   {
    "slug": "fr-strasbourg",
-   "bytes": 6709969,
-   "buildings": 57214
+   "bytes": 6886979,
+   "buildings": 58871
   },
   {
    "slug": "gb-london",
-   "bytes": 9669200,
-   "buildings": 71282
+   "bytes": 9767514,
+   "buildings": 71508
   },
   {
    "slug": "ge-tbilisi",
-   "bytes": 3381320,
-   "buildings": 29900
+   "bytes": 3527772,
+   "buildings": 31681
   },
   {
    "slug": "gh-accra",
-   "bytes": 2874501,
-   "buildings": 62979
+   "bytes": 4125131,
+   "buildings": 110345
   },
   {
    "slug": "gh-kumasi",
-   "bytes": 3154527,
-   "buildings": 72408
+   "bytes": 4378133,
+   "buildings": 120259
   },
   {
    "slug": "gn-camayenne",
-   "bytes": 1169948,
-   "buildings": 32951
+   "bytes": 1241715,
+   "buildings": 34603
   },
   {
    "slug": "ht-port-au-prince",
-   "bytes": 2910328,
-   "buildings": 76157
+   "bytes": 3525711,
+   "buildings": 94830
   },
   {
    "slug": "hu-budapest",
-   "bytes": 5175997,
-   "buildings": 33129
+   "bytes": 5286526,
+   "buildings": 33587
   },
   {
    "slug": "id-jakarta",
-   "bytes": 7479933,
-   "buildings": 192425
+   "bytes": 7574711,
+   "buildings": 193921
   },
   {
    "slug": "id-medan",
-   "bytes": 5180294,
-   "buildings": 143761
+   "bytes": 5251942,
+   "buildings": 144142
   },
   {
    "slug": "id-surabaya",
-   "bytes": 7997761,
-   "buildings": 247213
+   "bytes": 8113246,
+   "buildings": 250006
   },
   {
    "slug": "ie-dublin",
-   "bytes": 7498053,
-   "buildings": 103588
+   "bytes": 7666578,
+   "buildings": 106012
   },
   {
    "slug": "in-bengaluru",
-   "bytes": 5448510,
-   "buildings": 93518
+   "bytes": 5604304,
+   "buildings": 96496
   },
   {
    "slug": "in-delhi",
-   "bytes": 1918629,
-   "buildings": 12204
+   "bytes": 2870904,
+   "buildings": 44727
   },
   {
    "slug": "in-mumbai",
-   "bytes": 2323019,
-   "buildings": 15983
+   "bytes": 3081616,
+   "buildings": 39843
   },
   {
    "slug": "iq-baghdad",
-   "bytes": 1874767,
-   "buildings": 14630
+   "bytes": 3160068,
+   "buildings": 56880
   },
   {
    "slug": "iq-basrah",
-   "bytes": 1216663,
-   "buildings": 768
+   "bytes": 2788968,
+   "buildings": 58501
   },
   {
    "slug": "iq-mosul",
-   "bytes": 1262284,
-   "buildings": 9464
+   "bytes": 2495644,
+   "buildings": 51350
   },
   {
    "slug": "ir-isfahan",
-   "bytes": 2773759,
-   "buildings": 1186
+   "bytes": 4880137,
+   "buildings": 69524
   },
   {
    "slug": "ir-mashhad",
-   "bytes": 1643603,
-   "buildings": 6874
+   "bytes": 3397674,
+   "buildings": 64007
   },
   {
    "slug": "ir-tehran",
-   "bytes": 3187234,
-   "buildings": 13149
+   "bytes": 5075842,
+   "buildings": 73123
   },
   {
    "slug": "it-milan",
-   "bytes": 6870612,
-   "buildings": 40140
+   "bytes": 6973078,
+   "buildings": 40604
   },
   {
    "slug": "it-rome",
-   "bytes": 6036669,
-   "buildings": 31364
+   "bytes": 6151542,
+   "buildings": 31968
   },
   {
    "slug": "jo-amman",
-   "bytes": 2280366,
-   "buildings": 24045
+   "bytes": 3822195,
+   "buildings": 74906
   },
   {
    "slug": "jp-osaka",
-   "bytes": 9054529,
-   "buildings": 157736
+   "bytes": 9138987,
+   "buildings": 158651
   },
   {
    "slug": "jp-sapporo",
-   "bytes": 6740212,
-   "buildings": 96249
+   "bytes": 6808905,
+   "buildings": 96851
   },
   {
    "slug": "jp-tokyo",
-   "bytes": 10466402,
-   "buildings": 202216
+   "bytes": 10524124,
+   "buildings": 202471
   },
   {
    "slug": "ke-nairobi",
-   "bytes": 3665392,
-   "buildings": 63015
+   "bytes": 4015246,
+   "buildings": 73264
   },
   {
    "slug": "kh-phnom-penh",
-   "bytes": 1997345,
-   "buildings": 21763
+   "bytes": 3244393,
+   "buildings": 67147
   },
   {
    "slug": "kp-pyongyang",
-   "bytes": 2881306,
-   "buildings": 38165
+   "bytes": 2997165,
+   "buildings": 38995
   },
   {
    "slug": "kr-busan",
-   "bytes": 1132973,
-   "buildings": 5267
+   "bytes": 1683781,
+   "buildings": 19818
   },
   {
    "slug": "kr-gwangju",
-   "bytes": 2355037,
-   "buildings": 12082
+   "bytes": 3002931,
+   "buildings": 29797
   },
   {
    "slug": "kr-seoul",
-   "bytes": 4192387,
-   "buildings": 34217
+   "bytes": 4584697,
+   "buildings": 43590
   },
   {
    "slug": "kz-almaty",
-   "bytes": 3933315,
-   "buildings": 30249
+   "bytes": 4062603,
+   "buildings": 31092
   },
   {
    "slug": "lb-beirut",
-   "bytes": 2147205,
-   "buildings": 33719
+   "bytes": 2263153,
+   "buildings": 36308
   },
   {
    "slug": "ly-tripoli",
-   "bytes": 2463076,
-   "buildings": 42787
+   "bytes": 2613530,
+   "buildings": 46464
   },
   {
    "slug": "ma-casablanca",
-   "bytes": 2418606,
-   "buildings": 18631
+   "bytes": 2915332,
+   "buildings": 33678
   },
   {
    "slug": "mg-antananarivo",
-   "bytes": 2921447,
-   "buildings": 72599
+   "bytes": 3849503,
+   "buildings": 104507
   },
   {
    "slug": "ml-bamako",
-   "bytes": 2827099,
-   "buildings": 61080
+   "bytes": 3866533,
+   "buildings": 100093
   },
   {
    "slug": "mm-mandalay",
-   "bytes": 4845313,
-   "buildings": 150028
+   "bytes": 4933674,
+   "buildings": 150640
   },
   {
    "slug": "mm-yangon",
-   "bytes": 2169923,
-   "buildings": 23363
+   "bytes": 3308207,
+   "buildings": 62266
   },
   {
    "slug": "mx-guadalajara",
-   "bytes": 2107005,
-   "buildings": 12688
+   "bytes": 4238917,
+   "buildings": 86040
   },
   {
    "slug": "mx-juarez",
-   "bytes": 2017484,
-   "buildings": 2093
+   "bytes": 4261574,
+   "buildings": 79433
   },
   {
    "slug": "mx-mexico-city",
-   "bytes": 3742624,
-   "buildings": 51765
+   "bytes": 4785562,
+   "buildings": 86647
   },
   {
    "slug": "my-kota-bharu",
-   "bytes": 1362115,
-   "buildings": 3439
+   "bytes": 2925073,
+   "buildings": 58909
   },
   {
    "slug": "my-kuala-lumpur",
-   "bytes": 3918214,
-   "buildings": 24789
+   "bytes": 4106941,
+   "buildings": 28329
   },
   {
    "slug": "mz-maputo",
-   "bytes": 3760252,
-   "buildings": 99184
+   "bytes": 4010461,
+   "buildings": 106829
   },
   {
    "slug": "ng-kaduna",
-   "bytes": 3596325,
-   "buildings": 100186
+   "bytes": 3818046,
+   "buildings": 105135
   },
   {
    "slug": "ng-kano",
-   "bytes": 2419855,
-   "buildings": 46690
+   "bytes": 4619412,
+   "buildings": 136691
   },
   {
    "slug": "ng-lagos",
-   "bytes": 1614335,
-   "buildings": 36628
+   "bytes": 2233543,
+   "buildings": 59304
   },
   {
    "slug": "np-kathmandu",
-   "bytes": 6983518,
-   "buildings": 175807
+   "bytes": 7049090,
+   "buildings": 177086
   },
   {
    "slug": "pe-lima",
-   "bytes": 3920995,
-   "buildings": 31075
+   "bytes": 4775091,
+   "buildings": 58593
   },
   {
    "slug": "ph-budta",
-   "bytes": 42315,
-   "buildings": 37
+   "bytes": 110600,
+   "buildings": 282
   },
   {
    "slug": "ph-quezon-city",
-   "bytes": 6569427,
-   "buildings": 159317
+   "bytes": 6650982,
+   "buildings": 159919
   },
   {
    "slug": "pk-karachi",
-   "bytes": 2476778,
-   "buildings": 21494
+   "bytes": 3738847,
+   "buildings": 66279
   },
   {
    "slug": "pk-lahore",
-   "bytes": 2199574,
-   "buildings": 3481
+   "bytes": 4594931,
+   "buildings": 93482
   },
   {
    "slug": "pk-rawalpindi",
-   "bytes": 1606475,
-   "buildings": 1024
+   "bytes": 4032096,
+   "buildings": 91024
   },
   {
    "slug": "pl-warsaw",
-   "bytes": 9996612,
-   "buildings": 25754
+   "bytes": 10108550,
+   "buildings": 26029
   },
   {
    "slug": "py-asuncion",
-   "bytes": 3106455,
-   "buildings": 72182
+   "bytes": 3245218,
+   "buildings": 74280
   },
   {
    "slug": "ro-bucharest",
-   "bytes": 4592795,
-   "buildings": 52023
+   "bytes": 4711505,
+   "buildings": 52796
   },
   {
    "slug": "rs-belgrade",
-   "bytes": 4056303,
-   "buildings": 41832
+   "bytes": 4165183,
+   "buildings": 42952
   },
   {
    "slug": "ru-moscow",
-   "bytes": 8043816,
-   "buildings": 22913
+   "bytes": 8156251,
+   "buildings": 23543
   },
   {
    "slug": "ru-novosibirsk",
-   "bytes": 2947955,
-   "buildings": 21632
+   "bytes": 3069119,
+   "buildings": 22679
   },
   {
    "slug": "ru-saint-petersburg",
-   "bytes": 7498556,
-   "buildings": 19698
+   "bytes": 7604974,
+   "buildings": 20287
   },
   {
    "slug": "sa-jeddah",
-   "bytes": 607461,
-   "buildings": 2381
+   "bytes": 1400032,
+   "buildings": 28865
   },
   {
    "slug": "sa-medina",
-   "bytes": 1198038,
-   "buildings": 1297
+   "bytes": 2817557,
+   "buildings": 58639
   },
   {
    "slug": "sa-riyadh",
-   "bytes": 1757858,
-   "buildings": 17989
+   "bytes": 2561939,
+   "buildings": 42714
   },
   {
    "slug": "sd-khartoum",
-   "bytes": 4341399,
-   "buildings": 122554
+   "bytes": 4572230,
+   "buildings": 128770
   },
   {
    "slug": "se-stockholm",
-   "bytes": 4315560,
-   "buildings": 15973
+   "bytes": 4435669,
+   "buildings": 16667
   },
   {
    "slug": "sg-singapore",
-   "bytes": 3642086,
-   "buildings": 16880
+   "bytes": 3871494,
+   "buildings": 21906
   },
   {
    "slug": "sn-dakar",
-   "bytes": 1897445,
-   "buildings": 26401
+   "bytes": 2926788,
+   "buildings": 66416
   },
   {
    "slug": "so-mogadishu",
-   "bytes": 4968590,
-   "buildings": 131707
+   "bytes": 5038762,
+   "buildings": 133642
   },
   {
    "slug": "sy-aleppo",
-   "bytes": 5213126,
-   "buildings": 127685
+   "bytes": 5369313,
+   "buildings": 130956
   },
   {
    "slug": "th-bangkok",
-   "bytes": 4629153,
-   "buildings": 56301
+   "bytes": 5513223,
+   "buildings": 87363
   },
   {
    "slug": "tr-ankara",
-   "bytes": 2591964,
-   "buildings": 31067
+   "bytes": 2846850,
+   "buildings": 35603
   },
   {
    "slug": "tr-istanbul",
-   "bytes": 4000260,
-   "buildings": 63638
+   "bytes": 4118063,
+   "buildings": 65605
   },
   {
    "slug": "tr-izmir",
-   "bytes": 4867837,
-   "buildings": 117025
+   "bytes": 5039019,
+   "buildings": 120532
   },
   {
    "slug": "tw-kaohsiung",
-   "bytes": 2545040,
-   "buildings": 6983
+   "bytes": 3344999,
+   "buildings": 28196
   },
   {
    "slug": "tw-taipei",
-   "bytes": 5321185,
-   "buildings": 41785
+   "bytes": 5561833,
+   "buildings": 45984
   },
   {
    "slug": "tz-dar-es-salaam",
-   "bytes": 6637695,
-   "buildings": 152959
+   "bytes": 6856070,
+   "buildings": 159012
   },
   {
    "slug": "ua-dnipro",
-   "bytes": 2436745,
-   "buildings": 25820
+   "bytes": 2551528,
+   "buildings": 26419
   },
   {
    "slug": "ua-kharkiv",
-   "bytes": 3249884,
-   "buildings": 27326
+   "bytes": 3389704,
+   "buildings": 28166
   },
   {
    "slug": "ua-kyiv",
-   "bytes": 3687337,
-   "buildings": 15135
+   "bytes": 3795954,
+   "buildings": 15536
   },
   {
    "slug": "ug-kampala",
-   "bytes": 6012666,
-   "buildings": 147337
+   "bytes": 6206605,
+   "buildings": 150988
   },
   {
    "slug": "us-chicago",
-   "bytes": 6391257,
-   "buildings": 54342
+   "bytes": 6546023,
+   "buildings": 57197
   },
   {
    "slug": "us-los-angeles",
-   "bytes": 5785990,
-   "buildings": 54487
+   "bytes": 5912285,
+   "buildings": 56537
   },
   {
    "slug": "us-new-york-city",
-   "bytes": 5940104,
-   "buildings": 46041
+   "bytes": 6033167,
+   "buildings": 46914
   },
   {
    "slug": "uy-montevideo",
-   "bytes": 1198867,
-   "buildings": 8417
+   "bytes": 2111337,
+   "buildings": 37822
   },
   {
    "slug": "uz-tashkent",
-   "bytes": 3068666,
-   "buildings": 39184
+   "bytes": 3166166,
+   "buildings": 39934
   },
   {
    "slug": "ve-caracas",
-   "bytes": 1550436,
-   "buildings": 9963
+   "bytes": 2436893,
+   "buildings": 36626
   },
   {
    "slug": "ve-maracaibo",
-   "bytes": 975445,
-   "buildings": 1326
+   "bytes": 2480640,
+   "buildings": 55456
   },
   {
    "slug": "vn-hanoi",
-   "bytes": 4589523,
-   "buildings": 53855
+   "bytes": 5685028,
+   "buildings": 89755
   },
   {
    "slug": "vn-ho-chi-minh-city",
-   "bytes": 2136958,
-   "buildings": 6608
+   "bytes": 4673301,
+   "buildings": 96609
   },
   {
    "slug": "ye-sanaa",
-   "bytes": 1414918,
-   "buildings": 13498
+   "bytes": 2781229,
+   "buildings": 60708
   },
   {
    "slug": "za-cape-town",
-   "bytes": 2312229,
-   "buildings": 20557
+   "bytes": 2450097,
+   "buildings": 22507
   },
   {
    "slug": "za-durban",
-   "bytes": 1887450,
-   "buildings": 25582
+   "bytes": 2022032,
+   "buildings": 27571
   },
   {
    "slug": "za-johannesburg",
-   "bytes": 1918600,
-   "buildings": 19872
+   "bytes": 2342762,
+   "buildings": 30935
   },
   {
    "slug": "zm-lusaka",
-   "bytes": 3177887,
-   "buildings": 77874
+   "bytes": 3677838,
+   "buildings": 94385
   },
   {
    "slug": "zw-harare",
-   "bytes": 1217331,
-   "buildings": 16717
+   "bytes": 2126535,
+   "buildings": 45531
   }
  ]
 }

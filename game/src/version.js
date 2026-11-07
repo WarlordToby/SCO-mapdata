@@ -1,9 +1,20 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.8.0';
+export const VERSION = '0.9.0';
 export const SAVE_FORMAT = 2; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.9.0', date: '2026-11-08', title: 'Cities of the world look like themselves',
+    items: [
+      'Seas, bays, lagoons and rivers from satellite land cover (ESA WorldCover, 10 m). Coastal cities such as New York, Lagos, Istanbul and Tokyo now sit on real water instead of grass, and the map has no more holes over open water.',
+      'Ground colours follow satellite land cover wherever the street map has no land use: woods, scrub, grass, fields, bare sand and rock, built-up ground, wetland. Trees are planted where the satellite sees tree cover.',
+      'Arid cities (Cairo, Riyadh, Dubai, Lima, Karachi and others) get dry ground, dusty gardens and olive trees instead of lush lawns.',
+      'Unmapped neighbourhoods are filled: where satellite land cover shows built-up land but OpenStreetMap has few or no buildings, buildings are generated along the streets in the local tradition (plot sizes, setbacks, rows, storeys). They are marked "estimated building" in the building panel.',
+      'Regional building styles: wall colours, roof colours and how often roofs are pitched follow 14 regional traditions, from Nordic falu red to Mediterranean whitewash, flat desert roofs, corrugated metal in West Africa, grey tiles in Japan and asphalt shingles in North America.',
+      'District and building names use the English or Latin-script name where the local name is in another script. VIP names fit the region.',
+    ],
+  },
   {
     v: '0.8.0', date: '2026-11-07', title: 'World cities, line of sight and cover',
     items: [

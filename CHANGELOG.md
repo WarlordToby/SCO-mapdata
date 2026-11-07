@@ -2,6 +2,23 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.9.0 — Cities of the world look like themselves (2026-11-08)
+
+- Seas, bays, lagoons and rivers from satellite land cover (ESA WorldCover, 10 m). Coastal cities such as New York, Lagos, Istanbul and Tokyo now sit on real water instead of grass, and the map has no more holes over open water.
+- Ground colours follow satellite land cover wherever the street map has no land use: woods, scrub, grass, fields, bare sand and rock, built-up ground, wetland. Trees are planted where the satellite sees tree cover.
+- Arid cities (Cairo, Riyadh, Dubai, Lima, Karachi and others) get dry ground, dusty gardens and olive trees instead of lush lawns.
+- Unmapped neighbourhoods are filled: where satellite land cover shows built-up land but OpenStreetMap has few or no buildings, buildings are generated along the streets in the local tradition (plot sizes, setbacks, rows, storeys). They are marked "estimated building" in the building panel.
+- Regional building styles: wall colours, roof colours and how often roofs are pitched follow 14 regional traditions, from Nordic falu red to Mediterranean whitewash, flat desert roofs, corrugated metal in West Africa, grey tiles in Japan and asphalt shingles in North America.
+- District and building names use the English or Latin-script name where the local name is in another script. VIP names fit the region.
+
+## v0.8.0 — World cities, line of sight and cover (2026-11-07)
+
+- 3D city maps for 64 of the world's largest cities (Shanghai, Istanbul, Mumbai, Mexico City, Tokyo, New York, London, Cairo, Paris, Strasbourg and more, in 46 countries). Any of them can host an outbreak you command in 3D; other cities resolve on the strategic map. Countries with no city map still get outbreaks in their largest cities.
+- City maps now cover 8 × 8 km around the centre (was 12 × 12) and load as one compressed file.
+- Line of sight: buildings, walls and hedges at eye height block shots, both ways. Units pick the nearest threat they can actually see.
+- Cover: a target within a few metres behind a low wall takes less than half the damage (hard cover); behind a low hedge or board fence about a third less (soft cover). Mesh fences, railings and wire neither block nor cover.
+- Squads firing from upper floors of a garrisoned building see over garden walls and hedges; helicopters fire from above. Alien ranged attacks need line of sight too.
+
 ## v0.7.0 — Fences, walls and hedges (2026-11-07)
 
 - Barriers are now on the map: every fence, wall, hedge, retaining wall, guard rail and city wall mapped in OpenStreetMap, opened where gates, paths and roads pass through.
