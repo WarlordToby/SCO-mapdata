@@ -1,0 +1,2358 @@
+{
+ "format": "sco-citypack",
+ "version": 1,
+ "slug": "strasbourg",
+ "name": "Strasbourg",
+ "displayName": "Strasbourg, Bas-Rhin, Collectivité européenne d'Alsace, Grand Est, France métropolitaine, France",
+ "country": "FR",
+ "center": {
+  "lon": 7.7507127,
+  "lat": 48.584614
+ },
+ "radiusKm": 6,
+ "tileSize": 1000,
+ "grid": {
+  "min": -6,
+  "max": 5
+ },
+ "projection": {
+  "type": "local-equirectangular",
+  "origin": [
+   7.7507127,
+   48.584614
+  ],
+  "metresPerDegLon": 73639.65761406985,
+  "metresPerDegLat": 110574,
+  "units": "Geometry in tiles is integer decimetres relative to each tile origin (origin itself in metres). x east, y north. Every ring/polyline in pts/holes is delta-encoded: first vertex absolute, each next vertex as difference from the previous."
+ },
+ "codes": {
+  "use": [
+   "house",
+   "apartments",
+   "retail",
+   "office",
+   "industrial",
+   "warehouse",
+   "civic",
+   "school",
+   "hospital",
+   "police",
+   "fire_station",
+   "religious",
+   "transport",
+   "hotel",
+   "minor",
+   "military",
+   "sports",
+   "unknown",
+   "farm",
+   "utility",
+   "parking",
+   "university"
+  ],
+  "poi": [
+   "police",
+   "hospital",
+   "clinic",
+   "fire_station",
+   "pharmacy",
+   "fuel",
+   "supermarket",
+   "school",
+   "townhall",
+   "prison",
+   "military",
+   "train_station",
+   "bus_station",
+   "power",
+   "water",
+   "radio",
+   "shelter",
+   "stadium",
+   "hardware"
+  ],
+  "roadClass": [
+   "motorway",
+   "trunk",
+   "primary",
+   "secondary",
+   "tertiary",
+   "unclassified",
+   "residential",
+   "living_street",
+   "service",
+   "track",
+   "pedestrian",
+   "footway",
+   "cycleway",
+   "steps"
+  ],
+  "control": [
+   "none",
+   "priority",
+   "right_priority",
+   "stop",
+   "yield",
+   "signal",
+   "roundabout"
+  ],
+  "turn": [
+   "through",
+   "left",
+   "right",
+   "uturn"
+  ],
+  "roadFlags": {
+   "oneway": 1,
+   "bridge": 2,
+   "tunnel": 4,
+   "roundabout": 8,
+   "private": 16,
+   "drive": 32,
+   "walk": 64,
+   "isolated_f": 128,
+   "isolated_b": 256,
+   "link": 512,
+   "bus": 1024
+  },
+  "area": [
+   "residential",
+   "commercial",
+   "retail",
+   "industrial",
+   "military",
+   "railway",
+   "farmland",
+   "forest",
+   "grass",
+   "park",
+   "cemetery",
+   "water",
+   "wetland",
+   "sports",
+   "parking",
+   "construction",
+   "allotments",
+   "farmyard",
+   "beach",
+   "scrub"
+  ],
+  "line": [
+   "rail",
+   "tram",
+   "light_rail",
+   "subway",
+   "river",
+   "canal",
+   "stream"
+  ]
+ },
+ "schema": {
+  "buildings": "columnar; id = OSM way id (negative = relation id); rs = [start,len] pairs into pts (x,y dm); ent = entrance x,y; h/z in dm; res = night residents, jobs = day occupants; est=1 when height was estimated",
+  "roads": "columnar edges between global junction ids a→b; lf/lb lanes forward/backward; flags = roadFlags bitmask; ps = [start,len] into pts",
+  "junctions": "inc = approaches [edge,dir]; yield aligned with inc (1 = must yield); conn = [fromEdge,fromDir,fromLane,toEdge,toDir,toLane,turn], lane 0 = rightmost; phases[i] = [{g: indices into conn, d: green s, y: amber s, r: all-red s}]",
+  "terrain": "n×n int16 samples (base64, little-endian) every step metres from tile origin, value×scale = metres"
+ },
+ "districts": [
+  {
+   "name": "Neudorf-Musau",
+   "kind": "admin_level_10",
+   "x": 646,
+   "y": -1981
+  },
+  {
+   "name": "Hautepierre",
+   "kind": "admin_level_10",
+   "x": -3726,
+   "y": 832
+  },
+  {
+   "name": "Koenigshoffen",
+   "kind": "admin_level_10",
+   "x": -3013,
+   "y": -512
+  },
+  {
+   "name": "Cronenbourg",
+   "kind": "admin_level_10",
+   "x": -2300,
+   "y": 1111
+  },
+  {
+   "name": "Tribunal-Gare-Porte de Schirmeck",
+   "kind": "admin_level_10",
+   "x": -515,
+   "y": 407
+  },
+  {
+   "name": "Centre",
+   "kind": "admin_level_10",
+   "x": -124,
+   "y": -220
+  },
+  {
+   "name": "Montagne Verte",
+   "kind": "admin_level_10",
+   "x": -3280,
+   "y": -1863
+  },
+  {
+   "name": "Elsau",
+   "kind": "admin_level_10",
+   "x": -1977,
+   "y": -2235
+  },
+  {
+   "name": "Meinau",
+   "kind": "admin_level_10",
+   "x": 132,
+   "y": -3573
+  },
+  {
+   "name": "Neuhof 1",
+   "kind": "admin_level_10",
+   "x": 826,
+   "y": -5000
+  },
+  {
+   "name": "Bourse-Esplanade-Krutenau",
+   "kind": "admin_level_10",
+   "x": 758,
+   "y": -608
+  },
+  {
+   "name": "Orangerie-Conseil des XV",
+   "kind": "admin_level_10",
+   "x": 1288,
+   "y": 391
+  },
+  {
+   "name": "Port du Rhin",
+   "kind": "admin_level_10",
+   "x": 3272,
+   "y": -1254
+  },
+  {
+   "name": "Robertsau",
+   "kind": "admin_level_10",
+   "x": 2669,
+   "y": 3476
+  }
+ ],
+ "tiles": [
+  {
+   "key": "-1_-1",
+   "i": -1,
+   "j": -1,
+   "buildings": 1594,
+   "edges": 1551,
+   "residents": 22351,
+   "jobs": 28340,
+   "services": {
+    "pharmacy": 8,
+    "clinic": 4,
+    "supermarket": 8,
+    "school": 18,
+    "fire_station": 1,
+    "hardware": 1,
+    "power": 2
+   },
+   "bytes": 470046
+  },
+  {
+   "key": "-1_-2",
+   "i": -1,
+   "j": -2,
+   "buildings": 513,
+   "edges": 980,
+   "residents": 3342,
+   "jobs": 11481,
+   "services": {
+    "hospital": 2,
+    "clinic": 1,
+    "police": 1,
+    "school": 2,
+    "power": 1
+   },
+   "bytes": 218114
+  },
+  {
+   "key": "-1_-3",
+   "i": -1,
+   "j": -3,
+   "buildings": 351,
+   "edges": 345,
+   "residents": 376,
+   "jobs": 8123,
+   "services": {
+    "hardware": 1,
+    "clinic": 1,
+    "school": 1
+   },
+   "bytes": 113341
+  },
+  {
+   "key": "-1_-4",
+   "i": -1,
+   "j": -4,
+   "buildings": 1033,
+   "edges": 583,
+   "residents": 7168,
+   "jobs": 17236,
+   "services": {
+    "pharmacy": 2,
+    "fuel": 1,
+    "supermarket": 2
+   },
+   "bytes": 215197
+  },
+  {
+   "key": "-1_-5",
+   "i": -1,
+   "j": -5,
+   "buildings": 307,
+   "edges": 514,
+   "residents": 1991,
+   "jobs": 2195,
+   "services": {
+    "pharmacy": 1,
+    "supermarket": 2,
+    "fuel": 1
+   },
+   "bytes": 125484
+  },
+  {
+   "key": "-1_-6",
+   "i": -1,
+   "j": -6,
+   "buildings": 150,
+   "edges": 168,
+   "residents": 936,
+   "jobs": 2055,
+   "services": {},
+   "bytes": 54956
+  },
+  {
+   "key": "-1_0",
+   "i": -1,
+   "j": 0,
+   "buildings": 1227,
+   "edges": 1507,
+   "residents": 17207,
+   "jobs": 27921,
+   "services": {
+    "pharmacy": 4,
+    "school": 6,
+    "townhall": 1,
+    "clinic": 3,
+    "supermarket": 2,
+    "power": 1
+   },
+   "bytes": 399349
+  },
+  {
+   "key": "-1_1",
+   "i": -1,
+   "j": 1,
+   "buildings": 1131,
+   "edges": 938,
+   "residents": 6634,
+   "jobs": 6398,
+   "services": {
+    "military": 5,
+    "power": 4,
+    "school": 1,
+    "clinic": 2,
+    "supermarket": 1
+   },
+   "bytes": 274011
+  },
+  {
+   "key": "-1_2",
+   "i": -1,
+   "j": 2,
+   "buildings": 2351,
+   "edges": 1488,
+   "residents": 10044,
+   "jobs": 5567,
+   "services": {
+    "supermarket": 3,
+    "pharmacy": 5,
+    "clinic": 5,
+    "power": 8,
+    "fuel": 1,
+    "townhall": 1,
+    "train_station": 1
+   },
+   "bytes": 493781
+  },
+  {
+   "key": "-1_3",
+   "i": -1,
+   "j": 3,
+   "buildings": 1463,
+   "edges": 599,
+   "residents": 13134,
+   "jobs": 2882,
+   "services": {
+    "school": 2,
+    "power": 2,
+    "police": 1
+   },
+   "bytes": 240267
+  },
+  {
+   "key": "-1_4",
+   "i": -1,
+   "j": 4,
+   "buildings": 539,
+   "edges": 170,
+   "residents": 2129,
+   "jobs": 86,
+   "services": {},
+   "bytes": 90026
+  },
+  {
+   "key": "-1_5",
+   "i": -1,
+   "j": 5,
+   "buildings": 1742,
+   "edges": 249,
+   "residents": 5730,
+   "jobs": 2350,
+   "services": {
+    "pharmacy": 2,
+    "school": 1,
+    "power": 2,
+    "townhall": 1,
+    "police": 1
+   },
+   "bytes": 218562
+  },
+  {
+   "key": "-2_-1",
+   "i": -2,
+   "j": -1,
+   "buildings": 705,
+   "edges": 1274,
+   "residents": 9305,
+   "jobs": 9387,
+   "services": {
+    "school": 3,
+    "pharmacy": 3,
+    "military": 3,
+    "supermarket": 2,
+    "power": 3,
+    "police": 2,
+    "hospital": 2,
+    "water": 1,
+    "fuel": 1
+   },
+   "bytes": 296628
+  },
+  {
+   "key": "-2_-2",
+   "i": -2,
+   "j": -2,
+   "buildings": 507,
+   "edges": 1041,
+   "residents": 3424,
+   "jobs": 1407,
+   "services": {
+    "power": 1,
+    "school": 1,
+    "supermarket": 1
+   },
+   "bytes": 230528
+  },
+  {
+   "key": "-2_-3",
+   "i": -2,
+   "j": -3,
+   "buildings": 612,
+   "edges": 302,
+   "residents": 2793,
+   "jobs": 1746,
+   "services": {
+    "supermarket": 1,
+    "townhall": 1,
+    "pharmacy": 1
+   },
+   "bytes": 113327
+  },
+  {
+   "key": "-2_-4",
+   "i": -2,
+   "j": -4,
+   "buildings": 151,
+   "edges": 234,
+   "residents": 501,
+   "jobs": 9011,
+   "services": {
+    "hardware": 1
+   },
+   "bytes": 70583
+  },
+  {
+   "key": "-2_-5",
+   "i": -2,
+   "j": -5,
+   "buildings": 896,
+   "edges": 501,
+   "residents": 3629,
+   "jobs": 1100,
+   "services": {
+    "bus_station": 1,
+    "school": 1
+   },
+   "bytes": 176318
+  },
+  {
+   "key": "-2_-6",
+   "i": -2,
+   "j": -6,
+   "buildings": 1287,
+   "edges": 709,
+   "residents": 6616,
+   "jobs": 3301,
+   "services": {
+    "pharmacy": 1
+   },
+   "bytes": 256086
+  },
+  {
+   "key": "-2_0",
+   "i": -2,
+   "j": 0,
+   "buildings": 202,
+   "edges": 1473,
+   "residents": 1759,
+   "jobs": 4197,
+   "services": {
+    "military": 3,
+    "power": 4,
+    "police": 1,
+    "train_station": 1,
+    "bus_station": 1
+   },
+   "bytes": 244740
+  },
+  {
+   "key": "-2_1",
+   "i": -2,
+   "j": 1,
+   "buildings": 673,
+   "edges": 710,
+   "residents": 2596,
+   "jobs": 4684,
+   "services": {
+    "power": 4,
+    "supermarket": 2
+   },
+   "bytes": 214909
+  },
+  {
+   "key": "-2_2",
+   "i": -2,
+   "j": 2,
+   "buildings": 1566,
+   "edges": 1089,
+   "residents": 6485,
+   "jobs": 1947,
+   "services": {
+    "pharmacy": 2,
+    "supermarket": 2,
+    "power": 3,
+    "clinic": 1
+   },
+   "bytes": 347627
+  },
+  {
+   "key": "-2_3",
+   "i": -2,
+   "j": 3,
+   "buildings": 657,
+   "edges": 645,
+   "residents": 6477,
+   "jobs": 4917,
+   "services": {
+    "school": 3,
+    "pharmacy": 1,
+    "supermarket": 1,
+    "power": 1
+   },
+   "bytes": 194037
+  },
+  {
+   "key": "-2_4",
+   "i": -2,
+   "j": 4,
+   "buildings": 495,
+   "edges": 345,
+   "residents": 1983,
+   "jobs": 6579,
+   "services": {
+    "power": 6,
+    "hardware": 3,
+    "supermarket": 3,
+    "fuel": 2
+   },
+   "bytes": 126684
+  },
+  {
+   "key": "-2_5",
+   "i": -2,
+   "j": 5,
+   "buildings": 1207,
+   "edges": 316,
+   "residents": 4410,
+   "jobs": 4331,
+   "services": {
+    "power": 4,
+    "supermarket": 1
+   },
+   "bytes": 187080
+  },
+  {
+   "key": "-3_-1",
+   "i": -3,
+   "j": -1,
+   "buildings": 1108,
+   "edges": 1032,
+   "residents": 8056,
+   "jobs": 4111,
+   "services": {
+    "police": 3,
+    "pharmacy": 2,
+    "clinic": 2,
+    "power": 1,
+    "school": 1,
+    "townhall": 1,
+    "supermarket": 2
+   },
+   "bytes": 287025
+  },
+  {
+   "key": "-3_-2",
+   "i": -3,
+   "j": -2,
+   "buildings": 704,
+   "edges": 483,
+   "residents": 5119,
+   "jobs": 1474,
+   "services": {
+    "school": 2,
+    "fuel": 1
+   },
+   "bytes": 171384
+  },
+  {
+   "key": "-3_-3",
+   "i": -3,
+   "j": -3,
+   "buildings": 691,
+   "edges": 547,
+   "residents": 4826,
+   "jobs": 475,
+   "services": {
+    "pharmacy": 1,
+    "power": 1
+   },
+   "bytes": 178727
+  },
+  {
+   "key": "-3_-4",
+   "i": -3,
+   "j": -4,
+   "buildings": 1015,
+   "edges": 397,
+   "residents": 4856,
+   "jobs": 1305,
+   "services": {
+    "power": 4,
+    "pharmacy": 1,
+    "townhall": 1,
+    "supermarket": 1,
+    "police": 1,
+    "fuel": 1
+   },
+   "bytes": 178711
+  },
+  {
+   "key": "-3_-5",
+   "i": -3,
+   "j": -5,
+   "buildings": 758,
+   "edges": 263,
+   "residents": 2596,
+   "jobs": 428,
+   "services": {
+    "fire_station": 1,
+    "pharmacy": 2
+   },
+   "bytes": 128978
+  },
+  {
+   "key": "-3_-6",
+   "i": -3,
+   "j": -6,
+   "buildings": 1368,
+   "edges": 636,
+   "residents": 6005,
+   "jobs": 2376,
+   "services": {
+    "clinic": 1,
+    "pharmacy": 1,
+    "fuel": 3
+   },
+   "bytes": 255695
+  },
+  {
+   "key": "-3_0",
+   "i": -3,
+   "j": 0,
+   "buildings": 1123,
+   "edges": 1109,
+   "residents": 6328,
+   "jobs": 4053,
+   "services": {
+    "clinic": 4,
+    "pharmacy": 1,
+    "power": 10,
+    "supermarket": 1
+   },
+   "bytes": 321066
+  },
+  {
+   "key": "-3_1",
+   "i": -3,
+   "j": 1,
+   "buildings": 1998,
+   "edges": 1207,
+   "residents": 9069,
+   "jobs": 3662,
+   "services": {
+    "pharmacy": 1,
+    "power": 1,
+    "clinic": 1,
+    "townhall": 1,
+    "police": 3
+   },
+   "bytes": 408171
+  },
+  {
+   "key": "-3_2",
+   "i": -3,
+   "j": 2,
+   "buildings": 588,
+   "edges": 997,
+   "residents": 4150,
+   "jobs": 21611,
+   "services": {
+    "school": 10,
+    "police": 1,
+    "pharmacy": 1,
+    "power": 5
+   },
+   "bytes": 266889
+  },
+  {
+   "key": "-3_3",
+   "i": -3,
+   "j": 3,
+   "buildings": 139,
+   "edges": 711,
+   "residents": 112,
+   "jobs": 9034,
+   "services": {
+    "school": 1,
+    "power": 1,
+    "clinic": 1
+   },
+   "bytes": 161838
+  },
+  {
+   "key": "-3_4",
+   "i": -3,
+   "j": 4,
+   "buildings": 239,
+   "edges": 152,
+   "residents": 691,
+   "jobs": 628,
+   "services": {
+    "hardware": 1,
+    "water": 2
+   },
+   "bytes": 57683
+  },
+  {
+   "key": "-3_5",
+   "i": -3,
+   "j": 5,
+   "buildings": 448,
+   "edges": 329,
+   "residents": 1291,
+   "jobs": 1352,
+   "services": {
+    "power": 3
+   },
+   "bytes": 110583
+  },
+  {
+   "key": "-4_-1",
+   "i": -4,
+   "j": -1,
+   "buildings": 1272,
+   "edges": 1018,
+   "residents": 8764,
+   "jobs": 7835,
+   "services": {
+    "school": 2,
+    "hospital": 1,
+    "power": 3,
+    "supermarket": 2,
+    "pharmacy": 2
+   },
+   "bytes": 313045
+  },
+  {
+   "key": "-4_-2",
+   "i": -4,
+   "j": -2,
+   "buildings": 746,
+   "edges": 264,
+   "residents": 2892,
+   "jobs": 662,
+   "services": {
+    "power": 5,
+    "pharmacy": 1
+   },
+   "bytes": 139014
+  },
+  {
+   "key": "-4_-3",
+   "i": -4,
+   "j": -3,
+   "buildings": 1037,
+   "edges": 347,
+   "residents": 8570,
+   "jobs": 4378,
+   "services": {
+    "pharmacy": 1,
+    "power": 5,
+    "supermarket": 2,
+    "clinic": 1
+   },
+   "bytes": 188645
+  },
+  {
+   "key": "-4_-4",
+   "i": -4,
+   "j": -4,
+   "buildings": 694,
+   "edges": 541,
+   "residents": 5050,
+   "jobs": 1302,
+   "services": {
+    "power": 3
+   },
+   "bytes": 177177
+  },
+  {
+   "key": "-4_-5",
+   "i": -4,
+   "j": -5,
+   "buildings": 1281,
+   "edges": 200,
+   "residents": 3984,
+   "jobs": 348,
+   "services": {},
+   "bytes": 178073
+  },
+  {
+   "key": "-4_-6",
+   "i": -4,
+   "j": -6,
+   "buildings": 954,
+   "edges": 481,
+   "residents": 2750,
+   "jobs": 6070,
+   "services": {
+    "hardware": 1,
+    "power": 2
+   },
+   "bytes": 182068
+  },
+  {
+   "key": "-4_0",
+   "i": -4,
+   "j": 0,
+   "buildings": 530,
+   "edges": 1981,
+   "residents": 5435,
+   "jobs": 11418,
+   "services": {
+    "pharmacy": 3,
+    "police": 1,
+    "supermarket": 4,
+    "townhall": 1,
+    "clinic": 1
+   },
+   "bytes": 389146
+  },
+  {
+   "key": "-4_1",
+   "i": -4,
+   "j": 1,
+   "buildings": 1494,
+   "edges": 1657,
+   "residents": 9021,
+   "jobs": 7337,
+   "services": {
+    "pharmacy": 2,
+    "power": 2,
+    "supermarket": 1,
+    "school": 4,
+    "clinic": 1,
+    "fuel": 1
+   },
+   "bytes": 449332
+  },
+  {
+   "key": "-4_2",
+   "i": -4,
+   "j": 2,
+   "buildings": 323,
+   "edges": 618,
+   "residents": 2547,
+   "jobs": 8245,
+   "services": {
+    "school": 1,
+    "supermarket": 3,
+    "fuel": 1,
+    "power": 2,
+    "clinic": 1
+   },
+   "bytes": 159249
+  },
+  {
+   "key": "-4_3",
+   "i": -4,
+   "j": 3,
+   "buildings": 105,
+   "edges": 301,
+   "residents": 481,
+   "jobs": 1901,
+   "services": {
+    "power": 1
+   },
+   "bytes": 73636
+  },
+  {
+   "key": "-4_4",
+   "i": -4,
+   "j": 4,
+   "buildings": 931,
+   "edges": 282,
+   "residents": 3724,
+   "jobs": 556,
+   "services": {
+    "pharmacy": 1,
+    "townhall": 1
+   },
+   "bytes": 144641
+  },
+  {
+   "key": "-4_5",
+   "i": -4,
+   "j": 5,
+   "buildings": 421,
+   "edges": 202,
+   "residents": 1446,
+   "jobs": 68,
+   "services": {
+    "police": 1
+   },
+   "bytes": 87653
+  },
+  {
+   "key": "-5_-1",
+   "i": -5,
+   "j": -1,
+   "buildings": 2651,
+   "edges": 519,
+   "residents": 9766,
+   "jobs": 2076,
+   "services": {
+    "supermarket": 2,
+    "townhall": 1,
+    "fire_station": 1,
+    "clinic": 1,
+    "pharmacy": 1
+   },
+   "bytes": 349046
+  },
+  {
+   "key": "-5_-2",
+   "i": -5,
+   "j": -2,
+   "buildings": 600,
+   "edges": 183,
+   "residents": 2349,
+   "jobs": 528,
+   "services": {
+    "supermarket": 1
+   },
+   "bytes": 103774
+  },
+  {
+   "key": "-5_-3",
+   "i": -5,
+   "j": -3,
+   "buildings": 1873,
+   "edges": 597,
+   "residents": 7876,
+   "jobs": 5590,
+   "services": {
+    "pharmacy": 2,
+    "supermarket": 2,
+    "power": 1,
+    "clinic": 2,
+    "fuel": 2,
+    "train_station": 1
+   },
+   "bytes": 289717
+  },
+  {
+   "key": "-5_-4",
+   "i": -5,
+   "j": -4,
+   "buildings": 1782,
+   "edges": 774,
+   "residents": 6669,
+   "jobs": 2945,
+   "services": {
+    "supermarket": 1,
+    "pharmacy": 1,
+    "police": 1
+   },
+   "bytes": 306371
+  },
+  {
+   "key": "-5_-5",
+   "i": -5,
+   "j": -5,
+   "buildings": 156,
+   "edges": 84,
+   "residents": 467,
+   "jobs": 3322,
+   "services": {
+    "power": 1
+   },
+   "bytes": 40601
+  },
+  {
+   "key": "-5_-6",
+   "i": -5,
+   "j": -6,
+   "buildings": 221,
+   "edges": 738,
+   "residents": 160,
+   "jobs": 11521,
+   "services": {
+    "hardware": 2,
+    "power": 1,
+    "train_station": 1
+   },
+   "bytes": 154472
+  },
+  {
+   "key": "-5_0",
+   "i": -5,
+   "j": 0,
+   "buildings": 360,
+   "edges": 842,
+   "residents": 3335,
+   "jobs": 14904,
+   "services": {
+    "fuel": 1,
+    "pharmacy": 1,
+    "power": 3,
+    "hardware": 2,
+    "supermarket": 1
+   },
+   "bytes": 211377
+  },
+  {
+   "key": "-5_1",
+   "i": -5,
+   "j": 1,
+   "buildings": 270,
+   "edges": 1116,
+   "residents": 1496,
+   "jobs": 451,
+   "services": {},
+   "bytes": 192952
+  },
+  {
+   "key": "-5_2",
+   "i": -5,
+   "j": 2,
+   "buildings": 1447,
+   "edges": 517,
+   "residents": 8304,
+   "jobs": 950,
+   "services": {
+    "townhall": 1,
+    "pharmacy": 1,
+    "clinic": 1,
+    "power": 1
+   },
+   "bytes": 240112
+  },
+  {
+   "key": "-5_3",
+   "i": -5,
+   "j": 3,
+   "buildings": 827,
+   "edges": 291,
+   "residents": 3610,
+   "jobs": 516,
+   "services": {
+    "townhall": 1,
+    "hardware": 1
+   },
+   "bytes": 147009
+  },
+  {
+   "key": "-5_4",
+   "i": -5,
+   "j": 4,
+   "buildings": 17,
+   "edges": 80,
+   "residents": 31,
+   "jobs": 8,
+   "services": {
+    "military": 1
+   },
+   "bytes": 26140
+  },
+  {
+   "key": "-5_5",
+   "i": -5,
+   "j": 5,
+   "buildings": 18,
+   "edges": 59,
+   "residents": 0,
+   "jobs": 33,
+   "services": {
+    "military": 1
+   },
+   "bytes": 20492
+  },
+  {
+   "key": "-6_-1",
+   "i": -6,
+   "j": -1,
+   "buildings": 442,
+   "edges": 92,
+   "residents": 1648,
+   "jobs": 291,
+   "services": {
+    "clinic": 1
+   },
+   "bytes": 69590
+  },
+  {
+   "key": "-6_-2",
+   "i": -6,
+   "j": -2,
+   "buildings": 0,
+   "edges": 25,
+   "residents": 0,
+   "jobs": 0,
+   "services": {},
+   "bytes": 16640
+  },
+  {
+   "key": "-6_-3",
+   "i": -6,
+   "j": -3,
+   "buildings": 813,
+   "edges": 187,
+   "residents": 3085,
+   "jobs": 224,
+   "services": {
+    "train_station": 1
+   },
+   "bytes": 115979
+  },
+  {
+   "key": "-6_-4",
+   "i": -6,
+   "j": -4,
+   "buildings": 1418,
+   "edges": 280,
+   "residents": 5178,
+   "jobs": 518,
+   "services": {
+    "townhall": 1,
+    "pharmacy": 1
+   },
+   "bytes": 188628
+  },
+  {
+   "key": "-6_-5",
+   "i": -6,
+   "j": -5,
+   "buildings": 139,
+   "edges": 110,
+   "residents": 699,
+   "jobs": 197,
+   "services": {},
+   "bytes": 39375
+  },
+  {
+   "key": "-6_-6",
+   "i": -6,
+   "j": -6,
+   "buildings": 124,
+   "edges": 97,
+   "residents": 0,
+   "jobs": 1284,
+   "services": {
+    "power": 1,
+    "hardware": 1
+   },
+   "bytes": 38292
+  },
+  {
+   "key": "-6_0",
+   "i": -6,
+   "j": 0,
+   "buildings": 777,
+   "edges": 511,
+   "residents": 2929,
+   "jobs": 2884,
+   "services": {
+    "fuel": 1,
+    "supermarket": 2,
+    "power": 2
+   },
+   "bytes": 177451
+  },
+  {
+   "key": "-6_1",
+   "i": -6,
+   "j": 1,
+   "buildings": 20,
+   "edges": 165,
+   "residents": 0,
+   "jobs": 1236,
+   "services": {},
+   "bytes": 40960
+  },
+  {
+   "key": "-6_2",
+   "i": -6,
+   "j": 2,
+   "buildings": 330,
+   "edges": 260,
+   "residents": 1559,
+   "jobs": 1151,
+   "services": {
+    "fire_station": 1,
+    "supermarket": 1
+   },
+   "bytes": 90108
+  },
+  {
+   "key": "-6_3",
+   "i": -6,
+   "j": 3,
+   "buildings": 27,
+   "edges": 57,
+   "residents": 22,
+   "jobs": 100,
+   "services": {
+    "military": 1
+   },
+   "bytes": 24470
+  },
+  {
+   "key": "-6_4",
+   "i": -6,
+   "j": 4,
+   "buildings": 430,
+   "edges": 92,
+   "residents": 1320,
+   "jobs": 39,
+   "services": {
+    "clinic": 1,
+    "military": 3
+   },
+   "bytes": 70830
+  },
+  {
+   "key": "-6_5",
+   "i": -6,
+   "j": 5,
+   "buildings": 831,
+   "edges": 135,
+   "residents": 2741,
+   "jobs": 126,
+   "services": {
+    "pharmacy": 1
+   },
+   "bytes": 114401
+  },
+  {
+   "key": "0_-1",
+   "i": 0,
+   "j": -1,
+   "buildings": 1458,
+   "edges": 1622,
+   "residents": 23161,
+   "jobs": 25602,
+   "services": {
+    "school": 20,
+    "clinic": 1,
+    "townhall": 1,
+    "power": 4,
+    "supermarket": 3,
+    "pharmacy": 5,
+    "hospital": 1,
+    "hardware": 1
+   },
+   "bytes": 450210
+  },
+  {
+   "key": "0_-2",
+   "i": 0,
+   "j": -2,
+   "buildings": 1433,
+   "edges": 2558,
+   "residents": 15499,
+   "jobs": 9426,
+   "services": {
+    "supermarket": 2,
+    "power": 2,
+    "pharmacy": 3,
+    "clinic": 5,
+    "townhall": 1,
+    "fuel": 1,
+    "bus_station": 1
+   },
+   "bytes": 492604
+  },
+  {
+   "key": "0_-3",
+   "i": 0,
+   "j": -3,
+   "buildings": 1242,
+   "edges": 2073,
+   "residents": 10224,
+   "jobs": 7020,
+   "services": {
+    "school": 2,
+    "police": 1,
+    "power": 6,
+    "pharmacy": 2,
+    "clinic": 2,
+    "train_station": 1
+   },
+   "bytes": 418748
+  },
+  {
+   "key": "0_-4",
+   "i": 0,
+   "j": -4,
+   "buildings": 867,
+   "edges": 1015,
+   "residents": 7644,
+   "jobs": 1361,
+   "services": {
+    "pharmacy": 1,
+    "clinic": 1
+   },
+   "bytes": 252467
+  },
+  {
+   "key": "0_-5",
+   "i": 0,
+   "j": -5,
+   "buildings": 592,
+   "edges": 1099,
+   "residents": 5836,
+   "jobs": 1009,
+   "services": {
+    "pharmacy": 2
+   },
+   "bytes": 223075
+  },
+  {
+   "key": "0_-6",
+   "i": 0,
+   "j": -6,
+   "buildings": 240,
+   "edges": 121,
+   "residents": 2736,
+   "jobs": 1233,
+   "services": {},
+   "bytes": 60743
+  },
+  {
+   "key": "0_0",
+   "i": 0,
+   "j": 0,
+   "buildings": 1169,
+   "edges": 1160,
+   "residents": 15058,
+   "jobs": 12414,
+   "services": {
+    "school": 10,
+    "townhall": 1,
+    "hospital": 1,
+    "pharmacy": 4,
+    "clinic": 6,
+    "supermarket": 1,
+    "fuel": 1
+   },
+   "bytes": 343302
+  },
+  {
+   "key": "0_1",
+   "i": 0,
+   "j": 1,
+   "buildings": 674,
+   "edges": 1354,
+   "residents": 8194,
+   "jobs": 11283,
+   "services": {
+    "power": 3
+   },
+   "bytes": 293755
+  },
+  {
+   "key": "0_2",
+   "i": 0,
+   "j": 2,
+   "buildings": 2531,
+   "edges": 1382,
+   "residents": 12175,
+   "jobs": 4740,
+   "services": {
+    "power": 6,
+    "clinic": 6,
+    "school": 3,
+    "fuel": 1,
+    "pharmacy": 1,
+    "supermarket": 1
+   },
+   "bytes": 499813
+  },
+  {
+   "key": "0_3",
+   "i": 0,
+   "j": 3,
+   "buildings": 3008,
+   "edges": 775,
+   "residents": 11293,
+   "jobs": 2667,
+   "services": {
+    "clinic": 4,
+    "supermarket": 1,
+    "townhall": 1,
+    "power": 2,
+    "pharmacy": 3,
+    "fuel": 1
+   },
+   "bytes": 416874
+  },
+  {
+   "key": "0_4",
+   "i": 0,
+   "j": 4,
+   "buildings": 1942,
+   "edges": 800,
+   "residents": 6470,
+   "jobs": 1657,
+   "services": {
+    "townhall": 1,
+    "power": 5,
+    "pharmacy": 2,
+    "police": 1,
+    "prison": 1,
+    "fire_station": 1,
+    "hospital": 1
+   },
+   "bytes": 316146
+  },
+  {
+   "key": "0_5",
+   "i": 0,
+   "j": 5,
+   "buildings": 370,
+   "edges": 202,
+   "residents": 1677,
+   "jobs": 658,
+   "services": {
+    "supermarket": 2,
+    "fuel": 1
+   },
+   "bytes": 77654
+  },
+  {
+   "key": "1_-1",
+   "i": 1,
+   "j": -1,
+   "buildings": 642,
+   "edges": 1664,
+   "residents": 12722,
+   "jobs": 34190,
+   "services": {
+    "school": 38,
+    "power": 1,
+    "pharmacy": 4,
+    "clinic": 2,
+    "supermarket": 3,
+    "fuel": 1,
+    "townhall": 1
+   },
+   "bytes": 325183
+  },
+  {
+   "key": "1_-2",
+   "i": 1,
+   "j": -2,
+   "buildings": 1125,
+   "edges": 1826,
+   "residents": 12421,
+   "jobs": 8069,
+   "services": {
+    "pharmacy": 3,
+    "hardware": 2,
+    "power": 3,
+    "clinic": 6
+   },
+   "bytes": 386970
+  },
+  {
+   "key": "1_-3",
+   "i": 1,
+   "j": -3,
+   "buildings": 1091,
+   "edges": 996,
+   "residents": 8703,
+   "jobs": 4284,
+   "services": {
+    "clinic": 2,
+    "supermarket": 3,
+    "pharmacy": 1,
+    "power": 1,
+    "school": 2
+   },
+   "bytes": 264027
+  },
+  {
+   "key": "1_-4",
+   "i": 1,
+   "j": -4,
+   "buildings": 605,
+   "edges": 769,
+   "residents": 3894,
+   "jobs": 2744,
+   "services": {
+    "clinic": 2,
+    "pharmacy": 2,
+    "supermarket": 1
+   },
+   "bytes": 182561
+  },
+  {
+   "key": "1_-5",
+   "i": 1,
+   "j": -5,
+   "buildings": 982,
+   "edges": 895,
+   "residents": 7732,
+   "jobs": 1771,
+   "services": {
+    "fuel": 1,
+    "townhall": 1,
+    "pharmacy": 1,
+    "supermarket": 1,
+    "police": 1
+   },
+   "bytes": 252193
+  },
+  {
+   "key": "1_-6",
+   "i": 1,
+   "j": -6,
+   "buildings": 1346,
+   "edges": 453,
+   "residents": 6442,
+   "jobs": 842,
+   "services": {
+    "pharmacy": 1
+   },
+   "bytes": 217587
+  },
+  {
+   "key": "1_0",
+   "i": 1,
+   "j": 0,
+   "buildings": 1507,
+   "edges": 1468,
+   "residents": 14782,
+   "jobs": 7419,
+   "services": {
+    "school": 4,
+    "pharmacy": 2,
+    "clinic": 4,
+    "hospital": 1
+   },
+   "bytes": 382580
+  },
+  {
+   "key": "1_1",
+   "i": 1,
+   "j": 1,
+   "buildings": 453,
+   "edges": 999,
+   "residents": 2297,
+   "jobs": 30385,
+   "services": {
+    "stadium": 1,
+    "power": 5
+   },
+   "bytes": 218704
+  },
+  {
+   "key": "1_2",
+   "i": 1,
+   "j": 2,
+   "buildings": 506,
+   "edges": 820,
+   "residents": 5283,
+   "jobs": 6527,
+   "services": {
+    "clinic": 1,
+    "pharmacy": 1,
+    "power": 2,
+    "police": 1
+   },
+   "bytes": 205039
+  },
+  {
+   "key": "1_3",
+   "i": 1,
+   "j": 3,
+   "buildings": 679,
+   "edges": 856,
+   "residents": 5935,
+   "jobs": 3327,
+   "services": {
+    "power": 1,
+    "supermarket": 1,
+    "pharmacy": 1,
+    "school": 7,
+    "fuel": 1
+   },
+   "bytes": 228945
+  },
+  {
+   "key": "1_4",
+   "i": 1,
+   "j": 4,
+   "buildings": 1025,
+   "edges": 474,
+   "residents": 5573,
+   "jobs": 4836,
+   "services": {
+    "school": 3,
+    "power": 3,
+    "supermarket": 1,
+    "pharmacy": 1
+   },
+   "bytes": 196816
+  },
+  {
+   "key": "1_5",
+   "i": 1,
+   "j": 5,
+   "buildings": 119,
+   "edges": 197,
+   "residents": 11,
+   "jobs": 1543,
+   "services": {
+    "supermarket": 1
+   },
+   "bytes": 52641
+  },
+  {
+   "key": "2_-1",
+   "i": 2,
+   "j": -1,
+   "buildings": 278,
+   "edges": 613,
+   "residents": 1552,
+   "jobs": 2350,
+   "services": {
+    "military": 1,
+    "townhall": 1
+   },
+   "bytes": 133150
+  },
+  {
+   "key": "2_-2",
+   "i": 2,
+   "j": -2,
+   "buildings": 153,
+   "edges": 822,
+   "residents": 3331,
+   "jobs": 4014,
+   "services": {
+    "school": 2,
+    "pharmacy": 1
+   },
+   "bytes": 145587
+  },
+  {
+   "key": "2_-3",
+   "i": 2,
+   "j": -3,
+   "buildings": 506,
+   "edges": 352,
+   "residents": 3559,
+   "jobs": 3030,
+   "services": {
+    "clinic": 1,
+    "pharmacy": 1
+   },
+   "bytes": 127972
+  },
+  {
+   "key": "2_-4",
+   "i": 2,
+   "j": -4,
+   "buildings": 44,
+   "edges": 88,
+   "residents": 33,
+   "jobs": 909,
+   "services": {},
+   "bytes": 31830
+  },
+  {
+   "key": "2_-5",
+   "i": 2,
+   "j": -5,
+   "buildings": 84,
+   "edges": 191,
+   "residents": 45,
+   "jobs": 1459,
+   "services": {},
+   "bytes": 49899
+  },
+  {
+   "key": "2_-6",
+   "i": 2,
+   "j": -6,
+   "buildings": 161,
+   "edges": 175,
+   "residents": 0,
+   "jobs": 3270,
+   "services": {},
+   "bytes": 57935
+  },
+  {
+   "key": "2_0",
+   "i": 2,
+   "j": 0,
+   "buildings": 751,
+   "edges": 641,
+   "residents": 5705,
+   "jobs": 2040,
+   "services": {
+    "pharmacy": 1,
+    "supermarket": 1,
+    "school": 1
+   },
+   "bytes": 197927
+  },
+  {
+   "key": "2_1",
+   "i": 2,
+   "j": 1,
+   "buildings": 1329,
+   "edges": 508,
+   "residents": 7997,
+   "jobs": 5506,
+   "services": {
+    "pharmacy": 2,
+    "supermarket": 1,
+    "townhall": 1,
+    "fuel": 1
+   },
+   "bytes": 249015
+  },
+  {
+   "key": "2_2",
+   "i": 2,
+   "j": 2,
+   "buildings": 2257,
+   "edges": 537,
+   "residents": 9082,
+   "jobs": 2163,
+   "services": {
+    "power": 2,
+    "supermarket": 1,
+    "pharmacy": 2,
+    "clinic": 1,
+    "school": 2,
+    "police": 1
+   },
+   "bytes": 326674
+  },
+  {
+   "key": "2_3",
+   "i": 2,
+   "j": 3,
+   "buildings": 925,
+   "edges": 274,
+   "residents": 4471,
+   "jobs": 1936,
+   "services": {
+    "power": 4,
+    "pharmacy": 1,
+    "fuel": 1
+   },
+   "bytes": 156527
+  },
+  {
+   "key": "2_4",
+   "i": 2,
+   "j": 4,
+   "buildings": 229,
+   "edges": 167,
+   "residents": 561,
+   "jobs": 1080,
+   "services": {
+    "school": 2,
+    "power": 2
+   },
+   "bytes": 64551
+  },
+  {
+   "key": "2_5",
+   "i": 2,
+   "j": 5,
+   "buildings": 14,
+   "edges": 122,
+   "residents": 19,
+   "jobs": 10,
+   "services": {},
+   "bytes": 28187
+  },
+  {
+   "key": "3_-1",
+   "i": 3,
+   "j": -1,
+   "buildings": 114,
+   "edges": 132,
+   "residents": 0,
+   "jobs": 3978,
+   "services": {
+    "water": 1,
+    "police": 1
+   },
+   "bytes": 51557
+  },
+  {
+   "key": "3_-2",
+   "i": 3,
+   "j": -2,
+   "buildings": 130,
+   "edges": 1385,
+   "residents": 2231,
+   "jobs": 4923,
+   "services": {
+    "pharmacy": 1,
+    "clinic": 3,
+    "military": 1,
+    "supermarket": 1,
+    "power": 1
+   },
+   "bytes": 205483
+  },
+  {
+   "key": "3_-3",
+   "i": 3,
+   "j": -3,
+   "buildings": 73,
+   "edges": 199,
+   "residents": 0,
+   "jobs": 1141,
+   "services": {
+    "power": 1,
+    "military": 1
+   },
+   "bytes": 49224
+  },
+  {
+   "key": "3_-4",
+   "i": 3,
+   "j": -4,
+   "buildings": 45,
+   "edges": 76,
+   "residents": 0,
+   "jobs": 167,
+   "services": {},
+   "bytes": 30256
+  },
+  {
+   "key": "3_-5",
+   "i": 3,
+   "j": -5,
+   "buildings": 50,
+   "edges": 63,
+   "residents": 0,
+   "jobs": 502,
+   "services": {},
+   "bytes": 27797
+  },
+  {
+   "key": "3_-6",
+   "i": 3,
+   "j": -6,
+   "buildings": 24,
+   "edges": 38,
+   "residents": 0,
+   "jobs": 568,
+   "services": {},
+   "bytes": 18308
+  },
+  {
+   "key": "3_0",
+   "i": 3,
+   "j": 0,
+   "buildings": 118,
+   "edges": 100,
+   "residents": 0,
+   "jobs": 956,
+   "services": {
+    "fire_station": 1
+   },
+   "bytes": 46261
+  },
+  {
+   "key": "3_1",
+   "i": 3,
+   "j": 1,
+   "buildings": 348,
+   "edges": 158,
+   "residents": 1939,
+   "jobs": 472,
+   "services": {
+    "supermarket": 1
+   },
+   "bytes": 82307
+  },
+  {
+   "key": "3_2",
+   "i": 3,
+   "j": 2,
+   "buildings": 216,
+   "edges": 230,
+   "residents": 1124,
+   "jobs": 494,
+   "services": {},
+   "bytes": 83263
+  },
+  {
+   "key": "3_3",
+   "i": 3,
+   "j": 3,
+   "buildings": 201,
+   "edges": 113,
+   "residents": 1639,
+   "jobs": 165,
+   "services": {
+    "power": 2
+   },
+   "bytes": 54262
+  },
+  {
+   "key": "3_4",
+   "i": 3,
+   "j": 4,
+   "buildings": 128,
+   "edges": 73,
+   "residents": 946,
+   "jobs": 156,
+   "services": {
+    "power": 5
+   },
+   "bytes": 40513
+  },
+  {
+   "key": "3_5",
+   "i": 3,
+   "j": 5,
+   "buildings": 23,
+   "edges": 38,
+   "residents": 0,
+   "jobs": 29,
+   "services": {
+    "school": 1
+   },
+   "bytes": 18522
+  },
+  {
+   "key": "4_-1",
+   "i": 4,
+   "j": -1,
+   "buildings": 296,
+   "edges": 619,
+   "residents": 345,
+   "jobs": 5988,
+   "services": {
+    "fire_station": 1,
+    "supermarket": 4,
+    "fuel": 5,
+    "train_station": 1
+   },
+   "bytes": 152213
+  },
+  {
+   "key": "4_-2",
+   "i": 4,
+   "j": -2,
+   "buildings": 1825,
+   "edges": 972,
+   "residents": 10038,
+   "jobs": 10035,
+   "services": {
+    "hospital": 1,
+    "townhall": 2,
+    "school": 3,
+    "police": 2,
+    "clinic": 8,
+    "supermarket": 4,
+    "pharmacy": 3,
+    "hardware": 1,
+    "power": 2,
+    "train_station": 1
+   },
+   "bytes": 382599
+  },
+  {
+   "key": "4_-3",
+   "i": 4,
+   "j": -3,
+   "buildings": 677,
+   "edges": 420,
+   "residents": 2888,
+   "jobs": 2753,
+   "services": {
+    "school": 1,
+    "power": 1,
+    "water": 1
+   },
+   "bytes": 154566
+  },
+  {
+   "key": "4_-4",
+   "i": 4,
+   "j": -4,
+   "buildings": 4,
+   "edges": 48,
+   "residents": 0,
+   "jobs": 5,
+   "services": {},
+   "bytes": 27974
+  },
+  {
+   "key": "4_-5",
+   "i": 4,
+   "j": -5,
+   "buildings": 3,
+   "edges": 64,
+   "residents": 0,
+   "jobs": 38,
+   "services": {},
+   "bytes": 30478
+  },
+  {
+   "key": "4_-6",
+   "i": 4,
+   "j": -6,
+   "buildings": 0,
+   "edges": 26,
+   "residents": 0,
+   "jobs": 0,
+   "services": {},
+   "bytes": 22484
+  },
+  {
+   "key": "4_0",
+   "i": 4,
+   "j": 0,
+   "buildings": 196,
+   "edges": 26,
+   "residents": 0,
+   "jobs": 2091,
+   "services": {},
+   "bytes": 36031
+  },
+  {
+   "key": "4_1",
+   "i": 4,
+   "j": 1,
+   "buildings": 154,
+   "edges": 46,
+   "residents": 0,
+   "jobs": 1191,
+   "services": {},
+   "bytes": 31866
+  },
+  {
+   "key": "4_2",
+   "i": 4,
+   "j": 2,
+   "buildings": 10,
+   "edges": 69,
+   "residents": 0,
+   "jobs": 52,
+   "services": {
+    "military": 2
+   },
+   "bytes": 28826
+  },
+  {
+   "key": "4_3",
+   "i": 4,
+   "j": 3,
+   "buildings": 0,
+   "edges": 67,
+   "residents": 0,
+   "jobs": 0,
+   "services": {
+    "military": 1
+   },
+   "bytes": 19705
+  },
+  {
+   "key": "4_4",
+   "i": 4,
+   "j": 4,
+   "buildings": 5,
+   "edges": 96,
+   "residents": 181,
+   "jobs": 24,
+   "services": {},
+   "bytes": 25606
+  },
+  {
+   "key": "4_5",
+   "i": 4,
+   "j": 5,
+   "buildings": 26,
+   "edges": 123,
+   "residents": 0,
+   "jobs": 69,
+   "services": {
+    "military": 1,
+    "power": 1
+   },
+   "bytes": 36992
+  },
+  {
+   "key": "5_-1",
+   "i": 5,
+   "j": -1,
+   "buildings": 135,
+   "edges": 232,
+   "residents": 20,
+   "jobs": 3482,
+   "services": {
+    "supermarket": 1,
+    "power": 3
+   },
+   "bytes": 83937
+  },
+  {
+   "key": "5_-2",
+   "i": 5,
+   "j": -2,
+   "buildings": 1303,
+   "edges": 316,
+   "residents": 4551,
+   "jobs": 1447,
+   "services": {
+    "fuel": 1,
+    "clinic": 2
+   },
+   "bytes": 213299
+  },
+  {
+   "key": "5_-3",
+   "i": 5,
+   "j": -3,
+   "buildings": 1555,
+   "edges": 477,
+   "residents": 5864,
+   "jobs": 4963,
+   "services": {
+    "school": 3,
+    "clinic": 1,
+    "supermarket": 1,
+    "power": 1
+   },
+   "bytes": 246576
+  },
+  {
+   "key": "5_-4",
+   "i": 5,
+   "j": -4,
+   "buildings": 72,
+   "edges": 57,
+   "residents": 198,
+   "jobs": 37,
+   "services": {},
+   "bytes": 38081
+  },
+  {
+   "key": "5_-5",
+   "i": 5,
+   "j": -5,
+   "buildings": 15,
+   "edges": 23,
+   "residents": 0,
+   "jobs": 0,
+   "services": {},
+   "bytes": 25408
+  },
+  {
+   "key": "5_-6",
+   "i": 5,
+   "j": -6,
+   "buildings": 37,
+   "edges": 63,
+   "residents": 20,
+   "jobs": 208,
+   "services": {},
+   "bytes": 36928
+  },
+  {
+   "key": "5_0",
+   "i": 5,
+   "j": 0,
+   "buildings": 95,
+   "edges": 145,
+   "residents": 0,
+   "jobs": 3038,
+   "services": {
+    "supermarket": 1,
+    "water": 1
+   },
+   "bytes": 57264
+  },
+  {
+   "key": "5_1",
+   "i": 5,
+   "j": 1,
+   "buildings": 239,
+   "edges": 166,
+   "residents": 345,
+   "jobs": 2904,
+   "services": {},
+   "bytes": 75015
+  },
+  {
+   "key": "5_2",
+   "i": 5,
+   "j": 2,
+   "buildings": 343,
+   "edges": 115,
+   "residents": 973,
+   "jobs": 763,
+   "services": {
+    "military": 1
+   },
+   "bytes": 69300
+  },
+  {
+   "key": "5_3",
+   "i": 5,
+   "j": 3,
+   "buildings": 3,
+   "edges": 33,
+   "residents": 0,
+   "jobs": 2,
+   "services": {},
+   "bytes": 16093
+  },
+  {
+   "key": "5_4",
+   "i": 5,
+   "j": 4,
+   "buildings": 1,
+   "edges": 26,
+   "residents": 0,
+   "jobs": 0,
+   "services": {},
+   "bytes": 14895
+  },
+  {
+   "key": "5_5",
+   "i": 5,
+   "j": 5,
+   "buildings": 60,
+   "edges": 156,
+   "residents": 66,
+   "jobs": 132,
+   "services": {},
+   "bytes": 42501
+  }
+ ],
+ "stats": {
+  "buildings": 97760,
+  "buildingsWithEstimatedHeight": 86441,
+  "residents": 587512,
+  "jobs": 584311,
+  "edges": 78355,
+  "junctions": 56529,
+  "signals": 2109,
+  "connections": 116152,
+  "restrictions": 446,
+  "areas": 14706,
+  "lines": 2413,
+  "terrain": {
+   "source": "Copernicus GLO-30",
+   "tiles": 1
+  },
+  "bytes": 24353178
+ },
+ "sources": {
+  "osm": [
+   {
+    "id": "alsace",
+    "name": "Alsace",
+    "url": "https://download.geofabrik.de/europe/france/alsace-latest.osm.pbf"
+   },
+   {
+    "id": "dach",
+    "name": "Germany, Austria, Switzerland",
+    "url": "https://download.geofabrik.de/europe/dach-latest.osm.pbf"
+   }
+  ],
+  "dem": [
+   "Copernicus_DSM_COG_10_N48_00_E007_00_DEM.tif"
+  ],
+  "attribution": "© OpenStreetMap contributors (ODbL 1.0). Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA."
+ },
+ "fetchedAt": "2026-11-07T17:16:10.551Z",
+ "compiledAt": "2026-11-07T17:16:21.839Z"
+}

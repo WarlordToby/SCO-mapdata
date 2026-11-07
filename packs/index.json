@@ -1,0 +1,15 @@
+[
+ {
+  "slug": "strasbourg",
+  "name": "Strasbourg",
+  "country": "FR",
+  "lat": 48.584614,
+  "lon": 7.7507127,
+  "radiusKm": 6,
+  "tiles": 144,
+  "buildings": 97760,
+  "residents": 587512,
+  "bytes": 24353178,
+  "compiledAt": "2026-11-07T17:16:21.839Z"
+ }
+]
