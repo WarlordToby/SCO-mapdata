@@ -119,5 +119,7 @@ table.t td.n,table.t th.n{text-align:right;font-family:var(--mono)}table.t tr.it
 #chlog .title{font-size:14px}#chBody{overflow:auto;margin-top:8px;font-size:12.5px;color:#b9c9d2}#chBody ul{margin:4px 0 10px;padding-left:18px}#chBody li{margin:3px 0}.chv b{color:var(--acc)}
 #verTag{position:absolute;right:16px;bottom:14px;color:#59c8e8aa;font-size:12px}
 #menu .inner{top:38%}
-#tTop button{white-space:nowrap}#tStats{flex:1;min-width:0;flex-wrap:wrap;gap:2px 12px}#tStats div{flex:none}
+#tTop button{white-space:nowrap}#tStats{flex:1;min-width:0;flex-wrap:nowrap;gap:14px;overflow:visible}#tStats div{flex:none}
 #tLeft,#tRight,#tPerf{top:92px!important}#tLeft{bottom:120px}
+.tsMore{position:relative;cursor:default}.tsPop{display:none;position:absolute;top:100%;right:-10px;margin-top:6px;background:#0b1319f5;border:1px solid var(--line2);border-radius:3px;padding:8px 10px;gap:8px 14px;grid-template-columns:repeat(3,auto);z-index:5}#tStats .tsPop{display:none;flex-direction:row}#tStats .tsMore:hover .tsPop{display:grid}
+#tLeft,#tRight,#tPerf{top:56px!important}

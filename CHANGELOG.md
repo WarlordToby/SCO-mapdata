@@ -2,6 +2,20 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.6.2 — Map polish (2026-11-07)
+
+- Gardens and lawns: residential land is now lawn with shrubs and patches of paving instead of grey; open ground gets grass, earth and scrub. Commercial and industrial land stays paved.
+- Car parks: own lighter asphalt with bay markings laid out along each lot.
+- Service roads, driveways and parking aisles are drawn narrow and lighter; farm tracks in earth tones. Pedestrian streets are wide light paving.
+- Footpaths and cycleways are narrower, in gravel and red-brown tones, and fade out when zoomed out.
+- Infested buildings keep their facade under the threat colour and pulse slowly; smoke rises from heavily infested and badly damaged buildings.
+- Flat roofs: lighter gravel and membrane tones, parapets, and rooftop plant (air handlers, lift rooms) on larger roofs.
+- Night: stronger moonlight and ambient light so streets and buildings stay readable between the lamps.
+- Water: sky reflection by viewing angle, slow ripples and sun glints.
+- Map labels no longer overlap: endangered HVTs, selected units, sites, HVTs and districts are placed in that order of priority.
+- City top bar is one row with the key figures; the rest open from "More".
+- Zebra crossings sit just behind the stop line of signalised approaches.
+
 ## v0.6.1 — Terrain fix (2026-11-07)
 
 - Bare-earth terrain: the Copernicus elevation model measures rooftops and tree canopy, which made the ground lumpy and let streets and land use sink under it. The map compiler now removes raised objects and smooths the result (up to 36 m removed in Strasbourg). Strasbourg recompiled.

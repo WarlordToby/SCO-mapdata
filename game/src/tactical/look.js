@@ -2,7 +2,7 @@
 // building/roof geometry and street furniture. "Blend" style: realistic up close, clean tactical map when zoomed out.
 import * as THREE from 'three';
 
-export const U = { uTac: { value: 0 }, uNight: { value: 0 }, uLocked: { value: 0 } };
+export const U = { uTac: { value: 0 }, uNight: { value: 0 }, uLocked: { value: 0 }, uTime: { value: 0 }, uSkyHor: { value: new THREE.Color(0xb9cde0) }, uSkyTop: { value: new THREE.Color(0x4f7fb8) } };
 const LUM = 'vec3(0.299, 0.587, 0.114)';
 const TAC = `vec3 tacPal(vec3 c){ float l = dot(c, ${LUM}); return mix(vec3(l), c, 0.8) * 0.62 + 0.3; }`;
 const HASH = `float hh(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }`;
@@ -21,9 +21,14 @@ export function flatMat(opts = {}, locked = false, mottle = 0) {
     sh.vertexShader = 'varying vec3 vWP2;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP2 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = `uniform float uTac; varying vec3 vWP2;\n${TAC}\n${NOISE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       ${mottle ? `{ vec2 q = vWP2.xz; float n1 = fbm(q * 0.025), n2 = fbm(q * 0.11 + 13.0);
-        ${mottle === 2 ? `vec3 grass = vec3(0.36, 0.42, 0.27), earth = vec3(0.45, 0.42, 0.35);
-        float gm = smoothstep(0.42, 0.62, n1);
-        diffuseColor.rgb = mix(diffuseColor.rgb, mix(earth, grass, smoothstep(0.3, 0.7, n2)), gm * 0.75);` : ''}
+        ${mottle === 2 ? `vec3 grass = vec3(0.105, 0.16, 0.06), earth = vec3(0.17, 0.15, 0.11), shrub = vec3(0.065, 0.105, 0.04);
+        float gm = smoothstep(0.34, 0.52, n1);
+        vec3 nat = mix(mix(earth, grass, smoothstep(0.25, 0.6, n2)), shrub, smoothstep(0.72, 0.85, fbm(q * 0.06 + 3.0)));
+        diffuseColor.rgb = mix(diffuseColor.rgb, nat, gm * 0.9);` : ''}
+        ${mottle === 3 ? `vec3 lawn = vec3(0.105, 0.16, 0.06), shrub = vec3(0.065, 0.105, 0.04), paving = vec3(0.23, 0.22, 0.2);
+        vec3 gard = mix(lawn, shrub, smoothstep(0.6, 0.8, n2));
+        gard = mix(gard, paving, smoothstep(0.62, 0.74, fbm(q * 0.045 + 21.0)) * 0.7);
+        diffuseColor.rgb = gard;` : ''}
         diffuseColor.rgb *= 0.92 + 0.16 * n2; }` : ''}
       diffuseColor.rgb = mix(diffuseColor.rgb, tacPal(diffuseColor.rgb) * ${locked ? '0.72' : '1.0'}, uTac);`);
   };
@@ -40,7 +45,7 @@ export function buildingMat(locked = false) {
     sh.vertexShader = `attribute vec2 aUV; attribute vec4 aKS; attribute vec4 aTint;
       varying vec2 vUV; varying vec4 vKS; varying vec4 vTint; varying vec3 vWP;\n` + sh.vertexShader.replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
       vUV = aUV; vKS = aKS; vTint = aTint; vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
-    sh.fragmentShader = `uniform float uTac; uniform float uNight;
+    sh.fragmentShader = `uniform float uTac; uniform float uNight; uniform float uTime;
       varying vec2 vUV; varying vec4 vKS; varying vec4 vTint; varying vec3 vWP;\n${TAC}\n${HASH}\n` + sh.fragmentShader
       .replace('#include <color_fragment>', `#include <color_fragment>
         float kind = floor(vKS.x * 255.0 + 0.5), seed = vKS.y;
@@ -71,7 +76,10 @@ export function buildingMat(locked = false) {
           base *= 0.86 + 0.14 * step(0.5, fract(vUV.y * 2.2));                     // tile courses
         }
         base = mix(base, tacPal(base) ${locked ? '* 0.72' : ''}, uTac);
-        base = mix(base, vTint.rgb, vTint.a);
+        { float ta = floor(vTint.a * 255.0 + 0.5); float k = vTint.a;
+          if (mod(ta, 2.0) > 0.5) k *= 0.75 + 0.25 * sin(uTime * 3.0 + seed * 6.28);           // pulsing (infestation)
+          float detail = dot(base, ${LUM});
+          base = mix(base, vTint.rgb * (0.55 + 0.75 * detail), k); }
         ${locked ? `base = mix(vec3(dot(base, ${LUM})) * 0.55 + 0.06, base, 0.12);` : ''}
         diffuseColor.rgb = base;`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
@@ -81,6 +89,41 @@ export function buildingMat(locked = false) {
   return m;
 }
 
+// Water: sky reflection by viewing angle (Fresnel), slow moving ripples and sun glints.
+export function waterMat(opts = {}) {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, ...opts });
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, { uTac: U.uTac, uTime: U.uTime, uSkyHor: U.uSkyHor, uSkyTop: U.uSkyTop, uNight: U.uNight });
+    sh.vertexShader = 'varying vec3 vWP3;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP3 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = `uniform float uTac, uTime, uNight; uniform vec3 uSkyHor, uSkyTop; varying vec3 vWP3;\n${TAC}\n${NOISE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { vec3 v = normalize(cameraPosition - vWP3); float fr = pow(1.0 - clamp(v.y, 0.0, 1.0), 3.0);
+        vec2 q = vWP3.xz; float rip = fbm(q * 0.08 + vec2(uTime * 0.05, uTime * 0.03)) * 0.6 + fbm(q * 0.31 - vec2(uTime * 0.12, 0.0)) * 0.4;
+        vec3 sky = mix(uSkyTop, uSkyHor, 0.5 + fr * 0.5);
+        vec3 w = mix(diffuseColor.rgb * (0.85 + 0.3 * rip), sky, 0.25 + fr * 0.55);
+        w += vec3(1.0, 0.95, 0.85) * pow(rip, 9.0) * 1.6 * (1.0 - uNight) * (1.0 - uTac);
+        diffuseColor.rgb = mix(w, tacPal(diffuseColor.rgb), uTac); }`);
+  };
+  m.customProgramCacheKey = () => 'water';
+  return m;
+}
+// Car parks: lighter asphalt with bay lines laid out along the lot (rows of 5 m bays either side of 6 m aisles).
+export function parkMat(opts = {}) {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, ...opts });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uTac = U.uTac;
+    sh.vertexShader = 'attribute vec2 aPark; varying vec2 vPark; varying float vDist;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vPark = aPark; vDist = length((modelMatrix * vec4(transformed, 1.0)).xyz - cameraPosition);');
+    sh.fragmentShader = `uniform float uTac; varying vec2 vPark; varying float vDist;\n${TAC}\n${NOISE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      { float row = mod(vPark.y + 8.0, 16.0), bay = fract(vPark.x / 2.5);
+        float inBay = step(0.0, row) * step(row, 5.0) + step(11.0, row) * step(row, 16.0);
+        float line = inBay * (1.0 - step(0.05, bay)) + (step(4.85, row) * step(row, 5.0) + step(11.0, row) * step(row, 11.15));
+        float lod = 1.0 - smoothstep(250.0, 700.0, vDist);
+        diffuseColor.rgb *= 0.94 + 0.1 * fbm(vPark * 0.2);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.88, 0.87, 0.84), clamp(line, 0.0, 1.0) * lod * 0.85);
+        diffuseColor.rgb = mix(diffuseColor.rgb, tacPal(diffuseColor.rgb), uTac); }`);
+  };
+  m.customProgramCacheKey = () => 'park';
+  return m;
+}
 export function treeMat(locked = false) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
   m.onBeforeCompile = sh => {
@@ -120,9 +163,9 @@ export function skyAt(hour) {
   const golden = Math.max(0, 1 - Math.abs(el * 180 / Math.PI - 3) / 9) * day;
   return {
     dir, day, golden, night: 1 - day,
-    top: lerpC(0x070b16, 0x4f7fb8, day), hor: lerpC(lerpC(0x0d1322, 0xb9cde0, day), 0xf0b080, golden * 0.7),
-    sun: lerpC(0xfff2dc, 0xff9a52, golden), sunI: 2.1 * day, hemiI: 0.25 + 0.95 * day,
-    hemiSky: lerpC(0x24324f, 0xd4e4f5, day), hemiGround: lerpC(0x0c0e12, 0x6b6150, day),
+    top: lerpC(0x0a1020, 0x4f7fb8, day), hor: lerpC(lerpC(0x1c2438, 0xb9cde0, day), 0xf0b080, golden * 0.7),
+    sun: lerpC(0xfff2dc, 0xff9a52, golden), sunI: 2.1 * day, hemiI: 0.55 + 0.65 * day,
+    hemiSky: lerpC(0x3a4c78, 0xd4e4f5, day), hemiGround: lerpC(0x1a1c22, 0x6b6150, day),
   };
 }
 
@@ -142,8 +185,8 @@ export const WALLS = {
   minor: pal([0xa9a196, 0x9b9488, 0xb7ae9f]),
 };
 export const ROOF_PITCH = pal([0x9c4a34, 0x8e4532, 0xa65a3e, 0x7a4636, 0x575c62, 0x4d5257]); // Alsace tile, some slate
-export const ROOF_FLAT = pal([0x8f8d88, 0x7f7e7a, 0x6a6b6c, 0x9a958c]);
-export const AREA = { residential: 0x6c6d68, commercial: 0x6f6d6a, retail: 0x706c69, industrial: 0x6a6970, military: 0x59604c, railway: 0x6b6560, farmland: 0x8c8b5c, forest: 0x3f5c34, grass: 0x637f4a, park: 0x5d7d47, cemetery: 0x5a704f, water: 0x3d6f8e, wetland: 0x4f6e5e, sports: 0x5f8a4c, parking: 0x7b7b79, construction: 0x7b6b55, allotments: 0x6a7d48, farmyard: 0x7a735a, beach: 0xc7b88e, scrub: 0x5a6b42 };
+export const ROOF_FLAT = pal([0xa8a59e, 0x9c9a93, 0x8e8d89, 0xb3ada2, 0x97958e]);
+export const AREA = { residential: 0x6a7458, commercial: 0x6f6d6a, retail: 0x706c69, industrial: 0x6a6970, military: 0x59604c, railway: 0x6b6560, farmland: 0x8c8b5c, forest: 0x3f5c34, grass: 0x637f4a, park: 0x5d7d47, cemetery: 0x5a704f, water: 0x3d6f8e, wetland: 0x4f6e5e, sports: 0x5f8a4c, parking: 0x6e7072, construction: 0x7b6b55, allotments: 0x6a7d48, farmyard: 0x7a735a, beach: 0xc7b88e, scrub: 0x5a6b42 };
 export const GROUND = 0x6b6c66;
 
 export function wallStyle(useName, b, dense) {

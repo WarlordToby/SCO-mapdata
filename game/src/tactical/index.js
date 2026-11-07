@@ -200,7 +200,7 @@ export async function enterTactical(o) {
         if (b.garrison.length) lerp(blue, 0.6);
         const dmg = 1 - b.hp / b.hp0; if (dmg > 0) lerp(dark, dmg * 0.75);
         if (b === selB) lerp(white, 0.4);
-        R.paintBuilding(b, { r: tr, g: tg, b: tb }, ta, b.destroyed ? 1 : dmg > 0.5 ? (dmg - 0.5) : 0);
+        R.paintBuilding(b, { r: tr, g: tg, b: tb }, ta, b.destroyed ? 1 : dmg > 0.5 ? (dmg - 0.5) : 0, b.infest > 0.05 && !b.destroyed);
       }
     }
     let overlay = false;
@@ -258,24 +258,36 @@ export async function enterTactical(o) {
       for (const u of sel) { if (u.dead || !u.order) continue; const t = u.order.p || u.order.b?.ent || u.order.site?.p; if (!t) continue; let prev = [u.x, u.y]; const pts = (u.path || []).slice(0, 40).concat([t]); for (const q of pts) { seg(prev, q, city.heightAt(prev[0], prev[1]) + 1.5, city.heightAt(q[0], q[1]) + 1.5, u.order.type === 'clear' ? [1, 0.35, 0.35] : [0.5, 1, 0.5]); prev = q; } }
       for (const cp of sim.checkpoints) seg(cp.a, cp.b, city.heightAt(cp.a[0], cp.a[1]) + 1, city.heightAt(cp.b[0], cp.b[1]) + 1, cp.guards.length ? [0.5, 1, 0.5] : [1, 0.55, 0.2]);
       lp.needsUpdate = true; lc.needsUpdate = true; D.lines.geometry.setDrawRange(0, nl * 2);
+      // smoke from infested and damaged buildings
+      const srcs = [];
+      for (const b of sim.infested) if (b.infest > 0.35 && !b.destroyed) srcs.push(b._smk || (b._smk = { x: b.c[0], y: b.c[1], z: b.z1, r: Math.min(14, Math.sqrt(b.area) * 0.5) }));
+      for (const b of sim.damaged || []) if (b.hp < b.hp0 * 0.6 && b.mesh) srcs.push(b._smk2 || (b._smk2 = { x: b.c[0], y: b.c[1], z: b.z + 2, r: Math.min(18, Math.sqrt(b.area) * 0.6) }));
+      for (const s of srcs) s.rate = 2.5;
+      R.updateSmoke(srcs.slice(0, 60), Math.min(0.1, speed ? 0.016 * Math.max(1, speed) : 0.016));
       // time of day drives sun, sky, window lights and street lamps
       const d0 = new Date(sim.clock), hr = (d0.getUTCHours() + 1 + d0.getUTCMinutes() / 60) % 24;
       if (Math.abs(hr - (R._hr ?? -9)) > 0.02) { R._hr = hr; R.setTimeOfDay(hr); }
     }
     // ---------------- labels ----------------
     const pool = []; let poolN = 0;
+    let placed = [];
     function lbl(cls, x, y, text) {
+      const w = text.length * 6.4 + 10, h = 15, r = [x - w / 2, y - h, x + w / 2, y];
+      if (placed.some(q => !(r[2] < q[0] || r[0] > q[2] || r[3] < q[1] || r[1] > q[3]))) return;
+      placed.push(r);
       let el = pool[poolN]; if (!el) { el = document.createElement('div'); $('#tLabels', root).appendChild(el); pool.push(el); el._t = ''; el._c = ''; }
       if (el._t !== text) { el.textContent = text; el._t = text; } if (el._c !== cls) { el.className = 'tl ' + cls; el._c = cls; }
       el.style.transform = `translate(${x | 0}px,${y | 0}px) translate(-50%,-100%)`; el.style.display = ''; poolN++;
     }
     function drawLabels() {
-      poolN = 0;
-      const vis = s => s && s[0] > -50 && s[1] > -20 && s[0] < R.w + 50 && s[1] < R.h + 20;
-      if (R.cc.dist < 2600) for (const d of city.districts) { if (!d.buildings.length || !city.unlockedAt(d.x, d.y)) continue; const s = R.toScreen(d.x, d.y, 40); if (vis(s)) lbl('dist' + (sim.quarantine.has(d.id) ? ' q' : ''), s[0], s[1], d.name + (sim.quarantine.has(d.id) ? ' · QUARANTINE' : '')); }
-      for (const h of sim.hvts) { if (h.state !== 'inside' && h.state !== 'escorted') continue; const s = R.toScreen(h.x, h.y, h.state === 'inside' ? h.b.z1 + 32 : 40); if (vis(s)) lbl('hvt' + (h.danger > 0.2 ? ' d' : ''), s[0], s[1], '★ ' + h.name); }
+      poolN = 0; placed = [];
+      const vis = s => s && s[0] > -50 && s[1] > 60 && s[0] < R.w + 50 && s[1] < R.h + 20;
+      // priority: endangered HVTs, selected units, sites, other HVTs, districts
+      for (const h of sim.hvts) { if (h.state !== 'inside' && h.state !== 'escorted' || !(h.danger > 0.2)) continue; const s = R.toScreen(h.x, h.y, h.state === 'inside' ? h.b.z1 + 32 : 40); if (vis(s)) lbl('hvt d', s[0], s[1], '★ ' + h.name); }
       for (const u of sel) { if (u.dead) continue; const s = R.toScreen(u.x, u.y, (u.kind === 'heli' ? 60 : city.heightAt(u.x, u.y)) + 12); if (vis(s)) lbl('unit', s[0], s[1], u.name); }
       for (const st of sim.sites) { const s = R.toScreen(st.p[0], st.p[1], city.heightAt(st.p[0], st.p[1]) + 22); if (vis(s)) lbl('site', s[0], s[1], st.name + (st.kind === 'safezone' ? ` · ${Math.round(st.people)} civilians` : st.built ? '' : ' (setting up)')); }
+      if (R.cc.dist < 3000) for (const h of sim.hvts) { if (h.state !== 'inside' && h.state !== 'escorted' || h.danger > 0.2) continue; const s = R.toScreen(h.x, h.y, h.state === 'inside' ? h.b.z1 + 32 : 40); if (vis(s)) lbl('hvt', s[0], s[1], '★ ' + h.name); }
+      if (R.cc.dist < 2600) for (const d of city.districts) { if (!d.buildings.length || !city.unlockedAt(d.x, d.y)) continue; const s = R.toScreen(d.x, d.y, 40); if (vis(s)) lbl('dist' + (sim.quarantine.has(d.id) ? ' q' : ''), s[0], s[1], d.name + (sim.quarantine.has(d.id) ? ' · QUARANTINE' : '')); }
       for (let i = poolN; i < pool.length; i++) if (pool[i].style.display !== 'none') pool[i].style.display = 'none';
     }
     // ---------------- HUD ----------------
@@ -283,10 +295,13 @@ export async function enterTactical(o) {
       const s = sim.summary(), st = sim.stats;
       const date = new Date(sim.clock), hh = String((date.getUTCHours() + 1) % 24).padStart(2, '0'), mm = String(date.getUTCMinutes()).padStart(2, '0');
       $('#tTop .clock', root).textContent = `${hh}:${mm}${sim.isNight() ? ' ☾' : ''}`;
-      $('#tStats', root).innerHTML = [
+      const statRow = ([l, v, c]) => `<div><span>${l}</span><b class="${c || ''}">${v}</b></div>`;
+      const allStats = [
         ['Integrity', Math.round(s.integrity) + '%', s.integrity < 50 ? 'bad' : ''], ['In zone', num(s.inside)], ['Evacuated', num(st.evacuated), 'good'], ['Civ. casualties', num(st.civDead), st.civDead > 0 ? 'bad' : ''],
         ['Hostiles', s.creatures, s.creatures ? 'bad' : 'good'], ['Infested', s.infested, s.infested ? 'bad' : ''], ['Police', sim.cars.filter(c => c.kind === 'police').length + (sim.stats.policeLost ? ` (−${sim.stats.policeLost})` : '')], ['Safe zones', sim.sites.filter(z => z.kind === 'safezone').reduce((a, z) => a + Math.round(z.people), 0)], ['HVT', `${st.hvtSaved}✓ ${st.hvtLost}✗ / ${sim.hvts.length}`], ['Supply', Math.round(sim.supply)], ['KIA', st.soldiersKIA, st.soldiersKIA ? 'bad' : ''], ['Samples', st.specimens],
-      ].map(([l, v, c]) => `<div><span>${l}</span><b class="${c || ''}">${v}</b></div>`).join('');
+      ];
+      const primary = ['Integrity', 'Hostiles', 'Infested', 'Civ. casualties', 'Evacuated', 'HVT', 'Supply'];
+      $('#tStats', root).innerHTML = allStats.filter(x => primary.includes(x[0])).map(statRow).join('') + `<div class="tsMore"><span>More</span><b>⋯</b><div class="tsPop">${allStats.filter(x => !primary.includes(x[0])).map(statRow).join('')}</div></div>`;
       root.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === speed));
       if (!root.querySelector('#tLeft:hover') || force) $('#tUnits', root).innerHTML = sim.units.map(u => {
         const hpP = u.dead ? 0 : u.hp / u.maxHp * 100, ord = u.dead ? 'Destroyed' : u.inB ? `Garrisoned · ${u.inB.name || u.inB.addr || 'building'}` : u.order ? ({ move: 'Moving', garrison: 'To garrison', clear: 'Clearing', extract: 'Extracting HVT', resupply: 'Resupplying', guard: u.order.zone ? 'Securing safe zone' : 'Guarding checkpoint', build: 'Building site', recon: 'Reconnaissance orbit' })[u.order.type] : 'Idle';

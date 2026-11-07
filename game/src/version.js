@@ -1,9 +1,25 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.6.1';
+export const VERSION = '0.6.2';
 export const SAVE_FORMAT = 2; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.6.2', date: '2026-11-07', title: 'Map polish',
+    items: [
+      'Gardens and lawns: residential land is now lawn with shrubs and patches of paving instead of grey; open ground gets grass, earth and scrub. Commercial and industrial land stays paved.',
+      'Car parks: own lighter asphalt with bay markings laid out along each lot.',
+      'Service roads, driveways and parking aisles are drawn narrow and lighter; farm tracks in earth tones. Pedestrian streets are wide light paving.',
+      'Footpaths and cycleways are narrower, in gravel and red-brown tones, and fade out when zoomed out.',
+      'Infested buildings keep their facade under the threat colour and pulse slowly; smoke rises from heavily infested and badly damaged buildings.',
+      'Flat roofs: lighter gravel and membrane tones, parapets, and rooftop plant (air handlers, lift rooms) on larger roofs.',
+      'Night: stronger moonlight and ambient light so streets and buildings stay readable between the lamps.',
+      'Water: sky reflection by viewing angle, slow ripples and sun glints.',
+      'Map labels no longer overlap: endangered HVTs, selected units, sites, HVTs and districts are placed in that order of priority.',
+      'City top bar is one row with the key figures; the rest open from "More".',
+      'Zebra crossings sit just behind the stop line of signalised approaches.',
+    ],
+  },
   {
     v: '0.6.1', date: '2026-11-07', title: 'Terrain fix',
     items: [

@@ -351,7 +351,7 @@ export class Sim {
     return out.reverse();
   }
   damageBuilding(b, d) {
-    if (b.hp <= 0) return; b.hp -= d; this.dirty(b);
+    if (b.hp <= 0) return; b.hp -= d; this.dirty(b); (this.damaged || (this.damaged = new Set())).add(b);
     if (b.hp <= 0) { b.hp = 0; b.destroyed = true; this.stats.bDestroyed++; const k = b.occ * 0.6; b.occ -= k; b.dead += k; this.stats.civDead += k; for (const u of b.garrison.slice()) this.ungarrison(u); if (this.stats.bDestroyed % 5 === 1) this.log(`Building collapsed: ${b.name || b.addr || 'block'}.`, 'bad'); }
   }
 
