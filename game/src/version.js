@@ -1,9 +1,19 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.7.0';
+export const VERSION = '0.8.0';
 export const SAVE_FORMAT = 2; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.8.0', date: '2026-11-07', title: 'World cities, line of sight and cover',
+    items: [
+      '3D city maps for 64 of the world\'s largest cities (Shanghai, Istanbul, Mumbai, Mexico City, Tokyo, New York, London, Cairo, Paris, Strasbourg and more, in 46 countries). Any of them can host an outbreak you command in 3D; other cities resolve on the strategic map. Countries with no city map still get outbreaks in their largest cities.',
+      'City maps now cover 8 × 8 km around the centre (was 12 × 12) and load as one compressed file.',
+      'Line of sight: buildings, walls and hedges at eye height block shots, both ways. Units pick the nearest threat they can actually see.',
+      'Cover: a target within a few metres behind a low wall takes less than half the damage (hard cover); behind a low hedge or board fence about a third less (soft cover). Mesh fences, railings and wire neither block nor cover.',
+      'Squads firing from upper floors of a garrisoned building see over garden walls and hedges; helicopters fire from above. Alien ranged attacks need line of sight too.',
+    ],
+  },
   {
     v: '0.7.0', date: '2026-11-07', title: 'Fences, walls and hedges',
     items: [

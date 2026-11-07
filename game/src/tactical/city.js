@@ -15,7 +15,7 @@ export class Grid {
 export class City {
   constructor(base) { this.base = base; this.tiles = new Map(); this.buildings = []; this.edges = new Map(); this.junctions = new Map(); this.bGrid = new Grid(60); this.areas = []; this.lines = []; this.pois = []; this.listeners = []; }
   async init() {
-    if (/\.bin$/.test(this.base)) { this.bundle = await loadBundle(this.base); this.m = this.bundle.manifest; }
+    if (/\.(bin|json)$/.test(this.base)) { this.bundle = await loadBundle(this.base); this.m = this.bundle.manifest; }
     else this.m = await loadManifest(this.base);
     this.T = this.m.tileSize; this.codes = this.m.codes;
     this.use = Object.fromEntries(this.codes.use.map((u, i) => [u, i]));
