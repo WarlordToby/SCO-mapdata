@@ -127,8 +127,8 @@ export function buildBuildings(osm, P, landuse) {
 
     // Occupancy (night residents / day workers)
     const floor = b.area * levels;
-    b.res = ['house', 'apartments'].includes(use) ? Math.max(use === 'house' ? 1 : 2, Math.round(floor * 0.75 / 40)) : use === 'unknown' && d > 0.25 ? Math.round(floor * 0.4 / 38) : 0;
-    b.jobs = Math.round(floor / ({ retail: 35, office: 18, industrial: 80, warehouse: 150, school: 12, university: 15, hospital: 25, police: 30, fire_station: 60, civic: 30, hotel: 60, transport: 60, military: 40, apartments: 400, house: 1e9, unknown: 200 }[use] || 1e9));
+    b.res = use === 'house' ? Math.max(1, Math.min(5, Math.round(floor * 0.5 / 45))) : use === 'apartments' ? Math.max(2, Math.round(floor * 0.7 / 45)) : use === 'unknown' && d > 0.25 ? Math.round(floor * 0.35 / 45) : 0;
+    b.jobs = Math.round(floor / ({ retail: 70, office: 35, industrial: 100, warehouse: 200, school: 20, university: 25, hospital: 35, police: 35, fire_station: 60, civic: 50, hotel: 60, transport: 60, military: 50, apartments: 800, house: 1e9, unknown: 400 }[use] || 1e9));
     b.name = t.name || b.pois.find(p => p.name)?.name || '';
     const hn = t['addr:housenumber'] || b.pois.find(p => p['addr:housenumber'])?.['addr:housenumber'], st = t['addr:street'] || b.pois.find(p => p['addr:street'])?.['addr:street'];
     b.addr = hn && st ? `${hn} ${st}` : st || '';

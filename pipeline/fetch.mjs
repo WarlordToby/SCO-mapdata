@@ -46,16 +46,18 @@ console.log(`City: ${displayName}\nCentre ${lat.toFixed(5)}, ${lon.toFixed(5)} Â
 // 2. Pick the smallest Geofabrik extracts that cover the area (a border city can need several, e.g. Strasbourg + Kehl)
 const index = await getJSON('https://download.geofabrik.de/index-v1.json');
 const feats = index.features;
-const parents = new Set(feats.map(f => f.properties.parent).filter(Boolean));
 const inRing = (pt, ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) c = !c; } return c; };
 const inGeom = (pt, g) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).some(p => inRing(pt, p[0]) && !p.slice(1).some(h => inRing(pt, h)));
+const areaCache = new WeakMap();
+const geomArea = g => { if (areaCache.has(g)) return areaCache.get(g); let x0 = 180, y0 = 90, x1 = -180, y1 = -90; for (const p of (g.type === 'Polygon' ? [g.coordinates] : g.coordinates)) for (const [x, y] of p[0]) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } const a = (x1 - x0) * (y1 - y0); areaCache.set(g, a); return a; };
 const samples = [];
 for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) samples.push([bbox[0] + (bbox[2] - bbox[0]) * i / 6, bbox[1] + (bbox[3] - bbox[1]) * j / 6]);
 const regions = new Map();
 for (const pt of samples) {
   const hits = feats.filter(f => f.geometry && f.properties.urls?.pbf && inGeom(pt, f.geometry));
   if (!hits.length) continue;
-  const leaf = hits.find(f => !parents.has(f.properties.id)) || hits[hits.length - 1];
+  // smallest extract wins (e.g. Regierungsbezirk Freiburg rather than the whole DACH region)
+  const leaf = hits.sort((a, b) => geomArea(a.geometry) - geomArea(b.geometry))[0];
   regions.set(leaf.properties.id, leaf.properties);
 }
 if (!regions.size) throw new Error('No Geofabrik extract covers this area.');

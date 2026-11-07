@@ -106,14 +106,17 @@ let adminD = null;
 if (lvlPick) {
   adminD = byLvl[lvlPick].filter(b => b.rings.some(r => r.some(([x, y]) => Math.abs(x) < R * 1.2 && Math.abs(y) < R * 1.2)));
   adminD.forEach(b => { b.bb = b.rings.map(bboxOf); let big = b.rings.reduce((a, r) => (Math.abs(signedArea(r)) > Math.abs(signedArea(a)) ? r : a)); const c = centroidOf(big); b.x = Math.round(c[0]); b.y = Math.round(c[1]); });
-  dKeep.length = 0; adminD.forEach(b => dKeep.push({ name: b.name, kind: 'admin_level_' + lvlPick, x: b.x, y: b.y }));
+  const places = dKeep.splice(0).filter(d => !adminD.some(b => b.rings.some(r => inRing([d.x, d.y], r))));
+  adminD.forEach(b => dKeep.push({ name: b.name, kind: 'admin_level_' + lvlPick, x: b.x, y: b.y }));
+  places.forEach(d => dKeep.push({ ...d, fromPlace: true }));
 }
 function centroidOf(r) { let x = 0, y = 0; r.forEach(p => { x += p[0]; y += p[1]; }); return [x / r.length, y / r.length]; }
 const nearestDistrict = p => {
   if (adminD) for (let i = 0; i < adminD.length; i++) { const b = adminD[i]; for (let k = 0; k < b.rings.length; k++) { const bb = b.bb[k]; if (p[0] >= bb[0] && p[0] <= bb[2] && p[1] >= bb[1] && p[1] <= bb[3] && inRing(p, b.rings[k])) return i; } }
   return nearestPlace(p);
 };
-const nearestPlace = p => { let b = -1, bd = Infinity; dKeep.forEach((d, i) => { const dd = (d.x - p[0]) ** 2 + (d.y - p[1]) ** 2; if (dd < bd) { bd = dd; b = i; } }); return b; };
+const nearestPlace = p => { const off = adminD ? adminD.length : 0; let b = -1, bd = Infinity; for (let i = off; i < dKeep.length; i++) { const d = dKeep[i], dd = (d.x - p[0]) ** 2 + (d.y - p[1]) ** 2; if (dd < bd) { bd = dd; b = i; } } return b >= 0 ? b : nearestPlace0(p); };
+const nearestPlace0 = p => { let b = -1, bd = Infinity; dKeep.forEach((d, i) => { const dd = (d.x - p[0]) ** 2 + (d.y - p[1]) ** 2; if (dd < bd) { bd = dd; b = i; } }); return b; };
 log(`  ${dKeep.length} named districts (${adminD ? 'admin_level ' + lvlPick : 'place names'})`);
 
 // ---------- Entrances: buildings without mapped entrances face their nearest street ----------
