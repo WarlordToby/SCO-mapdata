@@ -37,7 +37,7 @@ export class Renderer {
     this.tileGroups = new Map(); this.pickMeshes = []; this.groundMeshes = [];
     this.matB = buildingMat(false); this.matBL = buildingMat(true);
     const off = f => ({ polygonOffset: true, polygonOffsetFactor: f, polygonOffsetUnits: f });
-    this.mat = { ground: flatMat({}), groundL: flatMat({}, true), area: flatMat(off(-1)), areaL: flatMat(off(-1), true), pave: flatMat(off(-2)), paveL: flatMat(off(-2), true), road: flatMat(off(-3)), roadL: flatMat(off(-3), true), mark: flatMat(off(-4)), markL: flatMat(off(-4), true) };
+    this.mat = { ground: flatMat({}, false, 2), groundL: flatMat({}, true, 2), area: flatMat(off(-1), false, 1), areaL: flatMat(off(-1), true, 1), pave: flatMat(off(-2), false, 1), paveL: flatMat(off(-2), true, 1), road: flatMat(off(-3)), roadL: flatMat(off(-3), true), mark: flatMat(off(-4)), markL: flatMat(off(-4), true) };
     this.mat.tree = treeMat(false); this.mat.treeL = treeMat(true);
     this.lampMat = new THREE.PointsMaterial({ color: 0xffd9a0, size: 7, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, map: glowTex() });
     this.poolMat = new THREE.MeshBasicMaterial({ color: 0xffb860, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, map: glowTex(), polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
@@ -103,6 +103,8 @@ export class Renderer {
     if (old) { this.scene.remove(old.g); old.g.traverse(o => { o.geometry?.boundsTree && o.geometry.disposeBoundsTree?.(); o.geometry?.dispose(); }); this.pickMeshes = this.pickMeshes.filter(m => m !== old.b); this.groundMeshes = this.groundMeshes.filter(m => m !== old.ground); }
     const city = this.city, t = tile.data, g = new THREE.Group(), L = !tile.unlocked, M = this.mat;
     const H = (x, y) => city.heightAt(x, y), col = new THREE.Color();
+    const dense = (pts, step = 6) => { const out = [pts[0]]; for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i], l = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.ceil(l / step); for (let s = 1; s <= k; s++) out.push([a[0] + (b[0] - a[0]) * s / k, a[1] + (b[1] - a[1]) * s / k]); } return out; };
+    const denseRing = r => { const d = dense([...r, r[0]], 12); d.pop(); return d; };
     // terrain
     const T = t.terrain, n = T.n, pos = new Float32Array(n * n * 3), cols = new Float32Array(n * n * 3), idx = [];
     col.setHex(GROUND);
@@ -116,12 +118,12 @@ export class Renderer {
     for (const a of sorted) {
       const kind = city.codes.area[a.kind]; col.setHex(AREA[kind] || GROUND);
       const y0 = kind === 'water' ? 0.1 : 0.03;
-      triangulate(a.ring, a.holes, p => { ap.push(p[0], H(p[0], p[1]) + y0, -p[1]); ac.push(col.r, col.g, col.b); });
+      triangulate(denseRing(a.ring), a.holes.map(denseRing), p => { ap.push(p[0], H(p[0], p[1]) + y0, -p[1]); ac.push(col.r, col.g, col.b); });
     }
     for (const l of t.lines) {
       const kind = city.codes.line[l.kind]; if (l.flags & 1) continue;
       const water = ['river', 'canal', 'stream'].includes(kind); if (!water) continue;
-      col.setHex(AREA.water); ribbon(l.pts, kind === 'river' ? 18 : kind === 'canal' ? 12 : 3, p => H(p[0], p[1]) + 0.1, (x, y, z) => { ap.push(x, y, -z); ac.push(col.r, col.g, col.b); });
+      col.setHex(AREA.water); ribbon(dense(l.pts), kind === 'river' ? 18 : kind === 'canal' ? 12 : 3, p => H(p[0], p[1]) + 0.1, (x, y, z) => { ap.push(x, y, -z); ac.push(col.r, col.g, col.b); });
     }
     if (ap.length) { const m = meshFrom(ap, ac, L ? M.areaL : M.area); m.receiveShadow = true; g.add(m); }
     // streets: pavements, asphalt, markings, rails
@@ -131,18 +133,21 @@ export class Renderer {
     for (const e of t.edges) {
       if (e.flags & FLAG.tunnel) continue;
       const drive = e.flags & FLAG.drive, lanes = Math.max(1, e.lf + e.lb), bridge = e.flags & FLAG.bridge ? 5 : 0;
-      const zs = e.pts.map(p => H(p[0], p[1]) + bridge + 0.25);
+      const ep = dense(e.pts), n0 = ep.length - 1;
+      // bridges rise smoothly from their ends instead of floating as a slab
+      const zs = ep.map((p, i) => H(p[0], p[1]) + 0.25 + (bridge ? bridge * Math.min(1, Math.min(i, n0 - i) / Math.max(1, n0 * 0.2)) : 0));
+      e._dense = ep;
       if (drive) {
         const w = lanes * 3.1 + 0.8;
-        if (e.cls >= 2 && e.cls <= 7) ribbon(e.pts, w + 4.6, (p, i) => zs[i] - 0.05, P(pp, pc, cPave));
-        ribbon(e.pts, w, (p, i) => zs[i], P(rp, rc, e.cls <= 3 ? cMajor : cMinor));
+        if (e.cls >= 2 && e.cls <= 7) ribbon(ep, w + 4.6, (p, i) => zs[i] - 0.05, P(pp, pc, cPave));
+        ribbon(ep, w, (p, i) => zs[i], P(rp, rc, e.cls <= 3 ? cMajor : cMinor));
         // lane markings: dashed centre / lane dividers
         if (e.cls <= 6 && lanes >= 2) {
           const oneway = e.flags & FLAG.oneway;
           const lines = oneway ? Array.from({ length: e.lf - 1 }, (_, k) => (k + 1 - e.lf / 2) * 3.1) : [(e.lb - e.lf) * 3.1 / 2];
-          for (const off of lines) dashes(e.pts, off, 0.16, oneway ? 3 : (e.cls <= 3 ? 1e9 : 3), oneway ? 6 : (e.cls <= 3 ? 0 : 5), (p, i) => zs[Math.min(i, zs.length - 1)] + 0.03, P(mp, mc, cMark));
+          for (const off of lines) dashes(ep, off, 0.16, oneway ? 3 : (e.cls <= 3 ? 1e9 : 3), oneway ? 6 : (e.cls <= 3 ? 0 : 5), (p, i) => zs[Math.min(i, zs.length - 1)] + 0.03, P(mp, mc, cMark));
         }
-      } else ribbon(e.pts, e.cls >= 11 ? 2.2 : 3.5, (p, i) => zs[i] - 0.08, P(pp, pc, cFoot));
+      } else ribbon(ep, e.cls >= 11 ? 2.2 : 3.5, (p, i) => zs[i] - 0.08, P(pp, pc, cFoot));
     }
     // zebra crossings on signalised junction approaches
     for (const j of t.junctions) {
@@ -157,12 +162,14 @@ export class Renderer {
     }
     for (const l of t.lines) {
       const kind = city.codes.line[l.kind]; if ((l.flags & 1) || ['river', 'canal', 'stream'].includes(kind)) continue;
-      ribbon(l.pts, kind === 'tram' ? 2.6 : 3.4, p => H(p[0], p[1]) + 0.2, P(pp, pc, kind === 'tram' ? cTram : cRail));
+      ribbon(dense(l.pts), kind === 'tram' ? 2.6 : 3.4, p => H(p[0], p[1]) + 0.2, P(pp, pc, kind === 'tram' ? cTram : cRail));
     }
     for (const j of t.junctions) {
-      if ((j.inc || []).length < 2) continue;
-      const r = 6, z = H(j.p[0], j.p[1]) + 0.25;
-      for (let k = 0; k < 10; k++) { const a0 = k / 10 * Math.PI * 2, a1 = (k + 1) / 10 * Math.PI * 2; rp.push(j.p[0], z, -j.p[1], j.p[0] + Math.cos(a1) * r, z, -(j.p[1] + Math.sin(a1) * r), j.p[0] + Math.cos(a0) * r, z, -(j.p[1] + Math.sin(a0) * r)); for (let q = 0; q < 3; q++) rc.push(cMajor.r, cMajor.g, cMajor.b); }
+      const inc = (j.inc || []).map(([eid]) => city.edges.get(eid)).filter(e => e && (e.flags & FLAG.drive));
+      if (inc.length < 2) continue;
+      const wmax = Math.max(...inc.map(e => Math.max(1, e.lf + e.lb) * 3.1 + 0.8)), r = wmax / 2 + 0.6, z = H(j.p[0], j.p[1]) + 0.25;
+      const cj = inc.some(e => e.cls <= 3) ? cMajor : cMinor;
+      for (let k = 0; k < 12; k++) { const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2; rp.push(j.p[0], z, -j.p[1], j.p[0] + Math.cos(a1) * r, z, -(j.p[1] + Math.sin(a1) * r), j.p[0] + Math.cos(a0) * r, z, -(j.p[1] + Math.sin(a0) * r)); for (let q = 0; q < 3; q++) rc.push(cj.r, cj.g, cj.b); }
     }
     for (const [ps, cs, m] of [[pp, pc, L ? M.paveL : M.pave], [rp, rc, L ? M.roadL : M.road], [mp, mc, L ? M.markL : M.mark]]) if (ps.length) { const mesh = meshFrom(ps, cs, m); mesh.receiveShadow = true; g.add(mesh); }
     // buildings
@@ -204,7 +211,12 @@ export class Renderer {
       if (b.rcol) { try { roofC.setStyle(b.rcol); } catch (e) { } }
       const slope = (useName === 'house' || old ? 50 : 38) * Math.PI / 180;
       const roofH = shape === 'flat' ? 0 : Math.min(10, b.rh ? b.rh / 10 : (ob.wid / 2) * Math.tan(slope));
-      const z0 = b.z, h = Math.max(2.5, b.h);
+      let zg = Infinity; for (const p of b.ring) zg = Math.min(zg, city.heightAt(p[0], p[1]));
+      if (b.zOrig === undefined) b.zOrig = b.z;
+      // Very tall religious outlines (e.g. the cathedral, whose spire is a separate building part in the map data) keep a nave-height body
+      const hBody = useName === 'religious' && b.h > 35 ? Math.min(b.h, 32) : b.h;
+      const z0 = Math.min(b.zOrig, zg) - 0.4, h = Math.max(2.5, hBody) + (b.zOrig - z0);
+      b.z = z0;
       const eave = z0 + (shape === 'flat' ? h : Math.max(2.6, b.est ? h : h - roofH));
       const style = wallStyle(useName, b, old);
       b.vStart = P.length / 3; b.z1 = eave + roofH; b.zEave = eave;

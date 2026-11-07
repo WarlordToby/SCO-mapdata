@@ -8,14 +8,26 @@ const TAC = `vec3 tacPal(vec3 c){ float l = dot(c, ${LUM}); return mix(vec3(l), 
 const HASH = `float hh(vec3 p){ return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }`;
 
 // Ground / land use / roads / markings: realistic colours that fade to a light, desaturated map palette when zoomed out.
-export function flatMat(opts = {}, locked = false) {
+const NOISE = `float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5), b = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5),
+        c = fract(sin(dot(i + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5), d = fract(sin(dot(i + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5);
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }
+  float fbm(vec2 p){ return vn(p) * 0.55 + vn(p * 2.3 + 7.1) * 0.3 + vn(p * 5.7 + 3.3) * 0.15; }`;
+// mottle: 0 = none, 1 = gentle variation (land use, paving), 2 = natural ground (patches of grass, earth and paving)
+export function flatMat(opts = {}, locked = false, mottle = 0) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, ...opts });
   m.onBeforeCompile = sh => {
     sh.uniforms.uTac = U.uTac;
-    sh.fragmentShader = `uniform float uTac;\n${TAC}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    sh.vertexShader = 'varying vec3 vWP2;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP2 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = `uniform float uTac; varying vec3 vWP2;\n${TAC}\n${NOISE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      ${mottle ? `{ vec2 q = vWP2.xz; float n1 = fbm(q * 0.025), n2 = fbm(q * 0.11 + 13.0);
+        ${mottle === 2 ? `vec3 grass = vec3(0.36, 0.42, 0.27), earth = vec3(0.45, 0.42, 0.35);
+        float gm = smoothstep(0.42, 0.62, n1);
+        diffuseColor.rgb = mix(diffuseColor.rgb, mix(earth, grass, smoothstep(0.3, 0.7, n2)), gm * 0.75);` : ''}
+        diffuseColor.rgb *= 0.92 + 0.16 * n2; }` : ''}
       diffuseColor.rgb = mix(diffuseColor.rgb, tacPal(diffuseColor.rgb) * ${locked ? '0.72' : '1.0'}, uTac);`);
   };
-  m.customProgramCacheKey = () => 'flat' + locked;
+  m.customProgramCacheKey = () => 'flat' + locked + mottle;
   return m;
 }
 

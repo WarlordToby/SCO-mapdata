@@ -2,6 +2,15 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.6.1 — Terrain fix (2026-11-07)
+
+- Bare-earth terrain: the Copernicus elevation model measures rooftops and tree canopy, which made the ground lumpy and let streets and land use sink under it. The map compiler now removes raised objects and smooths the result (up to 36 m removed in Strasbourg). Strasbourg recompiled.
+- Streets, rails, tram tracks and rivers follow the ground with a vertex every 6 m; land-use edges every 12 m. Bridges rise smoothly from their ends.
+- Junction patches match the width and surface of their roads instead of dark discs.
+- Buildings reach down to the lowest ground under their footprint, so none float or sink on slopes.
+- Natural ground: unpaved ground gets patches of grass, earth and paving instead of flat grey; land use and pavements get subtle variation.
+- Very tall religious outlines (the cathedral) keep a nave-height body until building parts are supported.
+
 ## v0.6.0 — City look (2026-11-07)
 
 - Blended look: realistic at street level, fading smoothly into a clean, light tactical map as you zoom out.

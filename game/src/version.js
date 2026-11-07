@@ -1,9 +1,20 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.6.0';
+export const VERSION = '0.6.1';
 export const SAVE_FORMAT = 2; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.6.1', date: '2026-11-07', title: 'Terrain fix',
+    items: [
+      'Bare-earth terrain: the Copernicus elevation model measures rooftops and tree canopy, which made the ground lumpy and let streets and land use sink under it. The map compiler now removes raised objects and smooths the result (up to 36 m removed in Strasbourg). Strasbourg recompiled.',
+      'Streets, rails, tram tracks and rivers follow the ground with a vertex every 6 m; land-use edges every 12 m. Bridges rise smoothly from their ends.',
+      'Junction patches match the width and surface of their roads instead of dark discs.',
+      'Buildings reach down to the lowest ground under their footprint, so none float or sink on slopes.',
+      'Natural ground: unpaved ground gets patches of grass, earth and paving instead of flat grey; land use and pavements get subtle variation.',
+      'Very tall religious outlines (the cathedral) keep a nave-height body until building parts are supported.',
+    ],
+  },
   {
     v: '0.6.0', date: '2026-11-07', title: 'City look',
     items: [
