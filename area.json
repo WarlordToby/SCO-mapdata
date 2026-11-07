@@ -1,0 +1,27 @@
+{
+  "city": "Lagos",
+  "displayName": "Lagos",
+  "country": "NG",
+  "lat": 6.45407,
+  "lon": 3.39467,
+  "radiusKm": 4,
+  "bbox": [
+    3.3585083708461827,
+    6.417895130681715,
+    3.4308316291538175,
+    6.490244869318285
+  ],
+  "extracts": [
+    {
+      "id": "nigeria",
+      "name": "Nigeria",
+      "url": "https://download.geofabrik.de/africa/nigeria-latest.osm.pbf"
+    }
+  ],
+  "dem": [
+    "Copernicus_DSM_COG_10_N06_00_E003_00_DEM.tif"
+  ],
+  "landcover": "landcover.json.gz",
+  "cadastre": [],
+  "fetchedAt": "2026-11-07T21:50:09.142Z"
+}
