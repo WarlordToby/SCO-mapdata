@@ -1,0 +1,50 @@
+# SCO map data
+
+City map packs for **Special Containment Organization**. A GitHub Actions workflow downloads real-world data for a city and compiles it into a tiled pack the game loads as its tactical map.
+
+## Compile a city
+
+**Actions → Compile city pack → Run workflow**, enter a city name (and optionally a country code, centre coordinates, and radius). The workflow:
+
+1. Geocodes the city (Nominatim), or uses the centre you give it.
+2. Downloads the smallest [Geofabrik](https://download.geofabrik.de/) extracts covering the area — several when the area crosses a border (Strasbourg + Kehl) — and cuts them to the pack square with `osmium`.
+3. Downloads Copernicus GLO-30 elevation tiles from AWS Open Data.
+4. Compiles the pack into `packs/<slug>/` and commits it.
+
+Run locally (needs Node 20 and `osmium-tool`):
+
+```sh
+npm ci
+npm run fetch -- --city Strasbourg --country FR --radius 6 --out work
+npm run compile -- --work work --out packs
+```
+
+## Pack format (v1)
+
+```
+packs/index.json              every compiled pack
+packs/<slug>/manifest.json    centre, projection, code tables, schema, districts, per-tile stats, sources
+packs/<slug>/tiles/<i>_<j>.json   one file per 1 km tile, (i, j) = tile column/row from the centre
+```
+
+Coordinates are local metres (x east, y north) from the pack centre. Inside a tile, geometry is integer **decimetres** relative to the tile origin, and every ring or polyline is delta-encoded. Tiles are self-contained, so the game can load the area around the impact first and unlock neighbouring tiles as the outbreak spreads.
+
+Each tile holds:
+
+| Section | Contents |
+|---|---|
+| `buildings` | One entity per building: OSM id, footprint (+ courtyards), use (house, apartments, retail, office, police, hospital, school…), levels, height, ground elevation, district, estimated night residents and day occupants, entrance point, name, address, services inside |
+| `roads` | Edges between junctions: class, lanes forward/backward, turn lanes, speed limit, one-way, bridge/tunnel/layer, drive/walk access, connectivity flags |
+| `junctions` | Control (signals, stop, yield, roundabout, priority, *priorité à droite*), per-approach yield rules, lane-to-lane connections, generated fixed-time signal phases |
+| `areas` | Land use, water, parks, forest, parking, rail yards (clipped to the tile) |
+| `lines` | Rail, tram, light rail, rivers, canals |
+| `pois` | Service points not inside a mapped building (police, hospitals, fuel, power, water…) |
+| `terrain` | 41×41 elevation grid every 25 m |
+
+Full field descriptions are in each `manifest.json` under `schema` and `codes`.
+
+## Data sources and licence
+
+- Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, available under the Open Database Licence (ODbL 1.0). Compiled packs are derived databases and are shared under the same licence.
+- Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA.
+- Extract downloads courtesy of Geofabrik GmbH.

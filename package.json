@@ -1,0 +1,24 @@
+{
+  "name": "sco-mapdata",
+  "version": "1.0.0",
+  "description": "City map pack pipeline for Special Containment Organization",
+  "scripts": {
+    "fetch": "node pipeline/fetch.mjs",
+    "compile": "node --max-old-space-size=6000 compiler/compile.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WarlordToby/sco-mapdata.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/WarlordToby/sco-mapdata/issues"
+  },
+  "homepage": "https://github.com/WarlordToby/sco-mapdata#readme",
+  "dependencies": {
+    "geotiff": "^2.1.3"
+  },
+  "private": true,
+  "type": "module"
+}
