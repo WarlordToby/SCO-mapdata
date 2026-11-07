@@ -1,0 +1,26 @@
+name: Build world grid
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  world:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: node --max-old-space-size=6000 pipeline/worldgrid.mjs
+      - name: Commit world grid
+        run: |
+          git config user.name "sco-mapdata-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add game/src/world.grid
+          git commit -m "World grid (WorldCover land cover + countries, 0.25°)" || exit 0
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
