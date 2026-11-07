@@ -25,7 +25,7 @@ export function newOutbreak(S, threat, homeCi) {
   if (P.sites) for (let i = 1; i < P.sites; i++) origins.push(cand[Math.floor(Math.random() * cand.length)]);
   for (const c of origins) inf[c.k] = 0.02;
   S.world = {
-    threat, origin: { name: o.name, cc: o.cc, lon: o.lon, lat: o.lat }, sites: origins.map(c => c.name), t0: S.t, acc: 0,
+    threat, origin: { name: o.name, cc: o.cc, lon: o.lon, lat: o.lat }, sites: origins.map(c => c.name), sources: origins.map(c => c.k), sourceUntil: S.t + 120 * 864e5, t0: S.t, acc: 0,
     inf, countries: {}, air: null, firstDetect: null, reached: {}, requests: [], ai: [], log: [], stats: {},
   };
   S.fronts = S.fronts || [];
@@ -63,8 +63,8 @@ function stepOnce(S, w, dt, homeCi, ev) {
   const mob = ci => { const c = w.countries[ci]; if (!c || !c.mobilized) return global ? 1.3 : 1; return t >= c.mobilized ? 1.25 + Math.min(1, (t - c.mobilized) / (25 * 864e5)) * 0.95 : 1; }; // mobilisation ramps up over ~25 days
   for (let k = 0; k < N; k++) {
     const x = inf[k]; if (x < 1e-5) continue;
-    const ci = G.country[k], crowd = 0.45 + Math.min(1.6, G.pop[k] / 2.5e5) * P.crowd;
-    const D = (G.def[k] * mob(ci) + (fb.get(k) || 0)) * P.resist;
+    const ci = G.country[k], crowd = 0.45 + Math.min(1.1, G.pop[k] / 4e5) * P.crowd;
+    const D = (G.def[k] * mob(ci) * (w.countries[ci]?.detected ? 1 : 0.25) + (fb.get(k) || 0)) * P.resist; // before detection only police respond
     d[k] += dt * (P.growth * crowd * x * (1 - x) - 0.32 * D * x * Math.sqrt(1 - x) / (1 + 4.5 * x));
     if (x > 0.015) { // spread to the eight neighbours
       const s = dt * P.spread * 0.075 * Math.pow(x, 1.15);
@@ -75,6 +75,8 @@ function stepOnce(S, w, dt, homeCi, ev) {
       }
     }
   }
+  // the source (crash site, lab, hive…) keeps feeding the outbreak until it burns out or is destroyed
+  if (w.sources && t < (w.sourceUntil || 0)) { const floor = Math.min(0.35, 0.02 + 0.01 * (t - w.t0) / 864e5); for (const k of w.sources) if (k >= 0) inf[k] = Math.max(inf[k], floor); }
   let infected = 0, fallen = 0, popLost = 0;
   for (let k = 0; k < N; k++) { if (!d[k]) continue; inf[k] = Math.max(0, Math.min(1, inf[k] + d[k])); if (inf[k] < 2e-5) inf[k] = 0; }
   for (let k = 0; k < N; k++) { const x = inf[k]; if (x <= 0.01) continue; infected++; if (x >= FALL) { fallen++; popLost += G.pop[k]; } }
@@ -127,7 +129,7 @@ function stepOnce(S, w, dt, homeCi, ev) {
     const rq = w.requests.find(r => r.cityId === a.cityId && r.state === 'accepted'); if (rq) continue;
     a.done = true;
     const ci = G.country[a.k], odds = Math.min(0.9, 0.25 + G.strength[ci] * 0.35 - inf[a.k] * 0.4);
-    if (Math.random() < odds) { inf[a.k] *= 0.35; a.held = true; } else { inf[a.k] = Math.max(inf[a.k], 0.95); a.held = false; }
+    if (Math.random() < odds) { inf[a.k] *= 0.6; a.held = true; } else { inf[a.k] = Math.max(inf[a.k], 0.95); a.held = false; }
     const c = G.cities.find(x => x.id === a.cityId);
     if (c && c.pop >= 1e6) ev.push({ type: 'foreignResult', city: c, held: a.held });
     for (const r of w.requests) if (r.cityId === a.cityId && r.state === 'open') r.state = 'expired';
