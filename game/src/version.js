@@ -1,9 +1,23 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.9.0';
-export const SAVE_FORMAT = 2; // bump when the save structure changes; add a step to migrate() below
+export const VERSION = '0.10.0';
+export const SAVE_FORMAT = 3; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.10.0', date: '2026-11-08', title: 'The global outbreak',
+    items: [
+      'One outbreak per campaign. It starts somewhere in the world, away from your country, and spreads: it grows where it finds people, moves through farmland and towns faster than through forest, desert or wetland, never across open sea, and jumps between big cities by air until flights are suspended. Each threat behaves differently: the undead and swarms spread fast, mutants and aliens slowly but are hard to push back, vampires stay hidden longer and travel, lycanthropes move through woods.',
+      'City emergencies no longer appear at random: your cities call when the front reaches them. National armed forces hold the countryside; troops follow population, so large cities hold far longer than the rural areas around them. Countries detect the outbreak, mobilise over several weeks and close their borders; once twenty countries are hit, the rest of the world pre-mobilises.',
+      'World map (button in the top bar, or M): satellite land cover of the whole planet (ESA WorldCover, 0.25° cells), the spreading infestation and overrun areas, outbreak hotspots, major cities and their state, requests for help, your front lines, bases and units in transit. The national map now shows land cover and the outbreak in and around your country.',
+      'World tab: the global situation, requests for assistance, your front lines and the countries affected with their response organizations.',
+      'Allied organizations: every country has one, and blocs of smaller neighbours share one (Nordic, Baltic, Benelux, Western Balkans, Central America, Caribbean, Guianas, Gulf, Sahel, West African coast, Central Africa, East Africa, Horn of Africa, Southern Africa, Central Asia, Mekong, Pacific Islands).',
+      'Help abroad: when the front reaches a major foreign city its organization may ask for help. Accept and the city becomes an emergency you dispatch to by military airlift; if a detailed survey is on file you can command it in 3D. Declined or lapsed requests are fought by local forces, who hold or lose the city.',
+      'Front lines: deploy units to any point of the front, at home or abroad, to strengthen the defence of the area around them (about 80 km across). They take losses while the threat presses there; withdraw them at any time.',
+      'Emergencies you win push the threat back in their area; cities you lose fall on the world map. VIP names and titles follow the country of the city.',
+      'Saves store the world state compactly; older saves start a new outbreak when loaded.',
+    ],
+  },
   {
     v: '0.9.0', date: '2026-11-08', title: 'Cities of the world look like themselves',
     items: [
@@ -139,6 +153,10 @@ export function migrate(s) {
   if (from < 2) {
     // 0.1–0.3 saves: record version info; nothing structural changed for the strategic state.
     s.saveFormat = 2;
+  }
+  if (from < 3) {
+    // 0.10: the global outbreak replaces timed incidents; a world outbreak is started on load (see state.load)
+    s.saveFormat = 3; s.fronts = s.fronts || []; s.foreign = s.foreign || [];
   }
   s.gameVersion = VERSION;
   return { s, migratedFrom: from < SAVE_FORMAT ? from : null };

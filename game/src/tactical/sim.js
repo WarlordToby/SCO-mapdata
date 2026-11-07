@@ -12,6 +12,15 @@ export const TH = { // per-threat creature profiles
   lycan: { vault: 0.5, hp: 300, speed: 5.5, dmg: 32, range: 2.2, aggro: 90, convert: 0.06, bDmg: 0.8, nest: 0, size: 1.6, sense: 350 },
   swarm: { vault: 0.7, hp: 18, speed: 3.0, dmg: 4, range: 1.5, aggro: 35, convert: 0, bDmg: 0.4, nest: 0.12, size: 0.55, sense: 220 },
 };
+const NAMES_CC = { // country-specific name pools where a region is too broad
+  DE: ['Lukas Anna Jonas Lena Felix Sophie Maximilian Marie Paul Laura Tobias Julia', 'Müller Schmidt Schneider Fischer Weber Becker Wagner Hoffmann Schulz Koch Richter Neumann'],
+  AT: ['Lukas Anna Jonas Lena Felix Sophie Maximilian Marie Paul Laura Tobias Julia', 'Gruber Huber Bauer Wagner Pichler Steiner Moser Mayer Hofer Leitner Berger Fuchs'],
+  GB: ['Oliver Amelia George Isla Harry Emily Jack Sophie James Grace William Chloe', 'Smith Jones Taylor Brown Williams Wilson Johnson Davies Evans Thomas Roberts Walker'],
+  IE: ['Seán Aoife Conor Niamh Liam Ciara Patrick Siobhán Darragh Róisín Cian Orla', 'Murphy Kelly Byrne Ryan O’Brien Walsh O’Sullivan Doyle McCarthy Gallagher Kennedy Lynch'],
+  NL: ['Daan Emma Sem Julia Lucas Tess Milan Sophie Levi Anna Finn Lotte', 'de Jong Jansen de Vries van den Berg Bakker Visser Smit Meijer de Boer Mulder Bos Peters'],
+  BE: ['Lucas Emma Louis Olivia Noah Marie Arthur Louise Liam Elena Jules Lina', 'Peeters Janssens Maes Jacobs Willems Claes Goossens Wouters De Smet Dubois Lambert Martin'],
+  ES: ['Hugo Lucía Martín Sofía Pablo Martina Daniel María Alejandro Paula Mateo Julia', 'García Fernández González Rodríguez López Martínez Sánchez Pérez Gómez Martín Ruiz Díaz'],
+};
 const NAMES = { // [first names, family names] by region
   'eu-north': ['Erik Anna Lars Sofia Mikko Aino Johan Ingrid Oskar Elina Nils Freja', 'Lindqvist Virtanen Hansen Nilsson Korhonen Berg Johansson Laine Dahl Eriksen Mäkinen Holm'],
   'eu-east': ['Piotr Anna Tomáš Katarzyna Ivan Elena Marek Zsófia Andrei Ioana Milan Petra', 'Kowalski Nowak Horváth Novák Popescu Dvořák Wiśniewska Ionescu Kovač Szabó Petrović Varga'],
@@ -76,8 +85,8 @@ export class Sim {
       const cands = C.buildings.filter(b => b.use === use && C.unlockedAt(b.c[0], b.c[1]) && !have.has(b.idx) && b.occ > 0).sort(() => Math.random() - .5);
       const k = role === 'executive' ? 3 : role === 'politician' ? 3 : 2;
       for (const b of cands.slice(0, k)) {
-        const nm = NAMES[this.city.m.region], F = nm ? nm[0].split(' ') : FIRST, Ln = nm ? nm[1].split(' ') : LAST;
-        const name = `${titles[Math.floor(Math.random() * titles.length)]} ${F[Math.floor(Math.random() * F.length)]} ${Ln[Math.floor(Math.random() * Ln.length)]}`;
+        const cc = this.city.m.country, nm = NAMES_CC[cc] || (cc !== 'FR' && NAMES[this.city.m.region]), F = nm ? nm[0].split(' ') : FIRST, Ln = nm ? nm[1].split(' ') : LAST;
+        const ttl = titles[Math.floor(Math.random() * titles.length)], name = `${cc !== 'FR' && ttl === 'Préfet' ? 'Governor' : cc !== 'FR' && ttl === 'Commissaire' ? 'Commissioner' : ttl} ${F[Math.floor(Math.random() * F.length)]} ${Ln[Math.floor(Math.random() * Ln.length)]}`;
         this.hvts.push({ id: 'h' + this.hvts.length, name, role, b, state: 'inside', danger: 0, unit: null, x: b.ent[0], y: b.ent[1] }); have.add(b.idx); b.hvt = true;
       }
     }

@@ -6,7 +6,7 @@ import { UI } from './tabs.js';
 import { VERSION } from './version.js';
 import { enterTactical } from './tactical/index.js';
 import { packFor, packUrl } from './packs.js';
-const packOf = city => packFor(G.getS().nation.cca2, city.name);
+const packOf = city => packFor(city.cc || G.getS().nation.cca2, city.name);
 
 export function modal(html, cls = 'dlg') { const m = $('#modal'); m.innerHTML = `<div class="${cls}">${html}</div>`; m.classList.add('on'); }
 export function closeModal() { $('#modal').classList.remove('on'); $('#modal').innerHTML = ''; UI.refresh(); }
@@ -110,7 +110,7 @@ export function groupDialog(gid) {
 // ---------------- Incident flow ----------------
 const CHANNEL = cca2 => cca2 === 'FR' ? 'CN24' : 'NNS 24';
 export function showBroadcast(inc) {
-  const S = G.getS(), city = S.cities.find(c => c.id === inc.cityId), T = THREATS[inc.threat];
+  const S = G.getS(), city = G.cityOf(inc), T = THREATS[inc.threat];
   const fill = s => s.replaceAll('{city}', city.name).replaceAll('{district}', inc.district);
   const silhouette = Array.from({ length: 22 }, (_, i) => `<div style="width:${14 + (i * 37) % 22}px;height:${40 + (i * 53) % 120}px;background:#0b0b0b;border-top:2px solid #3a1010;margin:0 1px"></div>`).join('');
   modal(`<div class="scr"><div class="live"><b>LIVE</b><span style="color:#fff;font-weight:700;letter-spacing:.1em">${fmtTime(S.t)}</span></div><div class="chan">${CHANNEL(S.nation.cca2)}</div>
@@ -122,7 +122,7 @@ export function showBroadcast(inc) {
   $('#bcOk').onclick = () => showCall(inc);
 }
 function showCall(inc) {
-  const S = G.getS(), city = S.cities.find(c => c.id === inc.cityId), T = THREATS[inc.threat];
+  const S = G.getS(), city = G.cityOf(inc), T = THREATS[inc.threat];
   const lines = T.call.map(s => s.replaceAll('{city}', city.name).replaceAll('{district}', inc.district));
   modal(`<div class="hd"><div class="dot"></div><div class="sp"><b>EMERGENCY LINE — PRIORITY ONE</b><div class="mut">Caller: ${esc(city.name)} crisis authorities · ${fmtTime(S.t)}</div></div></div>
     <div class="lines" id="cl"></div>
@@ -136,7 +136,7 @@ function showCall(inc) {
 }
 
 export function showDispatch(inc) {
-  const S = G.getS(), city = S.cities.find(c => c.id === inc.cityId);
+  const S = G.getS(), city = G.cityOf(inc);
   const ready = S.units.filter(u => u.status === 'ready');
   // pre-select the contingency group of the base nearest to the incident
   const nearestBase = S.bases.filter(b => b.built).sort((a, b) => distKm([a.lon, a.lat], [city.lon, city.lat]) - distKm([b.lon, b.lat], [city.lon, city.lat]))[0];
@@ -173,7 +173,7 @@ export function showDispatch(inc) {
 }
 
 export function showHandoff(inc) {
-  const S = G.getS(), city = S.cities.find(c => c.id === inc.cityId), T = THREATS[inc.threat];
+  const S = G.getS(), city = G.cityOf(inc), T = THREATS[inc.threat];
   const us = inc.units.map(id => S.units.find(u => u.id === id)).filter(Boolean);
   const onscene = us.filter(u => u.status === 'onscene');
   const dirs = [...new Set(onscene.map(u => u.approach))];
@@ -212,4 +212,42 @@ export function escMenu(toMenu) {
   $('#eSave').onclick = () => { $('#modal .err').textContent = G.save() ? 'Saved.' : 'Saving is unavailable in this browser context.'; $('#modal .err').style.color = 'var(--grn)'; };
   $('#eInc').onclick = () => { closeModal(); if (G.activeIncident()) return UI.flash('An incident is already active.'); window.__dbgIncident(); };
   $('#eExit').onclick = () => { G.save(); closeModal(); toMenu(); };
+}
+
+// ---------------- World ----------------
+import { G as WG, countryName, landAt } from './world.js';
+export function worldNews(e) {
+  const S = G.getS(), w = S.world, T = THREATS[w.threat];
+  if (e.kind === 'request') return requestDialog(e.rq);
+  const where = e.kind === 'home' ? S.nation.name : countryName(e.ci);
+  const head = e.kind === 'home' ? `${T.name} crosses into ${S.nation.name}` : `${T.name} confirmed in ${where}`;
+  const body = e.kind === 'home'
+    ? `The outbreak that began in ${w.origin.name} has reached ${S.nation.name}. The armed forces are mobilising to hold the countryside; cities will need your organization when the front reaches them.`
+    : `Governments confirm a ${T.name.toLowerCase()} that began around ${w.origin.name}. It is spreading from the affected region. Response organizations worldwide are placed on alert; flights from the area are being suspended.`;
+  modal(`<div class="scr"><div class="live"><b>LIVE</b><span style="color:#fff;font-weight:700;letter-spacing:.1em">${fmtTime(S.t)}</span></div><div class="chan">${CHANNEL(S.nation.cca2)}</div>
+    <div class="body">${esc(body)}</div>
+    <div class="lower"><div class="k">GLOBAL ALERT</div><div class="h">${esc(head)}</div></div>
+    <div class="ticker"><span>Outbreak tracked on the world map (press M) · Border controls tightened · Allied organizations coordinating response · Markets suspended · </span></div></div>
+    <div class="foot"><button id="wnMap">Open world map</button><button class="pri" onclick="__close()">Continue</button></div>`, 'tv');
+  $('#wnMap').onclick = () => { closeModal(); if (UI.game.view !== 'world') UI.toggleView(); const o = w.origin; UI.game.map.focus([o.lon, o.lat], 3); };
+}
+export function requestDialog(rq) {
+  const S = G.getS(), org = WG.orgOf[WG.country[landAt(rq.lon, rq.lat)]], surveyed = !!packFor(rq.cc, rq.name);
+  modal(`<div class="dlg"><h2>Request for assistance — ${esc(rq.name)}</h2>
+    <p>The <b>${esc(org?.name || 'local response organization')}</b> reports the front has reached ${esc(rq.name)} (${esc(countryName(WG.country[landAt(rq.lon, rq.lat)]))}, pop. ${num(rq.pop)}) and asks ${esc(S.org.name)} for support.</p>
+    <p class="mut">Accepting turns it into an emergency you can dispatch to by military airlift${surveyed ? '; a detailed survey is on file, so you can take command on the ground in 3D' : ''}. If you decline, local forces will try to hold the city on their own. The request lapses ${dur(rq.until - S.t)} from now.</p>
+    <div class="foot"><button onclick="__close()">Decline</button><button class="pri" id="rqOk">Accept and dispatch…</button></div></div>`);
+  $('#rqOk').onclick = () => { const inc = G.acceptRequest(rq.id); if (!inc) { closeModal(); return UI.flash('The request is no longer open.'); } UI.game.sel = { type: 'city', id: inc.cityId }; showDispatch(inc); };
+}
+export function frontDialog(geo) {
+  const S = G.getS(), k = landAt(geo[0], geo[1]);
+  if (k < 0) return UI.flash('Pick a point on land.');
+  const ci = WG.country[k], x = S.world?.inf[k] || 0, ready = S.units.filter(u => u.status === 'ready');
+  const near = WG.cities.filter(c => Math.abs(c.lon - geo[0]) < 3 && Math.abs(c.lat - geo[1]) < 3).sort((a, b) => Math.hypot(a.lon - geo[0], a.lat - geo[1]) - Math.hypot(b.lon - geo[0], b.lat - geo[1]))[0];
+  modal(`<div class="dlg"><h2>Hold the line — ${esc(countryName(ci))}</h2>
+    <p class="mut">Units hold this position alongside ${ci === G.GEO.ci ? 'the national armed forces' : 'local forces'}, adding to the defence of the surrounding area (about 80 km across). They take losses while the threat presses here. Pressure at this point now: <b class="${x > 0.1 ? 'bad' : ''}">${Math.round(x * 100)}% overrun</b>.</p>
+    <div class="col"><span class="lbl">Name</span><input id="frName" value="${esc(near ? near.name + ' line' : 'Front line')}"></div>
+    <div class="col" style="max-height:260px;overflow:auto;margin-top:8px">${ready.length ? ready.map(u => `<label class="row"><input type="checkbox" value="${u.id}"><span class="sp">${esc(u.name)}</span><span class="mut">${u.pers} pers.</span></label>`).join('') : '<span class="mut">No units are ready.</span>'}</div>
+    <div class="foot"><button onclick="__close()">Cancel</button><button class="pri" id="frOk" ${ready.length ? '' : 'disabled'}>Deploy</button></div></div>`);
+  $('#frOk').onclick = () => { const ids = [...document.querySelectorAll('#modal input[type=checkbox]:checked')].map(i => i.value); const r = G.deployFront(geo, ids, $('#frName').value.trim()); if (typeof r === 'string') return UI.flash(r); closeModal(); UI.tab = 'world'; UI.refresh(); };
 }

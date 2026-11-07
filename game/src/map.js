@@ -1,5 +1,8 @@
 import { d3, WORLD, makeProjection } from './geo.js';
 import { THREATS, ITEM, isHeli } from './catalog.js';
+import { G as WG, W as GW, H as GH, RES, cellLonLat } from './world.js';
+import { infImage, FALL } from './outbreak.js';
+import { packFor } from './packs.js';
 
 const DPR = () => Math.min(2, window.devicePixelRatio || 1);
 
@@ -20,6 +23,7 @@ export class MapView {
     const pad = this.o.mode === 'world' ? 20 : 40;
     const left = this.o.padLeft || 0, right = this.o.padRight || 0;
     if (this.o.mode === 'world') this.proj = d3.geoEqualEarth().fitExtent([[pad + left, pad], [r.width - pad - right, r.height - pad]], { type: 'Sphere' });
+    else if (this.o.mode === 'strat') this.proj = d3.geoEquirectangular().fitExtent([[left + 10, 60], [r.width - right - 10, r.height - 40]], { type: 'Sphere' });
     else this.proj = makeProjection(this.o.terr).fitExtent([[pad + left, pad + 30], [r.width - pad - right, r.height - pad - 30]], this.o.terr);
     this.path = d3.geoPath(this.proj); this.dirty = true;
   }
@@ -30,7 +34,7 @@ export class MapView {
   bind() {
     const c = this.c; let drag = null, moved = false;
     c.addEventListener('wheel', e => {
-      e.preventDefault(); const f = Math.exp(-e.deltaY * 0.0015), nk = Math.max(1, Math.min(this.o.mode === 'world' ? 12 : 40, this.k * f));
+      e.preventDefault(); const f = Math.exp(-e.deltaY * 0.0015), nk = Math.max(1, Math.min(this.o.mode === 'world' ? 12 : this.o.mode === 'strat' ? 60 : 40, this.k * f));
       const r = c.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
       this.x = mx - (mx - this.x) * nk / this.k; this.y = my - (my - this.y) * nk / this.k; this.k = nk; this.dirty = true;
     }, { passive: false });
@@ -51,6 +55,16 @@ export class MapView {
     }
     const S = this.o.getState(); if (!S) return null;
     let best = null, bd = 1e9;
+    if (this.o.mode === 'strat') {
+      const test = (type, obj, ll, r) => { const p = this.toScreen(ll); if (!p) return; const d = Math.hypot(p[0] - sx, p[1] - sy); if (d < r && d < bd) { bd = d; best = { type, obj }; } };
+      for (const f of S.fronts || []) test('front', f, [f.lon, f.lat], 12);
+      for (const rq of S.world?.requests || []) if (rq.state === 'open') test('request', rq, [rq.lon, rq.lat], 12);
+      for (const c of S.foreign || []) test('city', c, [c.lon, c.lat], 10);
+      for (const b of S.bases) test('base', b, [b.lon, b.lat], 10);
+      if (best) return best;
+      for (const c of this.visibleCities()) test('wcity', c, [c.lon, c.lat], 8);
+      return best;
+    }
     const test = (type, obj, ll, r) => { const p = this.toScreen(ll); if (!p) return; const d = Math.hypot(p[0] - sx, p[1] - sy); if (d < r && d < bd) { bd = d; best = { type, obj }; } };
     for (const u of S.units) if (u.status !== 'ready') test('unit', u, [u.lon, u.lat], 10);
     for (const b of S.bases) test('base', b, [b.lon, b.lat], 12);
@@ -69,6 +83,7 @@ export class MapView {
     const path = d3.geoPath(this.proj, ctx);
     ctx.lineWidth = 0.6 / k; ctx.strokeStyle = '#ffffff0c'; ctx.beginPath(); path(d3.geoGraticule10()); ctx.stroke();
     if (this.o.mode === 'world') { ctx.beginPath(); path({ type: 'Sphere' }); ctx.strokeStyle = '#3a5566'; ctx.lineWidth = 1 / k; ctx.stroke(); }
+    if (this.o.mode === 'strat') return this.drawStratStatic(ctx, path, k);
     for (const f of WORLD) {
       ctx.beginPath(); path(f);
       ctx.fillStyle = this.o.mode === 'world' ? '#18242d' : '#141c22'; ctx.fill();
@@ -78,10 +93,66 @@ export class MapView {
       const t = this.o.terr;
       ctx.save(); ctx.shadowColor = '#3fd0ff55'; ctx.shadowBlur = 18 * d;
       ctx.beginPath(); path(t); ctx.fillStyle = '#1b2c36'; ctx.fill(); ctx.restore();
+      if (WG.ready) { ctx.save(); ctx.beginPath(); path(t); ctx.clip(); ctx.globalAlpha = 0.55; this.cellsInView().forEach(k2 => { const t2 = WG.lc.subarray(k2 * 7, k2 * 7 + 7); const r = 38 * t2[0] + 86 * t2[1] + 118 * t2[2] + 112 * t2[3] + 150 * t2[4] + 52 * t2[5], gg = 64 * t2[0] + 104 * t2[1] + 116 * t2[2] + 108 * t2[3] + 132 * t2[4] + 82 * t2[5], b = 38 * t2[0] + 62 * t2[1] + 70 * t2[2] + 104 * t2[3] + 100 * t2[4] + 104 * t2[5], s2 = t2[0] + t2[1] + t2[2] + t2[3] + t2[4] + t2[5] || 1; ctx.fillStyle = `rgb(${r / s2 * 0.5 | 0},${gg / s2 * 0.5 | 0},${b / s2 * 0.5 | 0})`; this.cellQuad(ctx, k2); ctx.fill(); }); ctx.restore(); }
       if (this.o.regions) { ctx.beginPath(); for (const r of this.o.regions.features) path(r); ctx.strokeStyle = '#4b6b7c55'; ctx.lineWidth = 0.8 / k; ctx.setLineDash([3 / k, 3 / k]); ctx.stroke(); ctx.setLineDash([]); }
       ctx.beginPath(); path(t); ctx.strokeStyle = '#59c8e8'; ctx.lineWidth = 1.4 / k; ctx.stroke();
     }
     this.dirty = false;
+  }
+
+  // land cells within the national map (cached), and a cell's outline in map coordinates
+  cellsInView() {
+    if (this._cells) return this._cells;
+    const [[x0, y0], [x1, y1]] = d3.geoBounds(this.o.terr), out = [];
+    for (let lat = y0 - RES; lat <= y1 + RES; lat += RES) for (let lon = x0 - RES; lon <= x1 + RES; lon += RES) { const i = Math.floor((lon + 180) / RES), j = Math.floor((90 - lat) / RES); if (i < 0 || j < 0 || i >= GW || j >= GH) continue; const k = WG.idx[j * GW + i]; if (k >= 0) out.push(k); }
+    return (this._cells = [...new Set(out)]);
+  }
+  cellQuad(ctx, k) {
+    const [lon, lat] = cellLonLat(WG.cell[k]), h = RES / 2;
+    const a = this.proj([lon - h, lat + h]), b = this.proj([lon + h, lat + h]), c = this.proj([lon + h, lat - h]), d = this.proj([lon - h, lat - h]); if (!a || !b || !c || !d) return;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.closePath();
+  }
+  visibleCities() { const minPop = this.k > 8 ? 2.5e5 : this.k > 3 ? 6e5 : 1.5e6; return WG.ready ? WG.cities.filter(c => c.pop >= minPop || (c.capital && this.k > 2.5)) : []; }
+  drawStratStatic(ctx, path, k) {
+    const p0 = this.proj([-180, 90]), p1 = this.proj([180, -90]);
+    ctx.fillStyle = '#0a141b'; ctx.fillRect(p0[0], p0[1], p1[0] - p0[0], p1[1] - p0[1]);
+    if (WG.ready) { ctx.imageSmoothingEnabled = k < 6; ctx.drawImage(WG.landImg, p0[0], p0[1], p1[0] - p0[0], p1[1] - p0[1]); ctx.imageSmoothingEnabled = true; }
+    const S = this.o.getState();
+    ctx.lineWidth = 0.6 / k; ctx.strokeStyle = '#ffffff22';
+    for (const f of WORLD) { ctx.beginPath(); path(f); ctx.stroke(); }
+    if (S) { const home = WORLD.find(f => f.id === S.ccn3); if (home) { ctx.beginPath(); path(home); ctx.strokeStyle = '#59c8e8'; ctx.lineWidth = 1.4 / k; ctx.stroke(); } }
+    this.dirty = false;
+  }
+  drawStrat(ctx) {
+    const S = this.o.getState(); if (!S) return;
+    const now = performance.now(), pulse = (Math.sin(now / 300) + 1) / 2;
+    // infestation layer (re-rendered when the outbreak advances)
+    if (S.world && (!this._infCv || this._infSig !== S.t)) { if (!this._infT || now - this._infT > 400) { this._infCv = infImage(S, this._infCv); this._infSig = S.t; this._infT = now; } }
+    ctx.save(); ctx.translate(this.x, this.y); ctx.scale(this.k, this.k);
+    const p0 = this.proj([-180, 90]), p1 = this.proj([180, -90]);
+    if (this._infCv) { ctx.imageSmoothingEnabled = this.k < 6; ctx.drawImage(this._infCv, p0[0], p0[1], p1[0] - p0[0], p1[1] - p0[1]); ctx.imageSmoothingEnabled = true; }
+    const path = d3.geoPath(this.proj, ctx);
+    for (const h of this._infCv?.hotspots || []) { const p = this.proj([h.lon, h.lat]); if (!p) continue; const r = Math.sqrt(h.cells) * (p1[0] - p0[0]) / 1440 * 0.9 + 6 / this.k; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.strokeStyle = `rgba(255,70,60,${0.5 + pulse * 0.4})`; ctx.lineWidth = 1.6 / this.k; ctx.stroke(); ctx.fillStyle = 'rgba(255,60,50,0.12)'; ctx.fill(); }
+    for (const u of S.units) if (u.route && (u.status === 'transit' || u.status === 'returning')) { ctx.beginPath(); path({ type: 'LineString', coordinates: [[u.lon, u.lat], u.route.to] }); ctx.strokeStyle = u.status === 'returning' ? '#9aa7b055' : '#7fe3ffaa'; ctx.lineWidth = 1.2 / this.k; ctx.setLineDash([2 / this.k, 3 / this.k]); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.restore();
+    // cities
+    ctx.font = '600 10.5px ui-sans-serif,system-ui'; ctx.textBaseline = 'middle'; const placed = [];
+    const inf = S.world?.inf;
+    for (const c of this.visibleCities()) {
+      const p = this.toScreen([c.lon, c.lat]); if (!p || p[0] < -10 || p[1] < -10 || p[0] > this.w + 10 || p[1] > this.h + 10) continue;
+      const x = inf ? inf[c.k] : 0, r = Math.max(1.8, Math.sqrt(c.pop) / 900) * Math.min(2, Math.sqrt(this.k));
+      ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.fillStyle = x >= FALL ? '#444' : x > 0.1 ? '#ff6b5b' : x > 0.01 ? '#e8b04a' : '#cfe3ea'; ctx.fill();
+      if (packFor(c.cc, c.name)) { ctx.strokeStyle = '#ffffffcc'; ctx.lineWidth = 1; ctx.strokeRect(p[0] - r - 3, p[1] - r - 3, (r + 3) * 2, (r + 3) * 2); }
+      if (c.pop > 3e6 / this.k || this.hover?.obj === c) { const w = ctx.measureText(c.name).width, box = [p[0] + r + 4, p[1] - 6, w, 12]; if (!placed.some(b => !(box[0] > b[0] + b[2] || box[0] + box[2] < b[0] || box[1] > b[1] + b[3] || box[1] + box[3] < b[1]))) { placed.push(box); ctx.fillStyle = '#000b'; ctx.fillText(c.name, box[0] + 1, p[1] + 1); ctx.fillStyle = x >= FALL ? '#999' : x > 0.1 ? '#ff9a8a' : '#c6d6de'; ctx.fillText(c.name, box[0], p[1]); } }
+    }
+    // requests for assistance, foreign emergencies, fronts, bases, units
+    for (const rq of S.world?.requests || []) if (rq.state === 'open') { const p = this.toScreen([rq.lon, rq.lat]); if (!p) continue; ctx.beginPath(); ctx.arc(p[0], p[1], 8 + pulse * 6, 0, 7); ctx.strokeStyle = `rgba(232,176,74,${0.9 - pulse * 0.5})`; ctx.lineWidth = 2; ctx.stroke(); ctx.font = '700 9px ui-monospace,monospace'; ctx.fillStyle = '#e8b04a'; ctx.textAlign = 'center'; ctx.fillText('HELP', p[0], p[1] - 16); ctx.textAlign = 'left'; }
+    for (const c of S.foreign || []) if (c.status === 'incident') { const p = this.toScreen([c.lon, c.lat]); if (!p) continue; ctx.beginPath(); ctx.arc(p[0], p[1], 7 + pulse * 8, 0, 7); ctx.strokeStyle = `rgba(255,60,60,${0.8 - pulse * 0.5})`; ctx.lineWidth = 2; ctx.stroke(); }
+    for (const f of S.fronts || []) { const p = this.toScreen([f.lon, f.lat]); if (!p) continue; ctx.save(); ctx.translate(p[0], p[1]); ctx.beginPath(); ctx.moveTo(-8, 4); ctx.lineTo(0, -5); ctx.lineTo(8, 4); ctx.lineWidth = 3; ctx.strokeStyle = '#59c8e8'; ctx.stroke(); ctx.restore(); ctx.font = '700 9.5px ui-monospace,monospace'; ctx.fillStyle = '#9fe6ff'; ctx.textAlign = 'center'; ctx.fillText(f.name.toUpperCase(), p[0], p[1] + 15); ctx.textAlign = 'left'; }
+    const badge = S.org.badge;
+    for (const b of S.bases) { const p = this.toScreen([b.lon, b.lat]); if (!p) continue; ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(Math.PI / 4); ctx.fillStyle = badge.field; ctx.strokeStyle = badge.trim; ctx.lineWidth = 1.5; ctx.fillRect(-4, -4, 8, 8); ctx.strokeRect(-4, -4, 8, 8); ctx.restore(); }
+    for (const u of S.units) if (u.status !== 'ready') { const p = this.toScreen([u.lon, u.lat]); if (!p) continue; ctx.beginPath(); ctx.rect(p[0] - 3, p[1] - 3, 6, 6); ctx.fillStyle = u.status === 'front' ? '#59c8e8' : u.status === 'returning' ? '#9aa7b0' : '#7fe36f'; ctx.fill(); }
+    if (this.o.placing?.() && this.mouse) { const g = this.toGeo(...this.mouse); if (g) { const p = this.toScreen(g); ctx.beginPath(); ctx.arc(p[0], p[1], 14, 0, 7); ctx.strokeStyle = '#59c8e8'; ctx.lineWidth = 1.5; ctx.stroke(); } }
   }
 
   draw() {
@@ -91,6 +162,7 @@ export class MapView {
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.c.width, this.c.height); ctx.drawImage(this.static, 0, 0);
     ctx.setTransform(d, 0, 0, d, 0, 0);
     if (this.o.mode === 'world') return this.drawWorld(ctx);
+    if (this.o.mode === 'strat') return this.drawStrat(ctx);
     const S = this.o.getState(); if (!S) return;
     ctx.save(); ctx.translate(this.x, this.y); ctx.scale(this.k, this.k);
     const path = d3.geoPath(this.proj, ctx);
@@ -101,6 +173,8 @@ export class MapView {
       ctx.beginPath(); path({ type: 'LineString', coordinates: [[u.lon, u.lat], u.route.to] });
       ctx.strokeStyle = u.status === 'returning' ? '#9aa7b055' : u.route.mode === 'air' ? '#7fe3ffaa' : '#c9a227aa'; ctx.lineWidth = 1.2 / this.k; ctx.setLineDash(u.route.mode === 'air' ? [2 / this.k, 3 / this.k] : []); ctx.stroke(); ctx.setLineDash([]);
     }
+    // outbreak in and around the country
+    if (S.world && WG.ready) { const inf = S.world.inf; for (const k2 of this.cellsInView()) { const x = inf[k2]; if (x < 0.004) continue; ctx.fillStyle = x >= FALL ? 'rgba(120,20,30,0.75)' : `rgba(230,${60 + (1 - x) * 80 | 0},40,${Math.min(0.8, 0.15 + x * 0.8)})`; this.cellQuad(ctx, k2); ctx.fill(); } }
     // placement preview
     if (this.o.placing?.() && this.mouse) {
       const g = this.toGeo(...this.mouse);

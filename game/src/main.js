@@ -7,8 +7,11 @@ import { $, $$, esc, eur, big, num, setTZ, fmtDate } from './util.js';
 import { renderTab, renderCtx, UI } from './tabs.js';
 import { VERSION, CHANGELOG } from './version.js';
 import { modal, showBroadcast, showDispatch, showHandoff, closeModal, escMenu } from './modals.js';
+import * as M from './modals.js';
 import { loadPackIndex } from './packs.js';
-const packsReady = loadPackIndex();
+import { loadWorld, landAt, G as WG } from './world.js';
+import { newOutbreak } from './outbreak.js';
+const packsReady = Promise.all([loadPackIndex(), loadWorld().catch(e => console.error(e))]);
 
 const screens = ['menu', 'select', 'found', 'game'];
 function show(id) { screens.forEach(s => $('#' + s).classList.toggle('on', s === id)); }
@@ -123,20 +126,27 @@ function startGame() {
   const S = G.getS();
   setTZ(S.nation.cca2 === 'FR' ? 'Europe/Paris' : tzFor(G.GEO.terr));
   show('game');
-  if (gmap) gmap.destroy();
-  gmap = new MapView($('#game canvas'), {
-    mode: 'nation', terr: G.GEO.terr, regions: regionsOf(S.nation.cca2), getState: G.getS, padLeft: 450, padRight: 340,
-    placing: () => !!GAME.placing || S.needsHQ,
-    cursor: () => (GAME.placing || G.getS().needsHQ) ? 'crosshair' : null,
-    onClick: onMapClick, onHover: onMapHover,
-  });
-  GAME.map = gmap; window.__gm = gmap;
+  GAME.view = 'nation'; makeMap();
   $('#gVer').textContent = 'v' + VERSION;
   $('#topOrg').innerHTML = `${badgeSVG(S.org.badge, 30, false)}<div><div>${esc(S.org.name)}</div><div class="mut" style="font-size:10.5px;letter-spacing:.1em">${esc(S.nation.flag || '')} ${esc(S.nation.name)}</div></div>`;
   UI.tab = UI.tab || 'org';
   refreshAll();
   last = performance.now(); requestAnimationFrame(loop);
 }
+function makeMap() {
+  const S = G.getS();
+  if (gmap) gmap.destroy();
+  gmap = new MapView($('#game canvas'), {
+    mode: GAME.view === 'world' ? 'strat' : 'nation', terr: G.GEO.terr, regions: regionsOf(S.nation.cca2), getState: G.getS, padLeft: 450, padRight: 340,
+    placing: () => !!GAME.placing || !!GAME.front || S.needsHQ,
+    cursor: () => (GAME.placing || GAME.front || G.getS().needsHQ) ? 'crosshair' : null,
+    onClick: onMapClick, onHover: onMapHover,
+  });
+  GAME.map = gmap; window.__gm = gmap;
+  $('#btnView').textContent = GAME.view === 'world' ? 'National map' : 'World map';
+}
+function toggleView() { if (G.getS().needsHQ) return; GAME.view = GAME.view === 'world' ? 'nation' : 'world'; makeMap(); }
+UI.toggleView = toggleView;
 function tzFor(terr) { const c = d3.geoCentroid(terr); const o = Math.round(c[0] / 15); return o === 0 ? 'UTC' : `Etc/GMT${o > 0 ? '-' : '+'}${Math.abs(o)}`; }
 
 function loop(now) {
@@ -156,6 +166,7 @@ function handleEvent(e) {
   const S = G.getS();
   if (e.type === 'incident') { S.speed = 0; G.save(); showBroadcast(e.inc, refreshAll); }
   if (e.type === 'handoff') { S.speed = 0; showHandoff(e.inc, refreshAll); }
+  if (e.type === 'world') { S.speed = 0; G.save(); M.worldNews(e, refreshAll); }
 }
 
 function updateTop() {
@@ -164,10 +175,11 @@ function updateTop() {
   $('#tFunds').textContent = eur(S.funds); $('#tFunds').className = S.funds < 0 ? 'bad' : '';
   $('#tStand').textContent = Math.round(S.standing); $('#tTrust').textContent = Math.round(S.trust);
   const inc = G.activeIncident();
-  $('#tAlert').innerHTML = inc ? `<span class="pill bad">INCIDENT</span> <span class="bad">${esc(S.cities.find(c => c.id === inc.cityId).name)}</span>` : '<span class="pill good">NOMINAL</span>';
+  $('#tAlert').innerHTML = inc ? `<span class="pill bad">INCIDENT</span> <span class="bad">${esc(G.cityOf(inc).name)}</span>` : '<span class="pill good">NOMINAL</span>';
   $$('#speeds button').forEach((b, i) => b.classList.toggle('on', S.speed === i));
   const ban = $('#banner');
   if (S.needsHQ) { const n = 4 - (S.setupLeft ?? 3); ban.style.display = 'block'; ban.textContent = n === 1 ? 'Base 1 of 3 — select a site inside the national territory for your Headquarters.' : `Base ${n} of 3 — select a site for a regional garrison (at least 30 km from other bases).`; }
+  else if (GAME.front) { ban.style.display = 'block'; ban.textContent = 'Front line — click the map where your units should hold (Esc / right-click to cancel)'; }
   else if (GAME.placing) { ban.style.display = 'block'; ban.textContent = `Place ${GAME.placing.label} — click the map (Esc / right-click to cancel)`; }
   else ban.style.display = 'none';
 }
@@ -202,7 +214,9 @@ function onMapClick(hit, geo) {
     if (typeof r === 'string') flash(r); else { UI.tab = 'bases'; UI.openBase = r.id; }
     refreshAll(); return;
   }
-  GAME.sel = hit ? { type: hit.type, id: hit.obj.id } : null;
+  if (GAME.front) { GAME.front = null; if (!geo) return; return M.frontDialog(geo); }
+  GAME.sel = hit ? { type: hit.type, id: hit.obj.id, obj: ['wcity', 'request', 'front'].includes(hit.type) ? hit.obj : undefined } : null;
+  if (hit?.type === 'request' || hit?.type === 'front') UI.tab = 'world';
   if (hit?.type === 'base') { UI.tab = 'bases'; UI.openBase = hit.obj.id; }
   refreshAll();
 }
@@ -210,6 +224,9 @@ function onMapHover(h, m) {
   if (!h) return tip(null);
   const o = h.obj;
   if (h.type === 'city') tip(`<b>${esc(o.name)}</b>${o.capital ? ' <span class="amb">★</span>' : ''}${o.surveyed ? ' <span class="pill acc">SURVEYED</span>' : ''}<div class="mut">Pop. ${num(o.pop)}</div><div class="row"><span style="width:62px">Integrity</span><b class="mono">${Math.round(o.integrity)}%</b></div><div class="row"><span style="width:62px">Panic</span><b class="mono">${Math.round(o.panic)}%</b></div>`, m, '#game');
+  else if (h.type === 'wcity') { const x = G.getS().world?.inf[o.k] || 0; tip(`<b>${esc(o.name)}</b>${o.capital ? ' <span class="amb">★</span>' : ''}<div class="mut">Pop. ${num(o.pop)} · ${esc(o.cc)}</div><div class="row"><span style="width:70px">Overrun</span><b class="mono ${x > 0.1 ? 'bad' : ''}">${Math.round(x * 100)}%</b></div>`, m, '#game'); }
+  else if (h.type === 'request') tip(`<b class="amb">Assistance requested</b><div>${esc(o.name)}</div><div class="mut">Open the World tab to respond.</div>`, m, '#game');
+  else if (h.type === 'front') tip(`<b>${esc(o.name)}</b><div class="mut">${o.units.length} unit(s) holding · ${o.kia || 0} KIA</div>`, m, '#game');
   else if (h.type === 'base') tip(`<b>${esc(o.name)}</b><div class="mut">${o.built ? 'Operational' : 'Under construction'}</div>`, m, '#game');
   else if (h.type === 'unit') tip(`<b>${esc(o.name)}</b><div class="mut">${o.status}</div>`, m, '#game');
 }
@@ -227,12 +244,14 @@ $('#btnMenu').onclick = () => escMenu(menu);
 window.addEventListener('keydown', e => {
   if (!$('#game').classList.contains('on') || e.target.tagName === 'INPUT') return;
   const S = G.getS();
-  if (e.key === 'Escape') { if ($('#modal').classList.contains('on')) return; if (GAME.placing) { GAME.placing = null; return; } escMenu(menu); }
+  if (e.key === 'Escape') { if ($('#modal').classList.contains('on')) return; if (GAME.placing || GAME.front) { GAME.placing = null; GAME.front = null; return; } escMenu(menu); }
+  if (e.key === 'm' || e.key === 'M') toggleView();
   if (e.key === ' ') { e.preventDefault(); if (!S.needsHQ && !$('#modal').classList.contains('on')) S.speed = S.speed ? 0 : 1; }
   if (['1', '2', '3'].includes(e.key) && !S.needsHQ) S.speed = +e.key;
 });
-$('#game canvas').addEventListener('contextmenu', e => { e.preventDefault(); GAME.placing = null; });
-window.__S = () => G.getS();
+$('#game canvas').addEventListener('contextmenu', e => { e.preventDefault(); GAME.placing = null; GAME.front = null; });
+$('#btnView').onclick = toggleView;
+window.__S = () => G.getS(); window.__tick = ms => G.tick(ms); window.__ui = UI; window.__newOutbreak = th => newOutbreak(G.getS(), th, G.GEO.ci); window.__handle = e => handleEvent(e); window.__G = G; window.__wg = { landAt, G: WG };
 window.__dbgIncident = () => { const i = G.debugSpawn(); if (i) handleEvent({ type: 'incident', inc: i }); };
 
 menu();

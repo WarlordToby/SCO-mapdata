@@ -2,6 +2,8 @@ import { packFor } from './packs.js';
 import { ITEM, isVehicle, isHeli, STARTING_STOCK, GARRISON_STOCK, BASE_SIZES, MODULES, TEMPLATES, THREATS, DISTRICTS } from './catalog.js';
 import { VERSION, SAVE_FORMAT, migrate } from './version.js';
 import { byCcn3, territoryOf, citiesOf, distKm, bearing, compass, interp } from './geo.js';
+import { G as WG, landAt, ciOfCcn3, countryName } from './world.js';
+import { newOutbreak, stepOutbreak, packWorld, unpackWorld, cellInf, PROFILE } from './outbreak.js';
 
 export const HOUR = 3600e3, DAY = 24 * HOUR;
 export const START_T = Date.UTC(2026, 10, 7, 7, 0); // 08:00 CET
@@ -17,7 +19,10 @@ export const GEO = { country: null, terr: null };
 function hydrate() {
   GEO.country = byCcn3(S.ccn3);
   GEO.terr = territoryOf(GEO.country);
+  GEO.ci = ciOfCcn3(S.ccn3);
 }
+// the city an incident is in: one of your country's cities, or a foreign city you were asked to help
+export const cityOf = inc => S.cities.find(c => c.id === inc.cityId) || (S.foreign || []).find(c => c.id === inc.cityId);
 
 export function newGame({ ccn3, orgName, acronym, badge }) {
   const country = byCcn3(ccn3), m = country.meta;
@@ -33,9 +38,11 @@ export function newGame({ ccn3, orgName, acronym, badge }) {
     funds: grant * 2, grant, standing: 50, trust: 50,
     cities, bases: [], units: [], groups: [], deliveries: [], transfers: [], recruits: [], incidents: [],
     specimens: [], log: [], ledger: [], needsHQ: true, setupLeft: 3,
-    nextIncident: START_T + rnd(2.6, 3.6) * DAY, month: new Date(START_T).getUTCMonth(),
+    nextIncident: Infinity, month: new Date(START_T).getUTCMonth(), fronts: [], foreign: [],
   };
   hydrate();
+  const keys = Object.keys(THREATS);
+  newOutbreak(S, keys[Math.floor(Math.random() * keys.length)], GEO.ci);
   log('info', `${orgName} chartered by the government of ${m.name}. Place your three charter bases: headquarters first, then two regional garrisons.`);
   return S;
 }
@@ -210,7 +217,7 @@ export function unitStats(u) {
 
 // ---------- Dispatch ----------
 export function planDispatch(incident, unitIds, approach) {
-  const city = S.cities.find(c => c.id === incident.cityId);
+  const city = cityOf(incident);
   const units = unitIds.map(id => S.units.find(u => u.id === id)).filter(u => u && u.status === 'ready');
   const plans = [];
   const byBase = {};
@@ -222,6 +229,10 @@ export function planDispatch(incident, unitIds, approach) {
     const natural = compass(bearing([city.lon, city.lat], [b.lon, b.lat]));
     const dir = approach || natural;
     const detour = dirDiff(natural, dir) * 9; // km of extra driving around the city
+    if (km > 450) { // abroad or across a large country: military airlift (load-out, flight, unloading)
+      for (const u of us) plans.push({ u, base: b, mode: 'air', km, eta: (mob + 5 + km / 650) * HOUR, carrier: 'Military airlift', dir });
+      continue;
+    }
     const helis = us.filter(u => u.vehicle && isHeli(u.vehicle)).map(u => ({ u, cap: ITEM[u.vehicle].pax }));
     const ground = us.filter(u => u.vehicle && !isHeli(u.vehicle)).map(u => ({ u, cap: ITEM[u.vehicle].pax }));
     const inf = us.filter(u => !u.vehicle).sort((a, b) => b.pers - a.pers);
@@ -252,7 +263,7 @@ export function stagingPoint(city, dir) {
 }
 
 export function dispatch(incidentId, unitIds, approach) {
-  const inc = S.incidents.find(i => i.id === incidentId), city = S.cities.find(c => c.id === inc.cityId);
+  const inc = S.incidents.find(i => i.id === incidentId), city = cityOf(inc);
   const plans = planDispatch(inc, unitIds, approach);
   for (const p of plans) {
     const to = stagingPoint(city, p.dir);
@@ -264,20 +275,21 @@ export function dispatch(incidentId, unitIds, approach) {
 }
 
 // ---------- Incidents ----------
-function spawnIncident() {
-  let pool = S.cities.filter(c => c.surveyed && c.status === 'normal');
-  // countries without a city map still get outbreaks in their largest cities (resolved on the strategic layer)
-  if (!S.cities.some(c => c.surveyed)) pool = [...S.cities].sort((a, b) => b.pop - a.pop).slice(0, 5).filter(c => c.status === 'normal');
-  if (!pool.length) return;
-  const city = pool[Math.floor(Math.random() * pool.length)];
-  const keys = Object.keys(THREATS), threat = keys[Math.floor(Math.random() * keys.length)];
+function spawnIncidentAt(city, foreign = false) {
+  if (!city || S.incidents.some(i => i.cityId === city.id && ['alert', 'responding', 'onscene'].includes(i.phase))) return null;
+  const threat = S.world?.threat || Object.keys(THREATS)[0];
   const ds = DISTRICTS[city.name] || ['the city centre', 'the northern districts', 'the old town', 'the station quarter'];
   const district = ds[Math.floor(Math.random() * ds.length)];
-  const inc = { id: uid('i'), cityId: city.id, threat, district, t0: S.t, phase: 'alert', infest: 4, units: [], seen: false, handoff: false };
+  const inc = { id: uid('i'), cityId: city.id, threat, district, t0: S.t, phase: 'alert', infest: 4 + Math.round(cellInf(S, city.lon, city.lat) * 20), units: [], seen: false, handoff: false, foreign };
   S.incidents.push(inc);
   city.status = 'incident'; city.panic = clamp(city.panic + 25, 0, 100);
-  log('bad', `EMERGENCY: ${THREATS[threat].name} reported in ${city.name} (${district}).`);
+  log('bad', `EMERGENCY: ${THREATS[threat].name} reached ${city.name}${foreign ? ` (${countryName(WG.country[landAt(city.lon, city.lat)])})` : ''} — ${district}.`);
   return inc;
+}
+function spawnIncident() { // debug: the outbreak reaches one of your surveyed cities now
+  const pool = S.cities.filter(c => c.surveyed && c.status === 'normal');
+  const city = pool.length ? pool[Math.floor(Math.random() * pool.length)] : [...S.cities].sort((a, b) => b.pop - a.pop)[0];
+  return spawnIncidentAt(city);
 }
 export const debugSpawn = () => spawnIncident();
 
@@ -289,7 +301,7 @@ function onScenePower(inc) {
 
 export const threatNeed = inc => 20 + inc.infest * THREATS[inc.threat].strength * 6;
 export function abstractResolve(incId) {
-  const inc = S.incidents.find(i => i.id === incId), city = S.cities.find(c => c.id === inc.cityId), T = THREATS[inc.threat];
+  const inc = S.incidents.find(i => i.id === incId), city = cityOf(inc), T = THREATS[inc.threat];
   const power = onScenePower(inc);
   const need = threatNeed(inc);
   const ratio = power / Math.max(1, need);
@@ -322,12 +334,23 @@ export function abstractResolve(incId) {
     S.standing = clamp(S.standing - 12, 0, 100); S.trust = clamp(S.trust - 10, 0, 100);
     log('bad', `${city.name}: containment failed. City placed under military quarantine. ${kia} KIA.`);
   }
-  S.nextIncident = S.t + rnd(10, 18) * DAY;
+  worldOutcome(inc, city, success);
   return inc.result;
+}
+// an emergency's outcome feeds the world map: a held city pushes the threat back in its cell, a lost one falls
+function worldOutcome(inc, city, success) {
+  if (!S.world || !city) return;
+  const k = landAt(city.lon, city.lat); if (k < 0) return;
+  if (success) S.world.inf[k] *= 0.3; else { S.world.inf[k] = Math.max(S.world.inf[k], 0.95); }
+  if (inc.foreign) {
+    const a = S.world.ai.find(x => 'f:' + x.cityId === city.id); if (a) { a.done = true; a.held = success; }
+    const rq = S.world.requests.find(r => 'f:' + r.cityId === city.id); if (rq) rq.state = 'resolved';
+    S.trust = clamp(S.trust + (success ? 4 : -2), 0, 100);
+  }
 }
 
 export function resolveTactical(incId, r) {
-  const inc = S.incidents.find(i => i.id === incId), city = S.cities.find(c => c.id === inc.cityId), T = THREATS[inc.threat];
+  const inc = S.incidents.find(i => i.id === incId), city = cityOf(inc), T = THREATS[inc.threat];
   const lost = [];
   for (const ur of r.units) {
     const u = S.units.find(x => x.id === ur.ref); if (!u) continue;
@@ -347,7 +370,7 @@ export function resolveTactical(incId, r) {
   inc.phase = r.success ? 'resolved' : 'lost';
   inc.result = { success: r.success, kia: r.stats.soldiersKIA, lost, tactical: true, civDead: r.stats.civDead, evacuated: r.stats.evacuated, hvtSaved: r.stats.hvtSaved, hvtLost: r.stats.hvtLost };
   log(r.success ? 'good' : 'bad', `${city.name}: ${r.success ? 'threat eliminated' : 'operation ended without containment'} — ${r.stats.soldiersKIA} KIA, ${r.stats.civDead} civilian casualties, ${r.stats.evacuated} evacuated.`);
-  S.nextIncident = S.t + rnd(10, 18) * DAY;
+  worldOutcome(inc, city, r.success);
   return inc.result;
 }
 
@@ -402,17 +425,17 @@ function stepSim(h, ev) {
       const f = clamp((t - u.route.dep) / (u.route.arr - u.route.dep), 0, 1);
       [u.lon, u.lat] = interp(u.route.from, u.route.to, f);
       if (f >= 1) {
-        if (u.status === 'transit') { u.status = 'onscene'; const inc = S.incidents.find(i => i.id === u.incidentId); log('info', `${u.name} arrived at the ${u.approach} staging area, ${S.cities.find(c => c.id === inc.cityId).name}.`); if (inc.phase === 'responding' || inc.phase === 'alert') inc.phase = 'onscene'; }
+        if (u.status === 'transit' && u.frontId) { u.status = 'front'; const f = S.fronts.find(x => x.id === u.frontId); log('info', `${u.name} took up position at ${f ? f.name : 'the front'}.`); }
+        else if (u.status === 'transit') { u.status = 'onscene'; const inc = S.incidents.find(i => i.id === u.incidentId); log('info', `${u.name} arrived at the ${u.approach} staging area, ${cityOf(inc).name}.`); if (inc.phase === 'responding' || inc.phase === 'alert') inc.phase = 'onscene'; }
         else { u.status = 'ready'; u.route = null; u.incidentId = null; log('info', `${u.name} returned to base.`); }
       }
     }
   }
-  // Incidents
-  if (t >= S.nextIncident && !S.incidents.some(i => ['alert', 'responding', 'onscene'].includes(i.phase))) {
-    const inc = spawnIncident(); S.nextIncident = Infinity; if (inc) ev.push({ type: 'incident', inc });
-  }
+  // The global outbreak
+  if (S.world) for (const e of stepOutbreak(S, h, GEO.ci)) worldEvent(e, ev);
+  for (const c of S.cities) if (c.status !== 'lost') { const x = cellInf(S, c.lon, c.lat); if (x > 0.01) { c.integrity = Math.min(c.integrity, 100 - x * 100); c.panic = clamp(c.panic + h * x * 0.6, 0, 100); } }
   for (const inc of S.incidents.filter(i => ['alert', 'responding', 'onscene'].includes(i.phase))) {
-    const city = S.cities.find(c => c.id === inc.cityId), T = THREATS[inc.threat];
+    const city = cityOf(inc), T = THREATS[inc.threat];
     const supp = clamp(onScenePower(inc) / (threatNeed(inc) * 1.25), 0, 1.2);
     inc.infest = clamp(inc.infest + h * T.spread * 0.35 * (1 - supp), 1, 100);
     city.integrity = clamp(city.integrity - h * inc.infest * 0.012, 0, 100);
@@ -421,12 +444,53 @@ function stepSim(h, ev) {
     S.trust = clamp(S.trust - h * 0.02 * (1 - supp), 0, 100);
     const arrived = inc.units.some(id => S.units.find(x => x.id === id)?.status === 'onscene'); // first unit on scene can take command
     if (arrived && !inc.handoff) { inc.handoff = true; ev.push({ type: 'handoff', inc }); }
-    if (city.integrity <= 0) { inc.phase = 'lost'; city.status = 'lost'; S.standing = clamp(S.standing - 20, 0, 100); log('bad', `${city.name} has fallen. Government standing collapses.`); S.nextIncident = S.t + rnd(10, 18) * DAY; }
+    if (city.integrity <= 0) { inc.phase = 'lost'; city.status = 'lost'; S.standing = clamp(S.standing - 20, 0, 100); log('bad', `${city.name} has fallen. Government standing collapses.`); worldOutcome(inc, city, false); }
   }
   // Panic relaxation in calm cities
   for (const c of S.cities) if (c.status === 'normal') { c.panic = clamp(c.panic - h * 0.03, 2, 100); c.integrity = clamp(c.integrity + h * 0.05, 0, 100); }
 }
 
+function worldEvent(e, ev) {
+  const T = THREATS[S.world.threat], where = ci => countryName(ci);
+  if (e.type === 'outbreak') { log('bad', `GLOBAL ALERT: ${T.name} confirmed in ${where(e.ci)} (first reports from ${S.world.origin.name}).`); ev.push({ type: 'world', kind: 'outbreak', ci: e.ci }); }
+  else if (e.type === 'countryHit') { if (e.home) { log('bad', `The outbreak has crossed into ${S.nation.name}. National forces are mobilising.`); S.standing = clamp(S.standing - 5, 0, 100); ev.push({ type: 'world', kind: 'home' }); } else log('info', `Outbreak confirmed in ${where(e.ci)}.`); }
+  else if (e.type === 'airSuspended') log('info', 'International air traffic suspended. Long-distance spread slows to sea and overland routes.');
+  else if (e.type === 'homeCity') { const inc = spawnIncidentAt(e.city); if (inc) ev.push({ type: 'incident', inc }); }
+  else if (e.type === 'homeFallen') { S.standing = clamp(S.standing - 8, 0, 100); log('bad', `${e.city.name} has been overrun.`); }
+  else if (e.type === 'request') { log('info', `${WG.orgOf[WG.country[landAt(e.rq.lon, e.rq.lat)]]?.short || 'Allied organization'} requests assistance in ${e.rq.name}. (World tab)`); if (packFor(e.rq.cc, e.rq.name)) ev.push({ type: 'world', kind: 'request', rq: e.rq }); }
+  else if (e.type === 'foreignResult') log(e.held ? 'info' : 'bad', `${e.city.name}: ${e.held ? 'held by local forces' : 'overrun'}.`);
+}
+// accept a foreign organization's request: the city becomes an emergency you can dispatch to (and command in 3D if surveyed)
+export function acceptRequest(rqId) {
+  const rq = S.world?.requests.find(r => r.id === rqId); if (!rq || rq.state !== 'open') return null;
+  rq.state = 'accepted';
+  const id = 'f:' + rq.cityId;
+  let city = S.foreign.find(c => c.id === id);
+  if (!city) { city = { id, name: rq.name, cc: rq.cc, lon: rq.lon, lat: rq.lat, pop: rq.pop, integrity: 100 - Math.round(cellInf(S, rq.lon, rq.lat) * 100), panic: 40, status: 'normal', foreign: true, surveyed: !!packFor(rq.cc, rq.name) }; S.foreign.push(city); }
+  const inc = spawnIncidentAt(city, true);
+  if (inc) log('good', `${S.org.acronym || S.org.name} accepted the request from ${rq.name}. Dispatch units from the incident panel.`);
+  return inc;
+}
+// frontlines: units hold a position, adding to the defence of the surrounding cells; they take losses where pressure is high
+export function deployFront(lonlat, unitIds, name) {
+  const k = landAt(lonlat[0], lonlat[1]); if (k < 0) return 'Pick a point on land.';
+  const units = unitIds.map(id => S.units.find(u => u.id === id)).filter(u => u && u.status === 'ready'); if (!units.length) return 'No ready units selected.';
+  const f = { id: uid('f'), name: name || 'Front line', lon: lonlat[0], lat: lonlat[1], k, units: [], power: {}, prot: {}, t0: S.t, kia: 0 };
+  for (const u of units) {
+    const b = S.bases.find(x => x.id === u.baseId), km = distKm([b.lon, b.lat], lonlat), st = unitStats(u);
+    const air = km > 450 || (u.vehicle && isHeli(u.vehicle)), eta = (air ? 5 + km / 650 : 2 + km / 60) * HOUR;
+    Object.assign(u, { status: 'transit', frontId: f.id, incidentId: null, route: { from: [b.lon, b.lat], to: lonlat, dep: S.t, arr: S.t + eta, mode: air ? 'air' : 'road' } });
+    f.units.push(u.id); f.power[u.id] = Math.max(0.5, (st.fire + st.prot * 2) / 10); f.prot[u.id] = st.prot;
+  }
+  S.fronts.push(f); log('info', `${units.length} unit(s) moving up to ${f.name}.`);
+  return f;
+}
+export function recallFront(fid) {
+  const f = S.fronts.find(x => x.id === fid); if (!f) return;
+  for (const id of f.units) { const u = S.units.find(x => x.id === id); if (!u) continue; const b = S.bases.find(x => x.id === u.baseId); const km = distKm([u.lon, u.lat], [b.lon, b.lat]); u.route = { from: [u.lon, u.lat], to: [b.lon, b.lat], dep: S.t, arr: S.t + (km > 450 ? 5 + km / 650 : 2 + km / 60) * HOUR, mode: km > 450 ? 'air' : 'road' }; u.status = 'returning'; u.frontId = null; }
+  S.units = S.units.filter(u => u.pers > 0);
+  S.fronts = S.fronts.filter(x => x !== f); log('info', `${f.name}: units withdrawn${f.kia ? ` (${f.kia} killed while holding the line)` : ''}.`);
+}
 export const activeIncident = () => S.incidents.find(i => ['alert', 'responding', 'onscene'].includes(i.phase));
 export function nationalStats() {
   const pop = S.cities.reduce((a, c) => a + c.pop, 0) || 1;
@@ -434,7 +498,7 @@ export function nationalStats() {
 }
 
 const KEY = 'sco_save_v1';
-export function save() { try { S.gameVersion = VERSION; S.saveFormat = SAVE_FORMAT; localStorage.setItem(KEY, JSON.stringify(S)); return true; } catch (e) { return false; } }
+export function save() { try { S.gameVersion = VERSION; S.saveFormat = SAVE_FORMAT; localStorage.setItem(KEY, JSON.stringify({ ...S, world: S.world ? packWorld(S.world) : null })); return true; } catch (e) { return false; } }
 export function saveInfo() { try { const s = JSON.parse(localStorage.getItem(KEY)); return s ? { version: s.gameVersion || '0.3.0 or older', org: s.org?.name, t: s.t } : null; } catch (e) { return null; } }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
-export function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (!s) return false; if (s.nextIncident === null) s.nextIncident = Infinity; const m = migrate(s); setS(m.s); for (const c of m.s.cities || []) c.surveyed = !!packFor(m.s.nation.cca2, c.name); if (m.migratedFrom) log('info', `Save upgraded to game version ${VERSION}.`); return true; } catch (e) { return false; } }
+export function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (!s) return false; if (s.nextIncident === null) s.nextIncident = Infinity; const m = migrate(s); m.s.world = unpackWorld(m.s.world); setS(m.s); for (const c of m.s.cities || []) c.surveyed = !!packFor(m.s.nation.cca2, c.name); if (!S.world) { const keys = Object.keys(THREATS); newOutbreak(S, keys[Math.floor(Math.random() * keys.length)], GEO.ci); S.nextIncident = Infinity; } if (m.migratedFrom) log('info', `Save upgraded to game version ${VERSION}.`); return true; } catch (e) { return false; } }

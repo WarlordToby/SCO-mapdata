@@ -5,6 +5,9 @@ import { badgeSVG } from './badge.js';
 import { panicColor } from './map.js';
 import { distKm } from './geo.js';
 import * as M from './modals.js';
+import { G as WG, countryName, landAt } from './world.js';
+import { PROFILE, FALL } from './outbreak.js';
+import { packFor } from './packs.js';
 
 export const UI = { tab: 'org', eqTab: 'infantry', eqBase: 'all', eqCatalog: false, eqOpen: null, openBase: null, refresh: () => {}, game: null, flash: () => {} };
 let lastHTML = '', lastCtx = '', mouseDown = false;
@@ -14,7 +17,7 @@ document.addEventListener('pointerup', () => setTimeout(() => mouseDown = false,
 export function renderTab(soft) {
   const S = G.getS(); if (!S) return;
   $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === UI.tab));
-  const html = ({ org: tabOrg, equip: tabEquip, research: tabResearch, bases: tabBases })[UI.tab](S);
+  const html = ({ org: tabOrg, equip: tabEquip, research: tabResearch, bases: tabBases, world: tabWorld })[UI.tab](S);
   if (soft && (html === lastHTML || mouseDown)) return;
   const body = $('#tabbody'), st = body.scrollTop;
   if (!soft || html !== lastHTML) { body.innerHTML = html; body.scrollTop = soft ? st : (UI.keepScroll ? st : 0); UI.keepScroll = false; }
@@ -59,7 +62,7 @@ function tabOrg(S) {
     <span>Fielded units</span><span>${S.units.length}</span><span>Fielded vehicles</span><span>${veh.filter(u => !isHeli(u.vehicle)).length} ground · ${veh.filter(u => isHeli(u.vehicle)).length} air</span>
     <span>Deployed now</span><span class="${deployed.length ? 'amb' : ''}">${deployed.length}</span><span>Contingency groups</span><span>${S.groups.length}</span>
   </div></div>
-  <div class="sec"><div class="lbl">Incident record</div>${S.incidents.length ? S.incidents.slice().reverse().map(i => { const c = S.cities.find(x => x.id === i.cityId); return `<div class="card row"><span class="pill" style="color:${THREATS[i.threat].color}">${THREATS[i.threat].short}</span><div class="sp"><b>${esc(c.name)}</b> — ${esc(i.district)}<div class="mut" style="font-size:12px">${fmtDate(i.t0)} · ${esc(THREATS[i.threat].name)}</div></div><span class="${i.phase === 'resolved' ? 'good' : i.phase === 'lost' ? 'bad' : 'amb'}">${i.phase.toUpperCase()}</span></div>`; }).join('') : '<div class="mut">No incidents recorded.</div>'}</div>`;
+  <div class="sec"><div class="lbl">Incident record</div>${S.incidents.length ? S.incidents.slice().reverse().map(i => { const c = G.cityOf(i); return `<div class="card row"><span class="pill" style="color:${THREATS[i.threat].color}">${THREATS[i.threat].short}</span><div class="sp"><b>${esc(c.name)}</b> — ${esc(i.district)}<div class="mut" style="font-size:12px">${fmtDate(i.t0)} · ${esc(THREATS[i.threat].name)}</div></div><span class="${i.phase === 'resolved' ? 'good' : i.phase === 'lost' ? 'bad' : 'amb'}">${i.phase.toUpperCase()}</span></div>`; }).join('') : '<div class="mut">No incidents recorded.</div>'}</div>`;
 }
 
 // ---------------- Equipment ----------------
@@ -135,13 +138,40 @@ function tabBases(S) {
    ${S.transfers.length ? `<div class="sec"><div class="lbl">Convoys</div>${S.transfers.map(t => `<div class="row"><span class="sp">${esc(S.bases.find(b => b.id === t.from).name)} → ${esc(S.bases.find(b => b.id === t.to).name)}</span><span class="mono mut">${dur(t.at - S.t)}</span></div>`).join('')}</div>` : ''}`;
 }
 
+// ---------------- World ----------------
+function tabWorld(S) {
+  const w = S.world; if (!w || !WG.ready) return '<div class="mut">World data loading…</div>';
+  const T = THREATS[w.threat], days = Math.floor((S.t - w.t0) / 864e5), st = w.stats || {};
+  const known = !!w.firstDetect;
+  // countries affected, by overrun area
+  const by = new Map();
+  for (let k = 0; k < WG.N; k++) { const x = w.inf[k]; if (x < 0.01) continue; const ci = WG.country[k]; const e = by.get(ci) || { cells: 0, fallen: 0, pop: 0 }; e.cells++; if (x >= FALL) { e.fallen++; e.pop += WG.pop[k]; } by.set(ci, e); }
+  const rows = [...by.entries()].filter(([ci]) => w.countries[ci]?.detected).sort((a, b) => b[1].cells - a[1].cells).slice(0, 14);
+  const reqs = (w.requests || []).filter(r => r.state === 'open');
+  const fronts = S.fronts || [];
+  return `<div class="sec"><div class="lbl">Global situation</div><div class="card">
+      ${known ? `<div class="row"><span class="pill" style="color:${T.color}">${T.short}</span><b class="sp">${esc(T.name)}</b></div>
+      <div class="mut" style="font-size:12px;margin:4px 0">First reports from ${esc(w.origin.name)} · day ${days - Math.floor((w.firstDetect - w.t0) / 864e5)} since confirmation</div>
+      <div class="stats" style="margin-top:6px"><span>Area affected</span><span>${num(Math.round((st.infected || 0) * 770))} km²</span><span>Area overrun</span><span class="bad">${num(Math.round((st.fallen || 0) * 770))} km²</span>
+        <span>People in overrun areas</span><span class="bad">${big(st.popLost || 0)}</span><span>Countries affected</span><span>${Object.values(w.countries).filter(c => c.detected).length}</span>
+        <span>Air travel</span><span>${w.air ? '<span class="amb">Suspended</span>' : 'Operating'}</span><span>${esc(S.nation.name)}</span><span>${w.countries[G.GEO.ci]?.detected ? '<b class="bad">Affected</b>' : '<span class="good">Not yet reached</span>'}</span></div>`
+      : `<div class="mut">No confirmed outbreak. Intelligence services report nothing unusual.</div>`}
+    </div><div class="row" style="margin-top:6px"><button class="sm" data-act="viewWorld">${UI.game?.view === 'world' ? 'National map' : 'World map'} (M)</button>${known ? `<button class="sm" data-act="focusOrigin">Show origin</button>` : ''}</div></div>
+  ${reqs.length ? `<div class="sec"><div class="lbl">Requests for assistance</div>${reqs.map(r => { const org = WG.orgOf[WG.country[landAt(r.lon, r.lat)]]; return `<div class="card"><div class="row"><b class="sp">${esc(r.name)}</b>${packFor(r.cc, r.name) ? '<span class="pill acc">3D</span>' : ''}<span class="mut mono">${dur(r.until - S.t)}</span></div><div class="mut" style="font-size:12px">${esc(org?.name || '')} · pop. ${big(r.pop)}</div><div class="row" style="margin-top:6px"><button class="pri sm" data-act="acceptRq" data-id="${r.id}">Respond…</button><button class="sm" data-act="focusLL" data-id="${r.lon},${r.lat}">Show</button></div></div>`; }).join('')}</div>` : ''}
+  <div class="sec"><div class="lbl">Front lines</div>${fronts.map(f => `<div class="card"><div class="row"><b class="sp">${esc(f.name)}</b><span class="${(w.inf[f.k] || 0) > 0.3 ? 'bad' : 'mut'} mono">${Math.round((w.inf[f.k] || 0) * 100)}%</span></div>
+      <div style="font-size:12px">${f.units.map(id => S.units.find(u => u.id === id)).filter(Boolean).map(u => `<div class="row"><span class="sp">${esc(u.name)}</span><span class="${u.status === 'front' ? 'good' : 'amb'}">${u.status === 'transit' ? 'ETA ' + dur(u.route.arr - S.t) : u.status === 'front' ? u.pers + ' holding' : u.status}</span></div>`).join('')}${f.kia ? `<div class="bad">${f.kia} killed holding the line</div>` : ''}</div>
+      <div class="row" style="margin-top:6px"><button class="sm" data-act="focusLL" data-id="${f.lon},${f.lat}">Show</button><button class="sm" data-act="recallFront" data-id="${f.id}">Withdraw</button></div></div>`).join('') || '<div class="mut" style="font-size:12px">National armed forces hold the countryside. Your units can reinforce any point of the front, at home or with an allied organization.</div>'}
+    <button class="sm" data-act="newFront" style="margin-top:6px">+ Deploy units to a front…</button></div>
+  ${rows.length ? `<div class="sec"><div class="lbl">Countries affected</div><table class="tbl" style="font-size:12px"><tr><th>Country</th><th>Organization</th><th class="n">Overrun</th></tr>${rows.map(([ci, e]) => `<tr><td>${esc(countryName(ci))}${ci === G.GEO.ci ? ' <span class="pill acc">HOME</span>' : ''}</td><td class="mut">${esc(WG.orgOf[ci]?.short || '')}</td><td class="n ${e.fallen ? 'bad' : ''}">${Math.round(e.fallen / Math.max(1, WG.byCountry[ci].length) * 100)}%</td></tr>`).join('')}</table></div>` : ''}`;
+}
+
 // ---------------- Context panel ----------------
 export function renderCtx() {
   const S = G.getS(), sel = UI.game?.sel, el = $('#ctx');
   if (!sel) { el.style.display = 'none'; $('#log').style.right = '12px'; lastCtx = ''; return; }
   let html = '';
   if (sel.type === 'city') {
-    const c = S.cities.find(x => x.id === sel.id); if (!c) return;
+    const c = S.cities.find(x => x.id === sel.id) || (S.foreign || []).find(x => x.id === sel.id); if (!c) return;
     const inc = S.incidents.find(i => i.cityId === c.id && ['alert', 'responding', 'onscene'].includes(i.phase));
     const nb = S.bases.map(b => ({ b, km: distKm([b.lon, b.lat], [c.lon, c.lat]) })).sort((a, b) => a.km - b.km)[0];
     html = `<div class="row"><div class="title sp">${esc(c.name)}</div><button class="sm" data-act="closeCtx">✕</button></div>
@@ -156,6 +186,14 @@ export function renderCtx() {
        <div class="row"><span style="width:70px">Spread</span>${bar(inc.infest, '#e5484d')}<b class="mono" style="width:38px;text-align:right">${Math.round(inc.infest)}</b></div>
        <div style="margin-top:6px;font-size:12px">${inc.units.map(id => S.units.find(u => u.id === id)).filter(Boolean).map(u => `<div class="row"><span class="sp">${esc(u.name)}</span><span class="${u.status === 'onscene' ? 'good' : 'amb'}">${u.status === 'transit' ? 'ETA ' + dur(u.route.arr - S.t) : u.status}</span></div>`).join('') || '<span class="bad">No forces assigned.</span>'}</div>
        <div class="row" style="margin-top:8px"><button class="pri sm" data-act="dispatch" data-id="${inc.id}">Dispatch forces…</button>${inc.handoff ? `<button class="sm" data-act="handoff" data-id="${inc.id}">Command on scene…</button>` : ''}</div></div>` : ''}`;
+  } else if (sel.type === 'wcity' && sel.obj) {
+    const c = sel.obj, x = S.world?.inf[c.k] || 0, ci = WG.country[c.k];
+    html = `<div class="row"><div class="title sp">${esc(c.name)}</div><button class="sm" data-act="closeCtx">✕</button></div>
+      <div class="mut">${esc(countryName(ci))} · pop. ${num(c.pop)}</div>
+      <div class="col" style="margin:10px 0"><div class="row"><span style="width:70px">Overrun</span>${bar(x * 100, '#e5484d')}<b class="mono" style="width:38px;text-align:right">${Math.round(x * 100)}%</b></div></div>
+      <div class="mut" style="font-size:12px">Response: ${esc(WG.orgOf[ci]?.name || '')}</div>
+      ${packFor(c.cc, c.name) ? '<div class="card" style="font-size:12px;margin-top:8px"><b class="acc">Detailed survey on file</b><div class="mut">If its organization asks for help, you can command on the ground in 3D.</div></div>' : ''}
+      <button class="sm" data-act="newFrontAt" data-id="${c.lon},${c.lat}" style="margin-top:8px">Deploy units here…</button>`;
   } else if (sel.type === 'base') {
     const b = S.bases.find(x => x.id === sel.id); if (!b) return;
     html = `<div class="row"><div class="title sp">${esc(b.name)}</div><button class="sm" data-act="closeCtx">✕</button></div><div class="mut">${BASE_SIZES[b.size].name} · ${b.built ? 'Operational' : 'Under construction'}</div>
@@ -192,6 +230,13 @@ function act(e) {
     case 'newGroup': S.groups.push({ id: 'g' + Math.random().toString(36).slice(2, 7), name: `Contingency Group ${'Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett'.split(' ')[S.groups.length % 10]}`, unitIds: [] }); break;
     case 'editGroup': return M.groupDialog(id);
     case 'closeCtx': UI.game.sel = null; break;
+    case 'viewWorld': UI.toggleView(); break;
+    case 'focusOrigin': { if (UI.game.view !== 'world') UI.toggleView(); const o = S.world.origin; UI.game.map.focus([o.lon, o.lat], 3); break; }
+    case 'focusLL': { const [lo, la] = id.split(',').map(Number); if (UI.game.view !== 'world') UI.toggleView(); UI.game.map.focus([lo, la], 6); break; }
+    case 'acceptRq': return M.requestDialog(S.world.requests.find(r => r.id === id));
+    case 'recallFront': G.recallFront(id); break;
+    case 'newFront': UI.game.front = true; if (UI.game.view !== 'world') UI.toggleView(); break;
+    case 'newFrontAt': return M.frontDialog(id.split(',').map(Number));
     case 'dispatch': return M.showDispatch(S.incidents.find(i => i.id === id));
     case 'handoff': return M.showHandoff(S.incidents.find(i => i.id === id));
   }
