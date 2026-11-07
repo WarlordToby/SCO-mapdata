@@ -136,7 +136,7 @@ for (const b of buildings) {
 
 // ---------- Terrain ----------
 log('Sampling terrain…');
-const terrain = await loadTerrain(area.dem.map(f => path.join(work, f)), P);
+const terrain = await loadTerrain(area.dem.map(f => path.join(work, f)), P, R);
 for (const b of buildings) b.z = terrain.at(b.c[0], b.c[1]);
 for (const j of roads.junctions) j.z = j.p ? terrain.at(j.p[0], j.p[1]) : 0;
 
