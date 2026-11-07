@@ -57,6 +57,7 @@ jobs:
       - name: Compile pack
         run: node --max-old-space-size=6000 compiler/compile.mjs --work work --out packs
       - name: Commit pack
+        if: ${{ inputs.keep_raw != 'yes' }}
         env:
           CITY: ${{ inputs.city }}
         run: |
@@ -71,7 +72,8 @@ jobs:
         if: ${{ inputs.keep_raw == 'yes' }}
         run: |
           mkdir -p /tmp/raw && cd /tmp/raw && git init -q && git checkout -q -b raw-data
-          cp -r "$GITHUB_WORKSPACE"/work/area.json "$GITHUB_WORKSPACE"/work/area.osm.pbf "$GITHUB_WORKSPACE"/work/*.tif .
+          cp -r "$GITHUB_WORKSPACE"/work/area.json "$GITHUB_WORKSPACE"/work/area.osm.pbf "$GITHUB_WORKSPACE"/work/Copernicus*.tif .
+          cp "$GITHUB_WORKSPACE"/work/landcover.json.gz . 2>/dev/null || true
           [ -d "$GITHUB_WORKSPACE/work/cadastre" ] && cp -r "$GITHUB_WORKSPACE/work/cadastre" . || true
           ls -la
           git config user.name "sco-mapdata-bot"

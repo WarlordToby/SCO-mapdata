@@ -90,6 +90,39 @@ for (let la = Math.floor(bbox[1]); la <= Math.floor(bbox[3]); la++) for (let lo 
   else console.log(`  no DEM tile ${name} (sea) — treated as 0 m`);
 }
 
+// 4b. Land cover: ESA WorldCover 2021 v200 (10 m, CC BY 4.0), 3°×3° Cloud-Optimised GeoTIFFs on AWS Open Data.
+// A tile that does not exist is open sea (WorldCover only covers land).
+const worldcover = [], wcMissing = [];
+for (let la = Math.floor(bbox[1] / 3) * 3; la <= Math.floor(bbox[3] / 3) * 3; la += 3) for (let lo = Math.floor(bbox[0] / 3) * 3; lo <= Math.floor(bbox[2] / 3) * 3; lo += 3) {
+  const ns = (la >= 0 ? 'N' : 'S') + String(Math.abs(la)).padStart(2, '0'), ew = (lo >= 0 ? 'E' : 'W') + String(Math.abs(lo)).padStart(3, '0');
+  const name = `ESA_WorldCover_10m_2021_v200_${ns}${ew}_Map`, file = path.join(cache, name + '.tif');
+  try {
+    if (await download(`https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map/${name}.tif`, file)) {
+      if (cache !== out && !fs.existsSync(path.join(out, name + '.tif'))) fs.symlinkSync(file, path.join(out, name + '.tif'));
+      worldcover.push(name + '.tif');
+    } else wcMissing.push([lo, la, lo + 3, la + 3]);
+  } catch (e) { console.log(`  WorldCover ${name} failed: ${e.message}`); }
+}
+
+// Crop to the pack area at native resolution (1/12000°) → landcover.json.gz { bbox, w, h, b64 } (class codes; sea = 80)
+let landcover = null;
+if (worldcover.length || wcMissing.length) {
+  const { fromFile } = await import('geotiff');
+  const res = 1 / 12000, w = Math.ceil((bbox[2] - bbox[0]) / res), h = Math.ceil((bbox[3] - bbox[1]) / res), grid = new Uint8Array(w * h).fill(80);
+  for (const f of worldcover) {
+    const img = await (await fromFile(path.join(cache, f))).getImage(), [x0, , , y1] = img.getBoundingBox();
+    const px = Math.floor((bbox[0] - x0) / res), py = Math.floor((y1 - bbox[3]) / res);
+    const win = [Math.max(0, px), Math.max(0, py), Math.min(img.getWidth(), px + w), Math.min(img.getHeight(), py + h)];
+    if (win[2] <= win[0] || win[3] <= win[1]) continue;
+    const r = (await img.readRasters({ window: win }))[0], ww = win[2] - win[0];
+    for (let j = win[1]; j < win[3]; j++) for (let i = win[0]; i < win[2]; i++) { const v = r[(j - win[1]) * ww + (i - win[0])]; grid[(j - py) * w + (i - px)] = v || 80; }
+  }
+  const zlib = await import('node:zlib');
+  fs.writeFileSync(path.join(out, 'landcover.json.gz'), zlib.gzipSync(JSON.stringify({ bbox, w, h, res, b64: Buffer.from(grid).toString('base64') })));
+  landcover = 'landcover.json.gz';
+  console.log(`Land cover: ${w}×${h} cells from ${worldcover.length} WorldCover tile(s)`);
+}
+
 // 5. Property boundaries. France: Etalab cadastre parcels (open licence), one GeoJSON file per commune.
 const cadastre = [];
 if ((args.country || '').toUpperCase() === 'FR') {
@@ -113,7 +146,7 @@ if ((args.country || '').toUpperCase() === 'FR') {
 
 fs.writeFileSync(path.join(out, 'area.json'), JSON.stringify({
   city: args.city, displayName, country: (args.country || '').toUpperCase(), lat, lon, radiusKm: radius, bbox,
-  extracts: [...regions.values()].map(p => ({ id: p.id, name: p.name, url: p.urls.pbf })), dem, cadastre,
+  extracts: [...regions.values()].map(p => ({ id: p.id, name: p.name, url: p.urls.pbf })), dem, landcover, cadastre,
   fetchedAt: new Date().toISOString(),
 }, null, 2));
 console.log('Fetch complete.');
