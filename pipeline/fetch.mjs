@@ -87,9 +87,30 @@ for (let la = Math.floor(bbox[1]); la <= Math.floor(bbox[3]); la++) for (let lo 
   else console.log(`  no DEM tile ${name} (sea) — treated as 0 m`);
 }
 
+// 5. Property boundaries. France: Etalab cadastre parcels (open licence), one GeoJSON file per commune.
+const cadastre = [];
+if ((args.country || '').toUpperCase() === 'FR') {
+  const codes = new Set(), pts = [];
+  const nx = Math.max(4, Math.ceil(radius * 2 / 0.8));
+  for (let i = 0; i <= nx; i++) for (let j = 0; j <= nx; j++) pts.push([bbox[0] + (bbox[2] - bbox[0]) * i / nx, bbox[1] + (bbox[3] - bbox[1]) * j / nx]);
+  for (let k = 0; k < pts.length; k += 8) {
+    await Promise.all(pts.slice(k, k + 8).map(async ([x, y]) => {
+      try { const r = await getJSON(`https://geo.api.gouv.fr/communes?lat=${y}&lon=${x}&fields=code`); for (const c of r) codes.add(c.code); } catch (e) { console.log(`  commune lookup failed at ${x},${y}: ${e.message}`); }
+    }));
+  }
+  fs.mkdirSync(path.join(out, 'cadastre'), { recursive: true });
+  for (const code of [...codes].sort()) {
+    const dep = code.startsWith('97') ? code.slice(0, 3) : code.slice(0, 2);
+    const file = path.join(out, 'cadastre', `${code}.json.gz`);
+    try { if (await download(`https://cadastre.data.gouv.fr/data/etalab-cadastre/latest/geojson/communes/${dep}/${code}/cadastre-${code}-parcelles.json.gz`, file)) cadastre.push(`cadastre/${code}.json.gz`); }
+    catch (e) { console.log(`  cadastre ${code} failed: ${e.message}`); }
+  }
+  console.log(`Cadastre: ${cadastre.length}/${codes.size} communes`);
+}
+
 fs.writeFileSync(path.join(out, 'area.json'), JSON.stringify({
   city: args.city, displayName, country: (args.country || '').toUpperCase(), lat, lon, radiusKm: radius, bbox,
-  extracts: [...regions.values()].map(p => ({ id: p.id, name: p.name, url: p.urls.pbf })), dem,
+  extracts: [...regions.values()].map(p => ({ id: p.id, name: p.name, url: p.urls.pbf })), dem, cadastre,
   fetchedAt: new Date().toISOString(),
 }, null, 2));
 console.log('Fetch complete.');

@@ -21,6 +21,10 @@ on:
         description: Half-width of the square pack area in km
         required: false
         default: '6'
+      keep_raw:
+        description: Also push the raw downloads (OSM cut, DEM, cadastre) to branch raw-data for local compiling
+        required: false
+        default: 'no'
 
 permissions:
   contents: write
@@ -63,6 +67,17 @@ jobs:
           git commit -m "Compile city pack: $CITY"
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+      - name: Push raw inputs
+        if: ${{ inputs.keep_raw == 'yes' }}
+        run: |
+          mkdir -p /tmp/raw && cd /tmp/raw && git init -q && git checkout -q -b raw-data
+          cp -r "$GITHUB_WORKSPACE"/work/area.json "$GITHUB_WORKSPACE"/work/area.osm.pbf "$GITHUB_WORKSPACE"/work/*.tif .
+          [ -d "$GITHUB_WORKSPACE/work/cadastre" ] && cp -r "$GITHUB_WORKSPACE/work/cadastre" . || true
+          ls -la
+          git config user.name "sco-mapdata-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "Raw inputs" 
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" raw-data
       - uses: actions/upload-artifact@v4
         with:
           name: area-info
