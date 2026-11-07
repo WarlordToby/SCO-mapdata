@@ -2,6 +2,15 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.5.0 — Balance: bases, police, map view (2026-11-07)
+
+- Base modules now give 4× capacity: Barracks +160 personnel, Armory +1,200 items, Motor Pool +32 vehicle bays, Helipad +4 helicopters, Hangar +12 helicopters.
+- Three charter bases at game start: place your Headquarters and two regional garrisons. Each garrison comes with its own stock and its own contingency group (Bravo, Charlie: rifle squad, response team, VAB, truck, Alouette).
+- Dispatch pre-selects the contingency group of the base nearest to the incident.
+- Complete map view in the city layer: no fog of war — every hostile and infested building is always visible.
+- Greater local police presence: 10 cars per police station plus patrols across the whole operation area (about 4 per km²). Response cars drive towards hostile activity and open fire at close range; officers can be overrun. Police nearby double evacuation speed.
+- Hostiles now go after police patrols that come close.
+
 ## v0.4.0 — First response (2026-11-07)
 
 - Version system: version shown on the main menu and in-game; this changelog opens automatically after an update; saves record the version they were made with and are migrated forward.

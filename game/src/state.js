@@ -1,4 +1,4 @@
-import { ITEM, isVehicle, isHeli, STARTING_STOCK, BASE_SIZES, MODULES, TEMPLATES, THREATS, DISTRICTS } from './catalog.js';
+import { ITEM, isVehicle, isHeli, STARTING_STOCK, GARRISON_STOCK, BASE_SIZES, MODULES, TEMPLATES, THREATS, DISTRICTS } from './catalog.js';
 import { VERSION, SAVE_FORMAT, migrate } from './version.js';
 import { byCcn3, territoryOf, citiesOf, distKm, bearing, compass, interp } from './geo.js';
 
@@ -33,11 +33,11 @@ export function newGame({ ccn3, orgName, acronym, badge }) {
     nation: { name: m.name, cca2: m.cca2, pop: m.pop, gdp: m.gdp, capital: m.capital, flag: m.flag, popYear: m.popYear, gdpYear: m.gdpYear, region: m.sub || m.region },
     funds: grant * 2, grant, standing: 50, trust: 50,
     cities, bases: [], units: [], groups: [], deliveries: [], transfers: [], recruits: [], incidents: [],
-    specimens: [], log: [], ledger: [], needsHQ: true,
+    specimens: [], log: [], ledger: [], needsHQ: true, setupLeft: 3,
     nextIncident: START_T + rnd(2.6, 3.6) * DAY, month: new Date(START_T).getUTCMonth(),
   };
   hydrate();
-  log('info', `${orgName} chartered by the government of ${m.name}. Select a site for your headquarters.`);
+  log('info', `${orgName} chartered by the government of ${m.name}. Place your three charter bases: headquarters first, then two regional garrisons.`);
   return S;
 }
 
@@ -46,7 +46,7 @@ export function log(kind, text) { S.log.unshift({ t: S.t, kind, text }); if (S.l
 // ---------- Bases ----------
 export function baseCaps(b) {
   const n = k => b.modules.filter(m => m.type === k && m.done).length;
-  return { pers: 20 + n('barracks') * 40, inf: 60 + n('armory') * 300, ground: 2 + n('motorpool') * 8, heli: n('helipad') + n('hangar') * 3, comms: n('comms') > 0, lab: n('lab') > 0 };
+  return { pers: 20 + n('barracks') * 160, inf: 60 + n('armory') * 1200, ground: 2 + n('motorpool') * 32, heli: n('helipad') * 4 + n('hangar') * 12, comms: n('comms') > 0, lab: n('lab') > 0 };
 }
 export function baseUsage(b) {
   const u = { pers: b.personnel, inf: 0, ground: 0, heli: 0 };
@@ -82,19 +82,20 @@ export function nearestCity(lonlat) {
 
 export function placeBase(lonlat, size, name) {
   const err = canPlaceBase(lonlat); if (err) return err;
-  const isHQ = S.needsHQ;
+  const setup = S.needsHQ, setupIdx = setup ? 3 - (S.setupLeft ?? 1) : -1, isHQ = setupIdx === 0;
+  if (setup && !isHQ) size = 'garrison';
   const spec = BASE_SIZES[isHQ ? 'hq' : size];
-  if (!isHQ && S.funds < spec.cost) return 'Insufficient funds.';
+  if (!setup && S.funds < spec.cost) return 'Insufficient funds.';
   const { city } = nearestCity(lonlat);
   const b = {
     id: uid('b'), name: name || `${isHQ ? 'HQ' : spec.name} ${city ? city.name : ''}`.trim(), size: isHQ ? 'hq' : size,
     lon: lonlat[0], lat: lonlat[1], personnel: 0, storage: {}, modules: [],
-    doneAt: isHQ ? S.t : S.t + spec.days * DAY, built: isHQ,
+    doneAt: setup ? S.t : S.t + spec.days * DAY, built: setup,
   };
   if (isHQ) {
     b.modules = ['barracks', 'barracks', 'armory', 'motorpool', 'motorpool', 'helipad'].map(type => ({ id: uid('m'), type, done: true }));
     b.personnel = 64; b.storage = { ...STARTING_STOCK };
-    S.needsHQ = false;
+    S.setupLeft = 2;
     S.bases.push(b);
     const g = { id: uid('g'), name: 'Contingency Group Alpha', unitIds: [] };
     S.groups.push(g);
@@ -108,6 +109,22 @@ export function placeBase(lonlat, size, name) {
     mk('vehicle', 'TRM Transport 1', { trm2000: 1 }, {});
     mk('vehicle', 'Alouette 1', { alouette3: 1 }, {});
     log('good', `Headquarters established near ${city?.name || 'the capital'}. Contingency Group Alpha formed.`);
+  } else if (setup) {
+    // Two regional garrisons granted with the charter, each with its own contingency group
+    const L = ['Bravo', 'Charlie'][setupIdx - 1] || 'Delta';
+    b.modules = ['barracks', 'armory', 'motorpool', 'helipad'].map(type => ({ id: uid('m'), type, done: true }));
+    b.personnel = 40; b.storage = { ...GARRISON_STOCK };
+    S.bases.push(b);
+    const g = { id: uid('g'), name: `Contingency Group ${L}`, unitIds: [] };
+    S.groups.push(g);
+    const mk = (tpl, name, items, gear) => { const r = formUnit(b.id, tpl, items, gear, name); if (typeof r !== 'string') g.unitIds.push(r.id); };
+    mk('rifle', `${L} Rifle Squad`, { famas: 6, aa52: 1, mas4956: 1 }, { vest: 8 });
+    mk('response', `${L} Response Team`, { mat49: 6 }, { nrbc: 6 });
+    mk('vehicle', `${L} VAB`, { vab: 1 }, {});
+    mk('vehicle', `${L} TRM Transport`, { trm2000: 1 }, {});
+    mk('vehicle', `Alouette ${setupIdx + 1}`, { alouette3: 1 }, {});
+    S.setupLeft--; if (S.setupLeft <= 0) { S.needsHQ = false; log('good', 'All three charter bases are operational. Strategic command is live.'); }
+    log('good', `${b.name} established near ${city?.name || ''}. Contingency Group ${L} formed.`);
   } else {
     S.funds -= spec.cost; ledger(-spec.cost, `Construction: ${b.name}`);
     S.bases.push(b);

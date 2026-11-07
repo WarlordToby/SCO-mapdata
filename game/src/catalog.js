@@ -98,6 +98,11 @@ export const STARTING_STOCK = {
   p4: 6, trm2000: 6, gbc180: 2, vab: 4, alouette3: 1,
 };
 
+export const GARRISON_STOCK = {
+  mas4956: 20, mat49: 10, famas: 24, aa52: 3, lracf1: 2, vest: 24, nrbc: 16, riot: 10,
+  p4: 2, trm2000: 2, vab: 2, alouette3: 1,
+};
+
 export const BASE_SIZES = {
   outpost: { name: 'Outpost', cost: 6e6, slots: 3, upkeep: 150e3, days: 10 },
   garrison: { name: 'Garrison', cost: 18e6, slots: 5, upkeep: 350e3, days: 18 },
@@ -105,11 +110,11 @@ export const BASE_SIZES = {
 };
 
 export const MODULES = {
-  barracks: { name: 'Barracks', cost: 1.5e6, days: 6, upkeep: 40e3, desc: '+40 personnel capacity.' },
-  armory: { name: 'Armory', cost: 1.2e6, days: 5, upkeep: 25e3, desc: '+300 infantry item storage.' },
-  motorpool: { name: 'Motor Pool', cost: 2e6, days: 7, upkeep: 50e3, desc: '+8 ground vehicle bays.' },
-  helipad: { name: 'Helipad', cost: 2.5e6, days: 8, upkeep: 40e3, desc: '+1 helicopter bay.' },
-  hangar: { name: 'Hangar', cost: 8e6, days: 14, upkeep: 120e3, desc: '+3 helicopter bays.' },
+  barracks: { name: 'Barracks', cost: 1.5e6, days: 6, upkeep: 40e3, desc: '+160 personnel capacity.' },
+  armory: { name: 'Armory', cost: 1.2e6, days: 5, upkeep: 25e3, desc: '+1,200 infantry item storage.' },
+  motorpool: { name: 'Motor Pool', cost: 2e6, days: 7, upkeep: 50e3, desc: '+32 ground vehicle bays.' },
+  helipad: { name: 'Helipad', cost: 2.5e6, days: 8, upkeep: 40e3, desc: '+4 helicopter bays.' },
+  hangar: { name: 'Hangar', cost: 8e6, days: 14, upkeep: 120e3, desc: '+12 helicopter bays.' },
   comms: { name: 'Comms Center', cost: 3e6, days: 10, upkeep: 60e3, desc: 'Halves mobilisation time for units based here.' },
   infirmary: { name: 'Infirmary', cost: 1.8e6, days: 7, upkeep: 45e3, desc: 'Wounded personnel recover twice as fast.' },
   depot: { name: 'Supply Depot', cost: 2.2e6, days: 8, upkeep: 40e3, desc: 'Stores field supply for camps and outposts (used in the city layer).' },

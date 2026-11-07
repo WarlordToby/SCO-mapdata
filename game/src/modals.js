@@ -137,7 +137,10 @@ function showCall(inc) {
 export function showDispatch(inc) {
   const S = G.getS(), city = S.cities.find(c => c.id === inc.cityId);
   const ready = S.units.filter(u => u.status === 'ready');
-  const sel = new Set(ready.filter(u => S.groups[0]?.unitIds.includes(u.id)).map(u => u.id));
+  // pre-select the contingency group of the base nearest to the incident
+  const nearestBase = S.bases.filter(b => b.built).sort((a, b) => distKm([a.lon, a.lat], [city.lon, city.lat]) - distKm([b.lon, b.lat], [city.lon, city.lat]))[0];
+  const g0 = S.groups.find(g => g.unitIds.some(id => S.units.find(u => u.id === id)?.baseId === nearestBase?.id)) || S.groups[0];
+  const sel = new Set(ready.filter(u => g0?.unitIds.includes(u.id)).map(u => u.id));
   let approach = null;
   const render = () => {
     const plans = G.planDispatch(inc, [...sel], approach);

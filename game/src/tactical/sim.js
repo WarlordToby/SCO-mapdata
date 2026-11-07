@@ -69,7 +69,12 @@ export class Sim {
     const C = this.city, police = C.buildings.filter(b => b.use === C.use.police && C.unlockedAt(b.c[0], b.c[1]));
     const hospitals = C.buildings.filter(b => (b.use === C.use.hospital) && C.unlockedAt(b.c[0], b.c[1]) && b.area > 600);
     this.policeStations = police; this.hospitals = hospitals;
-    for (const p of police) for (let i = 0; i < 3; i++) this.spawnCar(p.ent, 'police');
+    for (const p of police) for (let i = 0; i < 10; i++) this.spawnCar(p.ent, 'police');
+    // municipal + national police patrols already on the streets across the area
+    const area = Math.PI * this.unlockR * this.unlockR / 1e6, n = Math.round(area * 4);
+    const js = [...C.junctions.values()].filter(j => j.out.length && C.unlockedAt(j.p[0], j.p[1]));
+    for (let i = 0; i < n && js.length; i++) { const j = js[Math.floor(Math.random() * js.length)]; const c = this.spawnCar(j.p, 'police'); if (c) c.role = i % 2 === 0 ? 'patrol' : null; }
+    this.stats.policeLost = 0;
     for (const h of hospitals.slice(0, 6)) for (let i = 0; i < 2; i++) this.spawnCar(h.ent, 'ambulance');
   }
 
@@ -109,6 +114,7 @@ export class Sim {
     for (const z of this.evacZones) C.bGrid.near(z.c[0], z.c[1], z.r, i => { const b = C.buildings[i]; if ((b.c[0] - z.c[0]) ** 2 + (b.c[1] - z.c[1]) ** 2 < z.r * z.r) zone.add(i); });
     for (const d of this.quarantine) for (const i of C.districts[d].buildings) zone.add(i);
     this.zoneActive = [...zone].filter(i => C.buildings[i].occ > 0);
+    if (this.policeGrid) for (const i of this.zoneActive) { const b = C.buildings[i]; let near = false; this.policeGrid.near(b.c[0], b.c[1], 160, () => near = true); b.police = near; }
   }
   updateEvacuation(dt) {
     const C = this.city, zoneB = this.zoneActive || [];
@@ -116,7 +122,7 @@ export class Sim {
     for (const i of zoneB) {
       const b = C.buildings[i]; if (!b.occ || b.garrison.length || b.infest > 0.5 || !C.unlockedAt(b.c[0], b.c[1])) continue;
       b.evac = true;
-      const out = Math.min(b.occ, Math.max(1, b.occ * 0.003 * dt) * (Math.random() < 0.5 ? 1 : 0));
+      const out = Math.min(b.occ, Math.max(1, b.occ * 0.003 * (b.police ? 2.2 : 1) * dt) * (Math.random() < 0.5 ? 1 : 0));
       if (!out) continue;
       b.evacAcc = (b.evacAcc || 0) + out; b.occ -= out; this.stats.evacuated += out;
       while (b.evacAcc >= 14) {
@@ -276,6 +282,7 @@ export class Sim {
         c.think = 1.5 + Math.random() * 2;
         let enemy = null, ed = P.aggro * P.aggro;
         for (const u of this.units) { if (u.dead || u.inB || u.kind === 'heli') continue; const d = (u.x - c.x) ** 2 + (u.y - c.y) ** 2; if (d < ed) { ed = d; enemy = u; } }
+        if (!enemy && this.policeGrid) this.policeGrid.near(c.x, c.y, P.aggro, pc => { const d = (pc.x - c.x) ** 2 + (pc.y - c.y) ** 2; if (d < ed) { ed = d; enemy = null; c.target = { kind: 'p', p: [pc.x, pc.y] }; c.path = null; } });
         if (enemy) c.target = { kind: 'u', u: enemy };
         else if (!c.target || c.target.kind !== 'b' || c.target.b.occ <= 0.5) {
           let best = null, bd = Infinity;
@@ -548,6 +555,11 @@ export class Sim {
   updateServices(dt) {
     // police cars head to checkpoints / evacuation perimeter and park; ambulances shuttle casualties
     for (const c of this.cars) {
+      if (c.kind === 'police' && !c.task && c.role === 'patrol') {
+        // response car: drive towards the nearest hostile activity and stop short of it
+        const tgt = this.nearestThreatTo(this.carPos(c));
+        if (tgt) { const a = Math.atan2(c.y - tgt[1], c.x - tgt[0]) || 0; const g = [tgt[0] + Math.cos(a) * 70, tgt[1] + Math.sin(a) * 70]; const j = this.city.nearestJunction(g[0], g[1], j => j.in.length > 0, 200); if (j) { c.task = { field: this.fieldTo('j' + j.id, [j.id]), park: true, respond: true }; continue; } }
+      }
       if (c.kind === 'police' && !c.task) {
         const targets = this.checkpoints.length ? this.checkpoints.filter(cp => cp.police < 2) : null;
         let goal;
@@ -564,6 +576,31 @@ export class Sim {
         c.task = { field: this.fieldTo('j' + j.id, [j.id]), done: () => { if (b) { b.dead = 0; b.ambulance = false; } this.spawnCar(goalB.ent, 'ambulance'); } };
       }
     }
+  }
+
+  nearestThreatTo(p) {
+    let best = null, bd = 1500 * 1500;
+    for (const c of this.creatures) { if (c.inB) continue; const d = (c.x - p[0]) ** 2 + (c.y - p[1]) ** 2; if (d < bd) { bd = d; best = [c.x, c.y]; } }
+    if (!best) for (const b of this.infested) { if (b.infest < 0.1) continue; const d = (b.c[0] - p[0]) ** 2 + (b.c[1] - p[1]) ** 2; if (d < bd) { bd = d; best = b.c; } }
+    return best;
+  }
+  // Police officers: light small-arms fire at close range, can be overrun; their presence speeds up evacuation.
+  updatePolice(dt) {
+    const P = this.P, lost = [];
+    this.policeGrid = new Grid(80);
+    for (const c of this.cars) {
+      if (c.kind !== 'police') continue;
+      const p = this.carPos(c); c.x = p[0]; c.y = p[1]; this.policeGrid.add(c.x, c.y, c);
+      c.hp ??= 140; c.cool = (c.cool || 0) - dt;
+      if (c.cool <= 0) {
+        let best = null, bd = 75 * 75;
+        this.cGrid.near(c.x, c.y, 75, k => { if (k.hp <= 0) return; const d = (k.x - c.x) ** 2 + (k.y - c.y) ** 2; if (d < bd) { bd = d; best = k; } });
+        if (best) { c.cool = 0.8; best.hp -= 7 * (best.max > 300 ? 0.5 : 1); this.tracers.push({ a: [c.x, c.y, 1.3], b: [best.x, best.y, 1.2], t: 0.06, police: true }); if (best.hp <= 0) this.stats.kills++; }
+      }
+      this.cGrid.near(c.x, c.y, Math.max(4, P.range + 1), k => { if (k.hp > 0 && Math.hypot(k.x - c.x, k.y - c.y) < Math.max(4, P.range + 1)) c.hp -= P.dmg * dt * 0.8; });
+      if (c.hp <= 0) { lost.push(c); this.stats.policeLost += 2; }
+    }
+    if (lost.length) { const ls = new Set(lost); this.cars = this.cars.filter(c => !ls.has(c)); if (this.stats.policeLost % 6 === 2) this.log(`Police patrol overrun — ${this.stats.policeLost} officers lost so far.`, 'bad'); }
   }
 
   // ---------- HVTs ----------
@@ -596,6 +633,7 @@ export class Sim {
     this.updatePeds(dt);
     this.updateCreatures(dt);
     this.intelT -= dt; if (this.intelT <= 0) { this.intelT = 0.5; this.updateIntel(); }
+    this.policeT = (this.policeT || 0) - dt; if (this.policeT <= 0) { this.policeT = 0.2; this.updatePolice(0.2); }
     this.updateUnits(dt);
     this.updateHVTs(dt);
     this.updateSafeZones(dt);
@@ -613,6 +651,10 @@ export class Sim {
   }
   // Sensors: what the organisation actually knows. Helicopters see furthest; police patrols and civilian calls also report.
   updateIntel() {
+    // Complete map view (no fog of war): every hostile and every infested building is visible.
+    for (const c of this.creatures) { c.vis = true; c.ghost = false; }
+    for (const b of this.infested) if (b.infest > 0.1 && !b.known) { b.known = true; this.dirty(b); }
+    return;
     const now = this.t, night = this.isNight();
     const sense = (x, y, r) => {
       this.cGrid.near(x, y, r, c => { if ((c.x - x) ** 2 + (c.y - y) ** 2 < r * r) c.seen = now; });

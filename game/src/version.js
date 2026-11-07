@@ -1,9 +1,20 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 export const SAVE_FORMAT = 2; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.5.0', date: '2026-11-07', title: 'Balance: bases, police, map view',
+    items: [
+      'Base modules now give 4× capacity: Barracks +160 personnel, Armory +1,200 items, Motor Pool +32 vehicle bays, Helipad +4 helicopters, Hangar +12 helicopters.',
+      'Three charter bases at game start: place your Headquarters and two regional garrisons. Each garrison comes with its own stock and its own contingency group (Bravo, Charlie: rifle squad, response team, VAB, truck, Alouette).',
+      'Dispatch pre-selects the contingency group of the base nearest to the incident.',
+      'Complete map view in the city layer: no fog of war — every hostile and infested building is always visible.',
+      'Greater local police presence: 10 cars per police station plus patrols across the whole operation area (about 4 per km²). Response cars drive towards hostile activity and open fire at close range; officers can be overrun. Police nearby double evacuation speed.',
+      'Hostiles now go after police patrols that come close.',
+    ],
+  },
   {
     v: '0.4.0', date: '2026-11-07', title: 'First response',
     items: [

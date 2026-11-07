@@ -165,7 +165,7 @@ function updateTop() {
   $('#tAlert').innerHTML = inc ? `<span class="pill bad">INCIDENT</span> <span class="bad">${esc(S.cities.find(c => c.id === inc.cityId).name)}</span>` : '<span class="pill good">NOMINAL</span>';
   $$('#speeds button').forEach((b, i) => b.classList.toggle('on', S.speed === i));
   const ban = $('#banner');
-  if (S.needsHQ) { ban.style.display = 'block'; ban.textContent = 'Select a site inside the national territory for your Headquarters.'; }
+  if (S.needsHQ) { const n = 4 - (S.setupLeft ?? 3); ban.style.display = 'block'; ban.textContent = n === 1 ? 'Base 1 of 3 — select a site inside the national territory for your Headquarters.' : `Base ${n} of 3 — select a site for a regional garrison (at least 30 km from other bases).`; }
   else if (GAME.placing) { ban.style.display = 'block'; ban.textContent = `Place ${GAME.placing.label} — click the map (Esc / right-click to cancel)`; }
   else ban.style.display = 'none';
 }
@@ -185,10 +185,13 @@ function onMapClick(hit, geo) {
     const err = G.canPlaceBase(geo); if (err) return flash(err);
     if (S.needsHQ) {
       const { city } = G.nearestCity(geo);
-      modal(`<h2>Establish Headquarters</h2><p>Headquarters near <b>${esc(city.name)}</b>. Starts with 2× Barracks, Armory, Motor Pool, Helipad, 64 personnel and the surplus stock released to you by the Ministry of the Armed Forces.</p>
-        <div class="col"><span class="lbl">Base name</span><input id="hqName" value="HQ ${esc(city.name)}"></div>
-        <div class="foot"><button onclick="window.__close()">Cancel</button><button class="pri" id="hqOk">Establish</button></div>`);
-      $('#hqOk').onclick = () => { G.placeBase(geo, 'hq', $('#hqName').value.trim()); closeModal(); G.save(); UI.tab = 'org'; refreshAll(); };
+      const hq = (S.setupLeft ?? 3) >= 3, L = ['Alpha', 'Bravo', 'Charlie'][3 - (S.setupLeft ?? 3)];
+      modal(hq ? `<h2>Base 1 of 3 — Headquarters</h2><p>Headquarters near <b>${esc(city.name)}</b>. Starts with 2× Barracks, Armory, 2× Motor Pool, Helipad, 64 personnel, the surplus stock released by the Ministry of the Armed Forces, and Contingency Group Alpha.</p>
+        <div class="col"><span class="lbl">Base name</span><input id="hqName" value="HQ ${esc(city.name)}"></div>`
+        : `<h2>Base ${4 - S.setupLeft} of 3 — Regional garrison</h2><p>Garrison near <b>${esc(city.name)}</b>. Starts with Barracks, Armory, Motor Pool, Helipad, 40 personnel, its own stock and Contingency Group ${L} (rifle squad, response team, VAB, truck, Alouette).</p>
+        <div class="col"><span class="lbl">Base name</span><input id="hqName" value="Garrison ${esc(city.name)}"></div>`) ;
+      $('#modal .dlg').insertAdjacentHTML('beforeend', `<div class="foot"><button onclick="window.__close()">Cancel</button><button class="pri" id="hqOk">Establish</button></div>`);
+      $('#hqOk').onclick = () => { const r = G.placeBase(geo, hq ? 'hq' : 'garrison', $('#hqName').value.trim()); if (typeof r === 'string') return flash(r); closeModal(); G.save(); UI.tab = S.needsHQ ? 'bases' : 'org'; refreshAll(); };
       return;
     }
     const p = GAME.placing; GAME.placing = null;

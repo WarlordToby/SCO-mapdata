@@ -29,12 +29,14 @@ export async function enterTactical(o) {
     const centre = dist ? [dist.x, dist.y] : [0, 0];
     const R0 = 1800;
     setLoad('Loading city blocks…');
-    await city.ensureTiles(tilesAround(city, centre, R0), true);
-    await city.ensureTiles(tilesAround(city, centre, R0 + 1100).filter(k => !city.tiles.has(k)), false);
-    city.buildGraph();
-    const cands = city.buildings.filter(b => b.district === dIdx && city.unlockedAt(b.c[0], b.c[1]) && [city.use.apartments, city.use.house, city.use.retail, city.use.unknown, city.use.office].includes(b.use) && b.pop0 > 60);
+    await city.ensureTiles(tilesAround(city, centre, 900), false);
+    const cands = city.buildings.filter(b => b.district === dIdx && [city.use.apartments, city.use.house, city.use.retail, city.use.unknown, city.use.office].includes(b.use) && b.pop0 > 60);
     cands.sort((a, b) => Math.hypot(a.c[0] - centre[0], a.c[1] - centre[1]) - Math.hypot(b.c[0] - centre[0], b.c[1] - centre[1]));
-    const impact = cands[Math.floor(Math.random() * Math.min(40, cands.length))] || city.buildings.find(b => city.unlockedAt(b.c[0], b.c[1]));
+    const impact = cands[Math.floor(Math.random() * Math.min(40, cands.length))] || city.buildings[0];
+    // the operation area is centred on the impact building, with greyed surroundings beyond it
+    await city.ensureTiles(tilesAround(city, impact.c, R0), true);
+    await city.ensureTiles(tilesAround(city, impact.c, R0 + 1100).filter(k => !city.tiles.has(k)), false);
+    city.buildGraph();
     // re-centre unlock on the impact building
     setLoad('Building 3D city…');
     R = new Renderer($('#tCanvas', root), city);
@@ -276,7 +278,7 @@ export async function enterTactical(o) {
       $('#tTop .clock', root).textContent = `${hh}:${mm}${sim.isNight() ? ' ☾' : ''}`;
       $('#tStats', root).innerHTML = [
         ['Integrity', Math.round(s.integrity) + '%', s.integrity < 50 ? 'bad' : ''], ['In zone', num(s.inside)], ['Evacuated', num(st.evacuated), 'good'], ['Civ. casualties', num(st.civDead), st.civDead > 0 ? 'bad' : ''],
-        ['Contacts', s.tracked, s.tracked ? 'bad' : ''], ['Infested (known)', s.known, s.known ? 'bad' : ''], ['Safe zones', sim.sites.filter(z => z.kind === 'safezone').reduce((a, z) => a + Math.round(z.people), 0)], ['HVT', `${st.hvtSaved}✓ ${st.hvtLost}✗ / ${sim.hvts.length}`], ['Supply', Math.round(sim.supply)], ['KIA', st.soldiersKIA, st.soldiersKIA ? 'bad' : ''], ['Samples', st.specimens],
+        ['Hostiles', s.creatures, s.creatures ? 'bad' : 'good'], ['Infested', s.infested, s.infested ? 'bad' : ''], ['Police', sim.cars.filter(c => c.kind === 'police').length + (sim.stats.policeLost ? ` (−${sim.stats.policeLost})` : '')], ['Safe zones', sim.sites.filter(z => z.kind === 'safezone').reduce((a, z) => a + Math.round(z.people), 0)], ['HVT', `${st.hvtSaved}✓ ${st.hvtLost}✗ / ${sim.hvts.length}`], ['Supply', Math.round(sim.supply)], ['KIA', st.soldiersKIA, st.soldiersKIA ? 'bad' : ''], ['Samples', st.specimens],
       ].map(([l, v, c]) => `<div><span>${l}</span><b class="${c || ''}">${v}</b></div>`).join('');
       root.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === speed));
       if (!root.querySelector('#tLeft:hover') || force) $('#tUnits', root).innerHTML = sim.units.map(u => {
@@ -338,7 +340,7 @@ export async function enterTactical(o) {
       speed = 0;
       const M = $('#tEndDlg', root);
       M.innerHTML = `<div class="dlg"><h2>${success ? 'Threat eliminated' : 'Operation ended'} — ${esc(o.cityName)}</h2><div class="mut">${esc(result.why)}</div>
-        <div class="stats" style="margin-top:10px"><span>City integrity</span><span>${Math.round(s.integrity)}%</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Soldiers killed</span><span>${st.soldiersKIA}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Buildings destroyed</span><span>${st.bDestroyed}</span><span>HVTs evacuated / lost</span><span>${st.hvtSaved} / ${st.hvtLost}</span><span>Samples recovered</span><span>${st.specimens}</span></div>
+        <div class="stats" style="margin-top:10px"><span>City integrity</span><span>${Math.round(s.integrity)}%</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Soldiers killed</span><span>${st.soldiersKIA}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Police officers lost</span><span>${st.policeLost || 0}</span><span>Buildings destroyed</span><span>${st.bDestroyed}</span><span>HVTs evacuated / lost</span><span>${st.hvtSaved} / ${st.hvtLost}</span><span>Samples recovered</span><span>${st.specimens}</span></div>
         <div class="foot"><button class="pri" id="tBack">Return to strategic command</button></div></div>`;
       M.style.display = 'flex';
       $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
