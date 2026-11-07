@@ -1,0 +1,13 @@
+export const $ = (s, r = document) => r.querySelector(s);
+export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export const eur = v => { const a = Math.abs(v), s = v < 0 ? '−' : ''; return a >= 1e9 ? `${s}€${(a / 1e9).toFixed(2)}B` : a >= 1e6 ? `${s}€${(a / 1e6).toFixed(1)}M` : a >= 1e3 ? `${s}€${(a / 1e3).toFixed(0)}k` : `${s}€${Math.round(a)}`; };
+export const num = v => Math.round(v).toLocaleString('en-US');
+export const big = v => v >= 1e12 ? `${(v / 1e12).toFixed(2)} T` : v >= 1e9 ? `${(v / 1e9).toFixed(1)} B` : v >= 1e6 ? `${(v / 1e6).toFixed(1)} M` : num(v);
+export const bar = (v, col) => `<div class="bar"><i style="width:${Math.max(0, Math.min(100, v))}%;background:${col}"></i></div>`;
+let tz = 'UTC';
+export const setTZ = z => { tz = z; };
+export const fmtDate = t => new Date(t).toLocaleString('en-GB', { timeZone: tz, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+export const fmtDay = t => new Date(t).toLocaleDateString('en-GB', { timeZone: tz, day: '2-digit', month: 'short', year: 'numeric' });
+export const fmtTime = t => new Date(t).toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit' });
+export const dur = ms => { const h = ms / 3600e3; return h >= 48 ? `${(h / 24).toFixed(1)} d` : h >= 1 ? `${Math.floor(h)} h ${Math.round((h % 1) * 60)} m` : `${Math.round(h * 60)} m`; };

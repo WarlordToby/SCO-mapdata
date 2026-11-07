@@ -1,0 +1,22 @@
+{
+  "name": "sco-game",
+  "version": "0.4.0",
+  "description": "Special Containment Organization — strategic layer and 3D city layer",
+  "scripts": {
+    "build": "node build.js",
+    "build-data": "node build-data.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "all-the-cities": "^3.1.0",
+    "d3-geo": "^3.1.2",
+    "esbuild": "^0.28.2",
+    "three": "^0.170.0",
+    "three-mesh-bvh": "^0.8.3",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2",
+    "world-countries": "^5.1.0"
+  },
+  "private": true
+}
