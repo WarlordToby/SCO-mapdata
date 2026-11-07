@@ -2515,8 +2515,10 @@
   "areas": 14706,
   "lines": 2413,
   "terrain": {
-   "source": "Copernicus GLO-30",
-   "tiles": 1
+   "source": "Copernicus GLO-30, bare-earth filtered",
+   "tiles": 1,
+   "gridStep": 20,
+   "maxObjectRemoved": 36
   },
   "bytes": 26221242
  },
@@ -2538,6 +2540,6 @@
   ],
   "attribution": "© OpenStreetMap contributors (ODbL 1.0). Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA."
  },
- "fetchedAt": "2026-11-07T18:18:11.250Z",
- "compiledAt": "2026-11-07T18:18:23.485Z"
+ "fetchedAt": "2026-11-07T18:36:33.567Z",
+ "compiledAt": "2026-11-07T18:36:48.081Z"
 }
