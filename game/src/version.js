@@ -1,9 +1,21 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.10.0';
+export const VERSION = '0.11.0';
 export const SAVE_FORMAT = 3; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.11.0', date: '2026-11-08', title: 'Countryside battles',
+    items: [
+      'When the outbreak presses hard on one of your front lines, you are offered command of the battle: take command in 3D or let the national forces hold on their own.',
+      'Hold the line: a 6 × 6 km sector of generated countryside built from the real land cover at that spot (woods, fields, grassland, built-up share, arid regions), with villages sized by local population, farmsteads, roads, farm tracks, a river and regional hedgerows with field gates.',
+      'National platoons and APCs hold a line across the sector under their own command and shift toward the pressure; they are shown in blue and cannot be ordered. Your units start just behind the line.',
+      'Hostiles come in waves and surges along two or three axes that change during the battle. Hold for about four hours; too many breakthroughs behind the line and it breaks.',
+      'Open-country movement: hostiles march across fields and around hedgerows, walls and buildings, using field gates.',
+      'The result feeds back to the world map: a held line pushes the infestation back around the front, a broken one lets it surge. Losses carry over; survivors stay on the line.',
+      'Event dialogs now queue instead of covering each other, and wait while you are commanding a battle.',
+    ],
+  },
   {
     v: '0.10.0', date: '2026-11-08', title: 'The global outbreak',
     items: [

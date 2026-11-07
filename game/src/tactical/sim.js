@@ -71,6 +71,80 @@ export class Sim {
     this.spawnServices();
     this.log(`${this.o.cityName}: ${this.o.threatName} at ${impactB.name || impactB.addr || 'an unnamed building'}. Police evacuating 450 m radius.`, 'bad');
   }
+  // ---------- countryside: hold the line ----------
+  // R: { threatDir (unit vector towards the overrun side), half (map half-width), duration (sim s), waves (creatures), platoons, nation, frontName }
+  startRural(forces, R) {
+    const C = this.city, [dx, dy] = R.threatDir, px = -dy, py = dx, half = R.half;
+    this.rural = R; R.goal = -half * 0.35; this.origin = [dx * half * 0.9, dy * half * 0.9]; this.breach = 0; this.breachMax = Math.max(15, Math.round(R.waves * 0.18)); this.waveLeft = R.waves; this.waveAcc = 0;
+    this.evacZones.push({ c: [0, 0], r: half * 3 });
+    this.refreshFields();
+    const rear = [-dx * half * 0.12, -dy * half * 0.12], j = C.nearestJunction(rear[0], rear[1], j => j.out.length > 0, 1500);
+    this.staging = { rear: j ? [j.p[0], j.p[1]] : rear };
+    for (const f of forces) { f.approach = 'rear'; if (f.arriveIn > 0) this.pending.push({ f, at: this.clock + f.arriveIn }); else this.addUnit(f); }
+    this.sites.push({ id: 'stg_rear', kind: 'staging', p: this.staging.rear, r: 90, stock: Infinity, built: 1, name: 'Rear staging' });
+    // national troops hold a line across the map, a little forward of the centre
+    const n = R.platoons, spacing = half * 1.7 / n;
+    for (let i = 0; i < n; i++) {
+      const o = (i - (n - 1) / 2) * spacing, p = [px * o + dx * half * 0.12, py * o + dy * half * 0.12];
+      const apc = i % 3 === 1;
+      const u = this.addUnit({ id: 'nat' + i, name: `${R.nation} ${apc ? 'APC ' : 'Platoon '}${i + 1}`, vehicle: apc ? 'm113' : null, pers: apc ? 3 : 24, items: apc ? {} : { rifle: 20, lmg: 4 }, approach: 'rear' });
+      u.ai = true; u.x = p[0] + (Math.random() - .5) * 20; u.y = p[1] + (Math.random() - .5) * 20; u.home = [u.x, u.y]; this.order(u, { type: 'guard', p: [u.x, u.y] });
+    }
+    this.log(`${R.frontName}: the national line is holding ${n} positions. Waves are coming in from the ${['east', 'north-east', 'north', 'north-west', 'west', 'south-west', 'south', 'south-east'][Math.round(((Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8]}. Hold for ${Math.round(R.duration * 6 / 3600)} hours.`, 'bad');
+  }
+  marchPoint(c) { const [dx, dy] = this.rural.threatDir, h = this.rural.half; let o = (c.x * -dy + c.y * dx); o = Math.max(-h * 0.9, Math.min(h * 0.9, o)); const g = this.rural.goal - 250; return [dx * g + -dy * o, dy * g + dx * o]; }
+  // Open-country marching: one distance field to the far side of the sector over a 4 m grid. Hedgerows, walls and
+  // buildings block it; field gates, low fences (vaulted) and the river do not. Every marching creature follows it.
+  buildFlow() {
+    const R = this.rural, h = R.half, res = 4, n = Math.ceil(2 * h / res), N = n * n, blk = new Uint8Array(N), C = this.city, B = C.bars;
+    const mark = (x, y) => { const i = Math.floor((x + h) / res), j = Math.floor((y + h) / res); if (i >= 0 && j >= 0 && i < n && j < n) blk[j * n + i] = 1; };
+    for (const sg of B.segs) { if (!B.blocks(sg, { veh: false })) continue; const L = Math.hypot(sg.bx - sg.ax, sg.by - sg.ay), m = Math.max(1, Math.ceil(L / (res * 0.4))); for (let q = 0; q <= m; q++) mark(sg.ax + (sg.bx - sg.ax) * q / m, sg.ay + (sg.by - sg.ay) * q / m); }
+    for (const b of C.buildings) { const r = b.ring; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const p of r) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
+      for (let y = Math.floor((y0 + h) / res); y <= Math.floor((y1 + h) / res); y++) for (let x = Math.floor((x0 + h) / res); x <= Math.floor((x1 + h) / res); x++) { const cx = x * res - h + res / 2, cy = y * res - h + res / 2; let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], q = r[j]; if ((a[1] > cy) !== (q[1] > cy) && cx < (q[0] - a[0]) * (cy - a[1]) / (q[1] - a[1]) + a[0]) c = !c; } if (c && x >= 0 && y >= 0 && x < n && y < n) blk[y * n + x] = 1; } }
+    const dist = new Float32Array(N).fill(Infinity), [dx, dy] = R.threatDir, goal = R.goal;
+    // bucket queue (dial's algorithm) on costs scaled to integers: straight 10, diagonal 14
+    const bk = []; const push = (k, d) => { const q = d | 0; (bk[q] || (bk[q] = [])).push(k); };
+    for (let k = 0; k < N; k++) { if (blk[k]) continue; const x = (k % n) * res - h + res / 2, y = Math.floor(k / n) * res - h + res / 2; if (x * dx + y * dy < goal) { dist[k] = 0; push(k, 0); } }
+    const NB = [[1, 0, 10], [-1, 0, 10], [0, 1, 10], [0, -1, 10], [1, 1, 14], [1, -1, 14], [-1, 1, 14], [-1, -1, 14]];
+    for (let q = 0; q < bk.length; q++) { const L = bk[q]; if (!L) continue; for (const k of L) { if (dist[k] < q) continue; const i = k % n, j = (k - i) / n;
+      for (const [di, dj, w] of NB) { const a = i + di, b2 = j + dj; if (a < 0 || b2 < 0 || a >= n || b2 >= n) continue; const kk = b2 * n + a; if (blk[kk] || (di && dj && (blk[j * n + a] || blk[b2 * n + i]))) continue; const nd = q + w; if (nd < dist[kk]) { dist[kk] = nd; push(kk, nd); } } } bk[q] = null; }
+    this.flow = { n, res, h, dist, blk, NB };
+  }
+  flowMove(c, step) {
+    const F = this.flow, { n, res, h, dist } = F, i = Math.floor((c.x + h) / res), j = Math.floor((c.y + h) / res);
+    if (i < 0 || j < 0 || i >= n || j >= n) return false;
+    let best = -1, bd = dist[j * n + i];
+    for (const [di, dj] of F.NB) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= n || b >= n) continue; const d = dist[b * n + a]; if (d < bd || (best < 0 && !isFinite(bd) && isFinite(d))) { bd = d; best = b * n + a; } }
+    if (best < 0) return false; // no way on from here: the caller falls back to local routing
+    // aim at a cell a few steps down the field so marching is smooth rather than zig-zag
+    let k = best; for (let s = 0; s < 3; s++) { const a = k % n, b = (k - a) / n; let nk = -1, nd = dist[k]; for (const [di, dj] of F.NB) { const x = a + di, y = b + dj; if (x < 0 || y < 0 || x >= n || y >= n) continue; const d = dist[y * n + x]; if (d < nd) { nd = d; nk = y * n + x; } } if (nk < 0) break; k = nk; }
+    const tx = (k % n) * res - h + res / 2, ty = Math.floor(k / n) * res - h + res / 2, ddx = tx - c.x, ddy = ty - c.y, d = Math.hypot(ddx, ddy) || 1, m = Math.min(step, d);
+    c.x += ddx / d * m; c.y += ddy / d * m; c.hx = ddx / d; c.hy = ddy / d; return true;
+  }
+  stepRural(dt) {
+    if (!this.flow) this.buildFlow();
+    const R = this.rural, [dx, dy] = R.threatDir, px = -dy, py = dx, h = R.half;
+    // waves over the first three quarters of the hold, in surges
+    if (this.waveLeft > 0) {
+      const rate = R.waves / (R.duration * 0.75) * (1 + 0.8 * Math.sin(this.t / 90));
+      this.waveAcc += rate * dt;
+      while (this.waveAcc >= 1 && this.waveLeft > 0) {
+        this.waveAcc--; this.waveLeft--;
+        if (!R.axes || this.t > R.axesT) { R.axesT = this.t + 500 + Math.random() * 300; const k = 2 + (Math.random() < 0.4 ? 1 : 0); R.axes = Array.from({ length: k }, () => (Math.random() - 0.5) * 2 * h * 0.7); this.log(`Reports: hostiles massing on ${k} axes.`, 'bad'); }
+        const gs = (Math.random() + Math.random() + Math.random() - 1.5) * 2 * 260, o = Math.max(-h * 0.9, Math.min(h * 0.9, R.axes[Math.floor(Math.random() * R.axes.length)] + gs)), a = Math.min(h * 0.96, h * 0.12 + this.P.speed * (250 + Math.random() * 300)), x = dx * a + px * o, y = dy * a + py * o;
+        const c = this.spawnCreature(x, y); if (c) { c.target = { kind: 'p', p: this.marchPoint(c), march: true }; c.think = 3 + Math.random() * 6; c.vis = true; }
+      }
+    }
+    // national platoons shift along their line toward the pressure (within 250 m of their post)
+    R.aiT = (R.aiT || 0) - dt;
+    if (R.aiT <= 0) { R.aiT = 2;
+      for (const u of this.units) { if (!u.ai || u.dead || !u.home) continue; let sx = 0, sy = 0, n = 0; this.cGrid.near(u.home[0], u.home[1], 650, c => { if (c.hp > 0 && !c.inB) { sx += c.x; sy += c.y; n++; } });
+        let tx = u.home[0], ty = u.home[1]; if (n) { const lat = Math.max(-250, Math.min(250, (sx / n - u.home[0]) * px + (sy / n - u.home[1]) * py)); tx += px * lat; ty += py * lat; }
+        if (Math.hypot(tx - u.order?.p?.[0], ty - u.order?.p?.[1]) > 30) this.order(u, { type: 'guard', p: [tx, ty] }); }
+    }
+    // creatures that reach the far side have broken through
+    for (const c of this.creatures) if (c.hp > 0 && !c.inB && c.x * dx + c.y * dy < R.goal) { c.hp = 0; c.through = true; this.breach++; if (this.breach % 5 === 1) this.log(`Breakthrough: hostiles got past the line (${this.breach}/${this.breachMax}).`, 'bad'); }
+  }
   stagingPoint(dir) {
     const a = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'].indexOf(dir) * Math.PI / 4;
     const x = this.origin[0] + Math.sin(a) * (this.unlockR - 250), y = this.origin[1] + Math.cos(a) * (this.unlockR - 250);
@@ -112,6 +186,7 @@ export class Sim {
     for (const j of C.junctions.values()) {
       const locked = !C.unlockedAt(j.p[0], j.p[1]);
       const boundary = (j.inc || []).some(([e]) => { const E = C.edges.get(e); return !E || !C.junctions.has(E.a) || !C.junctions.has(E.b); });
+      if (this.rural && (j.p[0] * this.rural.threatDir[0] + j.p[1] * this.rural.threatDir[1]) > -this.rural.half * 0.55) continue;
       if ((locked || boundary) && !this.inQuarantineXY(j.p[0], j.p[1])) { if (j.in.length) exitsD.push(j.id); if (j.walk.length) exitsW.push(j.id); }
     }
     for (const z of this.sites) if (z.kind === 'safezone') C.jGrid?.near(z.p[0], z.p[1], z.r + 40, j => { if (j.walk.length && Math.hypot(j.p[0] - z.p[0], j.p[1] - z.p[1]) < z.r + 40) exitsW.push(j.id); });
@@ -315,6 +390,7 @@ export class Sim {
           C.bGrid.near(c.x, c.y, P.sense, i => { const b = C.buildings[i]; if (b === c.noB || b.occ < 1 || !C.unlockedAt(b.c[0], b.c[1]) && Math.random() < 0.7) return; const d = (b.c[0] - c.x) ** 2 + (b.c[1] - c.y) ** 2 - b.occ * 40 + (b.garrison.length ? 1e5 : 0); if (d < bd) { bd = d; best = b; } });
           for (const z of this.sites) if (z.kind === 'safezone' && z.people > 30) { const d = (z.p[0] - c.x) ** 2 + (z.p[1] - c.y) ** 2 - z.people * 60; if (d < bd && d < P.sense * P.sense * 2) { bd = d; best = null; c.target = { kind: 'z', z }; c.path = null; } }
           if (best) { c.target = { kind: 'b', b: best }; c.path = null; }
+          else if (!c.target && this.rural) { c.target = { kind: 'p', p: this.marchPoint(c), march: true }; c.path = null; }
           else if (!c.target) { const a = Math.random() * Math.PI * 2; c.target = { kind: 'p', p: [c.x + Math.cos(a) * 200, c.y + Math.sin(a) * 200] }; c.path = null; }
         }
       }
@@ -340,6 +416,7 @@ export class Sim {
         c.inB = b; c.target = null; c.path = null; b.state = 1; continue;
       }
       if (tg.kind === 'p' && d < 4) { c.target = null; continue; }
+      if (tg.march && this.flow && this.flowMove(c, P.speed * nightMul * dt)) continue;
       this.stepAlongPath(c, tx, ty, P.speed * nightMul * dt, true);
     }
     // remove dead
@@ -378,7 +455,10 @@ export class Sim {
           // blocked: find a way round (a limited number of searches per tick; others wait a tick)
           if (this.routeBudget <= 0) return;
           this.routeBudget--;
-          const r = B.route(o.x, o.y, fx, fy, w);
+          // far goals (open country with no road leg): find a way round towards a nearer point on the way
+          const fd = Math.hypot(fx - o.x, fy - o.y), near = fd > 140, rx = near ? o.x + (fx - o.x) / fd * 110 : fx, ry = near ? o.y + (fy - o.y) / fd * 110 : fy;
+          let r = B.route(o.x, o.y, rx, ry, w);
+          if (r === null && this.rural) r = B.route(o.x, o.y, rx, ry, w, 260);
           if (r === null) { this.onBlocked(o); return; }
           if (!r || !r.length) { o.stuck = (o.stuck || 0) + dt * 4; if (o.stuck > 6) { o.stuck = 0; this.onBlocked(o); } return; }
           o.detour = r.slice(); o.detourK = gk; o.stuck = 0;
@@ -447,9 +527,10 @@ export class Sim {
     const gearBonus = u.gear && this.P && ((this.threat === 'undead' || this.threat === 'swarm' || this.threat === 'mutant') && u.gear === 'nrbc' || (this.threat === 'vampire' || this.threat === 'alien') && u.gear === 'nvg') ? 0.75 : 1;
     const d = dmg * (1 - u.armor) * gearBonus * (u.inB ? 0.45 : 1);
     u.hp -= d;
-    if (u.kind === 'squad') { const men = Math.ceil(u.hp / 100); if (men < u.men) { this.stats.soldiersKIA += u.men - Math.max(0, men); u.men = Math.max(0, men); } }
+    const kk = u.ai ? 'natKIA' : 'soldiersKIA';
+    if (u.kind === 'squad') { const men = Math.ceil(u.hp / 100); if (men < u.men) { this.stats[kk] = (this.stats[kk] || 0) + u.men - Math.max(0, men); u.men = Math.max(0, men); } }
     if (u.hp <= 0) {
-      u.dead = true; u.men = 0; if (u.kind !== 'squad') { this.stats.vehiclesLost++; this.stats.soldiersKIA += u.pers; }
+      u.dead = true; u.men = 0; if (u.kind !== 'squad') { if (!u.ai) this.stats.vehiclesLost++; this.stats[kk] = (this.stats[kk] || 0) + u.pers; }
       if (u.inB) this.ungarrison(u);
       for (const h of u.carrying) { h.state = 'lost'; this.stats.hvtLost++; this.log(`HVT ${h.name} killed with ${u.name}.`, 'bad'); }
       this.log(`${u.name} destroyed.`, 'bad');
@@ -576,11 +657,11 @@ export class Sim {
 
   // ---------- AI ground commander ----------
   updateCommander() {
-    const idle = this.units.filter(u => !u.dead && !u.manual && !u.inB && (!u.order || u.order.type === 'guard') && u.kind !== 'heli');
+    const idle = this.units.filter(u => !u.ai && !u.dead && !u.manual && !u.inB && (!u.order || u.order.type === 'guard') && u.kind !== 'heli');
     const take = (filter, near) => { let best = null, bd = Infinity; for (const u of idle) { if (u.taken || !filter(u)) continue; const d = Math.hypot(u.x - near[0], u.y - near[1]); if (d < bd) { bd = d; best = u; } } if (best) best.taken = true; return best; };
     idle.forEach(u => u.taken = false);
     // resupply first
-    if (this.cmd.resupply) for (const u of this.units) if (!u.dead && !u.manual && u.ammo < 25 && u.order?.type !== 'resupply' && !u.inB) { const s = this.nearestSite(u.x, u.y, s => s.stock > 0); if (s) { this.order(u, { type: 'resupply', site: s }); u.taken = true; } }
+    if (this.cmd.resupply) for (const u of this.units) if (!u.ai && !u.dead && !u.manual && u.ammo < 25 && u.order?.type !== 'resupply' && !u.inB) { const s = this.nearestSite(u.x, u.y, s => s.stock > 0); if (s) { this.order(u, { type: 'resupply', site: s }); u.taken = true; } }
     // guard safe zones first: civilians gather there
     for (const z of this.sites) if (z.kind === 'safezone' && z.built) {
       z.guards = (z.guards || []).filter(u => !u.dead && u.order?.type === 'guard' && u.order.zone === z);
@@ -708,6 +789,7 @@ export class Sim {
     this.updateEvacuation(dt);
     this.updateTraffic(dt);
     this.updatePeds(dt);
+    if (this.rural) this.stepRural(dt);
     this.updateCreatures(dt);
     this.intelT -= dt; if (this.intelT <= 0) { this.intelT = 0.5; this.updateIntel(); }
     this.policeT = (this.policeT || 0) - dt; if (this.policeT <= 0) { this.policeT = 0.2; this.updatePolice(0.2); }

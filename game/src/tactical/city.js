@@ -13,9 +13,10 @@ export class Grid {
 }
 
 export class City {
-  constructor(base) { this.base = base; this.tiles = new Map(); this.buildings = []; this.edges = new Map(); this.junctions = new Map(); this.bGrid = new Grid(60); this.areas = []; this.lines = []; this.pois = []; this.listeners = []; }
+  constructor(base, gen = null) { this.base = base; this.gen = gen; this.tiles = new Map(); this.buildings = []; this.edges = new Map(); this.junctions = new Map(); this.bGrid = new Grid(60); this.areas = []; this.lines = []; this.pois = []; this.listeners = []; }
   async init() {
-    if (/\.(bin|json)$/.test(this.base)) { this.bundle = await loadBundle(this.base); this.m = this.bundle.manifest; }
+    if (this.gen) { this.m = this.gen.manifest; }
+    else if (/\.(bin|json)$/.test(this.base)) { this.bundle = await loadBundle(this.base); this.m = this.bundle.manifest; }
     else this.m = await loadManifest(this.base);
     this.T = this.m.tileSize; this.codes = this.m.codes;
     this.use = Object.fromEntries(this.codes.use.map((u, i) => [u, i]));
@@ -27,7 +28,7 @@ export class City {
   hasTile(k) { return this.m.tiles.some(t => t.key === k); }
   async ensureTiles(keys, unlocked) {
     const todo = keys.filter(k => this.hasTile(k) && !this.tiles.has(k));
-    const loaded = this.bundle ? todo.map(k => { const raw = this.bundle.tiles[k]; if (!raw) return null; delete this.bundle.tiles[k]; return decodeTile(raw); }) : await Promise.all(todo.map(k => loadTile(this.base, k)));
+    const loaded = this.gen ? todo.map(k => this.gen.tiles.get(k) || null) : this.bundle ? todo.map(k => { const raw = this.bundle.tiles[k]; if (!raw) return null; delete this.bundle.tiles[k]; return decodeTile(raw); }) : await Promise.all(todo.map(k => loadTile(this.base, k)));
     loaded.forEach((t, n) => { if (t) this.addTile(t); });
     for (const k of keys) { const t = this.tiles.get(k); if (t && unlocked && !t.unlocked) { t.unlocked = true; t.justUnlocked = true; } }
     return loaded.filter(Boolean).map(t => t.key);

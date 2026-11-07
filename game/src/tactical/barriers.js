@@ -129,10 +129,10 @@ export class Barriers {
     return ok;
   }
   // Route from S to G around obstacles for this mover. Returns waypoints (ending at G), [] if direct, or null if no way through.
-  route(sx, sy, gx, gy, w) {
-    const ck = `${w.veh ? 'v' + w.armour : 'f'}|${Math.round(sx / 3)},${Math.round(sy / 3)}|${Math.round(gx)},${Math.round(gy)}`;
+  route(sx, sy, gx, gy, w, wide = 0) { // wide: search radius beyond the start-goal box (open country with long hedgerows)
+    const ck = `${wide}|${w.veh ? 'v' + w.armour : 'f'}|${Math.round(sx / 3)},${Math.round(sy / 3)}|${Math.round(gx)},${Math.round(gy)}`;
     const hit = this.cache.get(ck); if (hit && hit.t > performance.now() - 15000) return hit.r;
-    const pad = 30, x0 = Math.min(sx, gx) - pad, y0 = Math.min(sy, gy) - pad, x1 = Math.max(sx, gx) + pad, y1 = Math.max(sy, gy) + pad;
+    const pad = 30 + wide, x0 = Math.min(sx, gx) - pad, y0 = Math.min(sy, gy) - pad, x1 = Math.max(sx, gx) + pad, y1 = Math.max(sy, gy) + pad;
     // local obstacles
     const local = new SegHash(6), obs = [], st = ++this.stamp, bset = new Set();
     this.bar.each(x0, y0, x1, y1, s => { if (s.st === st) return; s.st = st; if (this.blocks(s, w)) { local.add(s); obs.push(s); } });
@@ -167,7 +167,7 @@ export class Barriers {
       const [px, py] = P[i];
       if (this.visible(px, py, gx, gy, w, local)) { const ng = g[i] + h(i); if (ng < g[G]) { g[G] = ng; prev[G] = i; open.push(ng, G); } }
       for (let j = 0; j < N; j++) {
-        if (closed[j] || j === i) continue; const d = Math.hypot(P[j][0] - px, P[j][1] - py); if (d > 45) continue;
+        if (closed[j] || j === i) continue; const d = Math.hypot(P[j][0] - px, P[j][1] - py); if (d > 45 + wide * 1.5) continue;
         const ng = g[i] + d; if (ng >= g[j]) continue;
         if (!this.visible(px, py, P[j][0], P[j][1], w, local)) continue;
         g[j] = ng; prev[j] = i; open.push(ng + h(j), j);

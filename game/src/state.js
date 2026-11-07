@@ -1,9 +1,9 @@
 import { packFor } from './packs.js';
 import { ITEM, isVehicle, isHeli, STARTING_STOCK, GARRISON_STOCK, BASE_SIZES, MODULES, TEMPLATES, THREATS, DISTRICTS } from './catalog.js';
 import { VERSION, SAVE_FORMAT, migrate } from './version.js';
-import { byCcn3, territoryOf, citiesOf, distKm, bearing, compass, interp } from './geo.js';
+import { WORLD, byCcn3, territoryOf, citiesOf, distKm, bearing, compass, interp } from './geo.js';
 import { G as WG, landAt, ciOfCcn3, countryName } from './world.js';
-import { newOutbreak, stepOutbreak, packWorld, unpackWorld, cellInf, PROFILE } from './outbreak.js';
+import { newOutbreak, stepOutbreak, packWorld, unpackWorld, cellInf, PROFILE, threatDirAt } from './outbreak.js';
 
 export const HOUR = 3600e3, DAY = 24 * HOUR;
 export const START_T = Date.UTC(2026, 10, 7, 7, 0); // 08:00 CET
@@ -458,6 +458,7 @@ function worldEvent(e, ev) {
   else if (e.type === 'homeCity') { const inc = spawnIncidentAt(e.city); if (inc) ev.push({ type: 'incident', inc }); }
   else if (e.type === 'homeFallen') { S.standing = clamp(S.standing - 8, 0, 100); log('bad', `${e.city.name} has been overrun.`); }
   else if (e.type === 'request') { log('info', `${WG.orgOf[WG.country[landAt(e.rq.lon, e.rq.lat)]]?.short || 'Allied organization'} requests assistance in ${e.rq.name}. (World tab)`); if (packFor(e.rq.cc, e.rq.name)) ev.push({ type: 'world', kind: 'request', rq: e.rq }); }
+  else if (e.type === 'frontBattle') { const f = S.fronts.find(x => x.id === e.fid); if (f) { log('bad', `${f.name}: the threat is massing against the line.`); ev.push({ type: 'frontBattle', fid: f.id }); } }
   else if (e.type === 'foreignResult') log(e.held ? 'info' : 'bad', `${e.city.name}: ${e.held ? 'held by local forces' : 'overrun'}.`);
 }
 // accept a foreign organization's request: the city becomes an emergency you can dispatch to (and command in 3D if surveyed)
@@ -490,6 +491,44 @@ export function recallFront(fid) {
   for (const id of f.units) { const u = S.units.find(x => x.id === id); if (!u) continue; const b = S.bases.find(x => x.id === u.baseId); const km = distKm([u.lon, u.lat], [b.lon, b.lat]); u.route = { from: [u.lon, u.lat], to: [b.lon, b.lat], dep: S.t, arr: S.t + (km > 450 ? 5 + km / 650 : 2 + km / 60) * HOUR, mode: km > 450 ? 'air' : 'road' }; u.status = 'returning'; u.frontId = null; }
   S.units = S.units.filter(u => u.pers > 0);
   S.fronts = S.fronts.filter(x => x !== f); log('info', `${f.name}: units withdrawn${f.kia ? ` (${f.kia} killed while holding the line)` : ''}.`);
+}
+// ---- countryside battles at a front line ----
+const RURAL_WAVES = { undead: 260, mutant: 40, alien: 80, vampire: 70, lycan: 60, swarm: 500 };
+export function frontBattle(fid) {
+  const f = S.fronts.find(x => x.id === fid); if (!f || !S.world) return null;
+  const k = f.k, ci = WG.country[k], x = S.world.inf[k], lc = Array.from(WG.lc.subarray(k * 7, k * 7 + 6)), m = WORLD[ci]?.meta || {};
+  const units = f.units.map(id => S.units.find(u => u.id === id)).filter(u => u && u.status === 'front');
+  const T = THREATS[S.world.threat];
+  return {
+    f, units, ci, pressure: x,
+    rural: { lon: f.lon, lat: f.lat, cc: WG.ccOf[ci], lc, pop: WG.pop[k], threatDir: threatDirAt(S, k), seed: (parseInt(f.id.replace(/\W/g, ''), 36) ^ Math.floor(S.t / 36e5)) >>> 0, size: 6000, name: f.name,
+      duration: 2400, waves: Math.round((RURAL_WAVES[S.world.threat] || 120) * (0.6 + x * 2)), platoons: Math.max(4, Math.min(10, Math.round(4 + (WG.strength[ci] || 1) * 4))), nation: m.demonym || countryName(ci) },
+    tac: { threat: S.world.threat, threatName: T.name, threatColor: T.color, cityName: f.name, clock: S.t, supply: 140, forces: units.map(u => ({ id: u.id, name: u.name, tpl: u.tpl, pers: u.pers, items: u.items, vehicle: u.vehicle, approach: 'rear', carrier: null, arriveIn: 0 })) },
+  };
+}
+// apply the outcome of a battle at a front (commanded in 3D, or left to the national forces)
+export function resolveFront(fid, r) {
+  const f = S.fronts.find(x => x.id === fid); if (!f || !S.world) return null;
+  const inf = S.world.inf, k = f.k, lost = []; let kia = 0;
+  if (r.units) for (const ur of r.units) {
+    const u = S.units.find(x => x.id === ur.ref); if (!u) continue;
+    if (ur.dead || ur.men <= 0) { kia += u.pers; lost.push(u.name); S.units = S.units.filter(x => x !== u); S.groups.forEach(g => g.unitIds = g.unitIds.filter(i => i !== u.id)); f.units = f.units.filter(i => i !== u.id); continue; }
+    kia += Math.max(0, u.pers - ur.men); u.pers = Math.min(u.pers, ur.men);
+  } else { // automatic: the line's strength against the pressure decides, and the units bleed for it
+    let power = 0; for (const id of f.units) { const u = S.units.find(x => x.id === id); if (u && u.status === 'front') power += f.power?.[id] || 1; }
+    const p = clamp(0.3 + power * 0.06 + (WG.def[k] || 0) * 0.12 - inf[k] * 0.9, 0.08, 0.9);
+    r.success = Math.random() < p;
+    for (const id of [...f.units]) { const u = S.units.find(x => x.id === id); if (!u || u.status !== 'front') continue; const loss = Math.round(u.pers * (r.success ? 0.08 : 0.25) * Math.random() * 2); kia += Math.min(loss, u.pers); u.pers -= Math.min(loss, u.pers); if (u.pers <= 0) { lost.push(u.name); S.units = S.units.filter(x => x !== u); S.groups.forEach(g => g.unitIds = g.unitIds.filter(i => i !== u.id)); f.units = f.units.filter(i => i !== u.id); } }
+  }
+  f.kia = (f.kia || 0) + kia;
+  const boost = r.units ? 1 : 0.6; // a battle you commanded counts for more than one fought without you
+  if (r.success) { inf[k] *= 1 - 0.45 * boost; for (let n = 0; n < 8; n++) { const j = WG.nb[k * 8 + n]; if (j >= 0) inf[j] *= 1 - 0.2 * boost; } S.standing = clamp(S.standing + (r.units ? 4 : 1), 0, 100); }
+  else { inf[k] = Math.min(1, inf[k] + 0.25); S.standing = clamp(S.standing - (r.units ? 4 : 2), 0, 100); }
+  if (r.clock) S.t = Math.max(S.t, r.clock);
+  f.battle = null;
+  log(r.success ? 'good' : 'bad', `${f.name}: ${r.success ? 'the line held' : 'the line was broken'}${r.units ? '' : ' (national forces)'} — ${kia} of your personnel killed${lost.length ? `, ${lost.length} unit(s) lost` : ''}${r.natKIA ? `, ${r.natKIA} national troops killed` : ''}.`);
+  if (!f.units.length) { S.fronts = S.fronts.filter(x => x !== f); log('bad', `${f.name}: no units left on the line.`); }
+  return { success: r.success, kia, lost, natKIA: r.natKIA || 0 };
 }
 export const activeIncident = () => S.incidents.find(i => ['alert', 'responding', 'onscene'].includes(i.phase));
 export function nationalStats() {

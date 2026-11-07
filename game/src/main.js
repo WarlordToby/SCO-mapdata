@@ -162,11 +162,16 @@ function loop(now) {
   updateTop();
   requestAnimationFrame(loop);
 }
+// one dialog at a time: events that arrive while a dialog is open wait until it closes
+const evQueue = [];
+UI.nextEvent = window.__nextEvent = () => setTimeout(() => { if (evQueue.length && !window.__tacBusy && !document.querySelector('#modal.on')) handleEvent(evQueue.shift()); }, 0);
 function handleEvent(e) {
   const S = G.getS();
+  if ((window.__tacBusy || document.querySelector('#modal.on')) && ['incident', 'handoff', 'world', 'frontBattle'].includes(e.type)) { S.speed = 0; evQueue.push(e); return; }
   if (e.type === 'incident') { S.speed = 0; G.save(); showBroadcast(e.inc, refreshAll); }
   if (e.type === 'handoff') { S.speed = 0; showHandoff(e.inc, refreshAll); }
   if (e.type === 'world') { S.speed = 0; G.save(); M.worldNews(e, refreshAll); }
+  if (e.type === 'frontBattle') { S.speed = 0; G.save(); M.frontBattleDialog(e.fid); }
 }
 
 function updateTop() {

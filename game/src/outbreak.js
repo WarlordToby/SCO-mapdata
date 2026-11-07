@@ -138,6 +138,8 @@ function stepOnce(S, w, dt, homeCi, ev) {
   // front casualties: units holding the line wear down where pressure is high
   for (const f of S.fronts || []) {
     const pr = inf[f.k];
+    // the threat hits the line hard: offer the player command of the battle (at most every 3 days per front)
+    if (pr > 0.18 && t - (f.lastBattle ?? f.t0 - 3 * 864e5) > 3 * 864e5 && f.units.some(id => S.units.find(x => x.id === id)?.status === 'front')) { f.lastBattle = t; f.battle = { t, until: t + 12 * 36e5 }; ev.push({ type: 'frontBattle', fid: f.id }); }
     for (const id of f.units) { const u = S.units.find(x => x.id === id); if (!u || u.status !== 'front') continue; const loss = dt * pr * 0.9 * (1 - Math.min(0.7, (f.prot?.[id] || 0) / 14)); f.wear = (f.wear || {}); f.wear[id] = (f.wear[id] || 0) + loss * u.pers; while (f.wear[id] >= 1 && u.pers > 0) { f.wear[id] -= 1; u.pers--; f.kia = (f.kia || 0) + 1; } }
   }
 }
@@ -159,3 +161,11 @@ export function infImage(S, cv) {
   return cv;
 }
 export { FALL, cellLonLat };
+
+// direction (east, north) towards the heaviest infestation around a cell
+export function threatDirAt(S, k) {
+  const inf = S.world.inf; let x = 0, y = 0;
+  for (let n = 0, m = 0; n < 9; n++) { if (n === 4) continue; const j = G.nb[k * 8 + m++]; if (j < 0) continue; const di = n % 3 - 1, dj = Math.floor(n / 3) - 1, w = inf[j] - inf[k], l = Math.hypot(di, dj); x += w * di / l; y -= w * dj / l; }
+  const l = Math.hypot(x, y); if (l < 1e-6) { const a = ((k * 2654435761) >>> 0) / 4294967296 * Math.PI * 2; return [Math.cos(a), Math.sin(a)]; }
+  return [x / l, y / l];
+}

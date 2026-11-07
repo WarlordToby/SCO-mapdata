@@ -9,7 +9,7 @@ import { packFor, packUrl } from './packs.js';
 const packOf = city => packFor(city.cc || G.getS().nation.cca2, city.name);
 
 export function modal(html, cls = 'dlg') { const m = $('#modal'); m.innerHTML = `<div class="${cls}">${html}</div>`; m.classList.add('on'); }
-export function closeModal() { $('#modal').classList.remove('on'); $('#modal').innerHTML = ''; UI.refresh(); }
+export function closeModal() { $('#modal').classList.remove('on'); $('#modal').innerHTML = ''; UI.refresh(); UI.nextEvent?.(); }
 window.__close = closeModal;
 const err = msg => { const e = $('#modal .err'); if (e) e.textContent = msg || ''; };
 
@@ -250,4 +250,23 @@ export function frontDialog(geo) {
     <div class="col" style="max-height:260px;overflow:auto;margin-top:8px">${ready.length ? ready.map(u => `<label class="row"><input type="checkbox" value="${u.id}"><span class="sp">${esc(u.name)}</span><span class="mut">${u.pers} pers.</span></label>`).join('') : '<span class="mut">No units are ready.</span>'}</div>
     <div class="foot"><button onclick="__close()">Cancel</button><button class="pri" id="frOk" ${ready.length ? '' : 'disabled'}>Deploy</button></div></div>`);
   $('#frOk').onclick = () => { const ids = [...document.querySelectorAll('#modal input[type=checkbox]:checked')].map(i => i.value); const r = G.deployFront(geo, ids, $('#frName').value.trim()); if (typeof r === 'string') return UI.flash(r); closeModal(); UI.tab = 'world'; UI.refresh(); };
+}
+// the threat masses against one of your front lines: command the battle in 3D or leave it to the national forces
+export function frontBattleDialog(fid) {
+  const S = G.getS(), b = G.frontBattle(fid); if (!b) return;
+  const { f, units, rural } = b, T = THREATS[S.world.threat];
+  modal(`<h2>${esc(f.name)} — the line is under attack</h2>
+    <div class="mut">${esc(T.name)} · ${esc(countryName(b.ci))} · pressure ${Math.round(b.pressure * 100)}% · about ${num(rural.waves)} hostiles expected</div>
+    <p>A mass of hostiles is moving against the positions held by ${esc(rural.nation)} forces and ${units.length} of your unit(s). ${rural.platoons} national platoons are dug in across the sector.</p>
+    <div class="card">${units.map(u => `<div class="row"><span class="sp">${esc(u.name)}</span><span class="mut">${u.pers} pers.</span></div>`).join('')}</div>
+    <div class="card" style="font-size:12.5px"><b class="acc">Hold the line.</b><div class="mut" style="margin-top:4px">A 6 × 6 km sector of countryside around the line: villages, farms, woods and hedgerows. Hold for about four hours of battle; the national troops fight on their own, your units take your orders. Too many hostiles getting through behind the line ends it.</div></div>
+    <div class="foot"><button id="fbAuto">Let them hold</button><button class="pri" id="fbTac">Take command</button></div>`);
+  const done = r => { G.save(); UI.refresh(); modal(`<h2>${r.success ? 'The line held' : 'The line broke'} — ${esc(f.name)}</h2><div class="stats"><span>Your personnel killed</span><span>${r.kia}</span><span>Units lost</span><span>${r.lost.length ? esc(r.lost.join(', ')) : 'None'}</span>${r.natKIA ? `<span>National troops killed</span><span>${r.natKIA}</span>` : ''}<span>Government standing</span><span>${Math.round(S.standing)}</span></div><div class="foot"><button class="pri" onclick="__close()">Continue</button></div>`); };
+  $('#fbAuto').onclick = () => { closeModal(); done(G.resolveFront(fid, {})); };
+  $('#fbTac').onclick = async () => {
+    closeModal(); S.speed = 0;
+    const res = await enterTactical({ ...b.tac, rural });
+    if (res.aborted) { done(G.resolveFront(fid, {})); return; }
+    done(G.resolveFront(fid, res));
+  };
 }
