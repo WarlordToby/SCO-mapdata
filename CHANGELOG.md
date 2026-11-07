@@ -2,6 +2,18 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.6.0 — City look (2026-11-07)
+
+- Blended look: realistic at street level, fading smoothly into a clean, light tactical map as you zoom out.
+- Sun and sky: real November sun path over Strasbourg, gradient sky with sun glow, haze matched to the horizon, golden hour, moonlit night; sun shadows that follow the view.
+- Buildings: regional palette (old-town plaster and Vosges sandstone, modern concrete, industrial cladding), mapped OpenStreetMap colours where available, roof shapes from the map data (gabled, hipped, pyramidal…) or inferred for small residential blocks, Alsace tile and slate roofs.
+- Facades: windows, floor bands, shopfronts on ground floors, curtain-wall offices and strip-windowed industrial halls, ground-contact darkening; windows light up at night.
+- Streets: asphalt with pavements, dashed lane markings, zebra crossings at signalised junctions, rail and tram tracks.
+- Trees: 93,000 individually mapped trees from OpenStreetMap plus planted parks and woods. Street lamps: 7,400 mapped lamps (procedural lighting where none are mapped), glowing at night with light pools on the street.
+- Building use colours moved to a toggleable intel overlay (V or the Overlay button).
+- Graphics quality: Low / Medium / High (shadows, shadow resolution, tree shadows, render resolution); remembered between sessions and lowered automatically if the frame rate drops.
+- City map pack format 1.1: trees, street lamps, roof shapes, building and roof colours and materials. Strasbourg recompiled.
+
 ## v0.5.0 — Balance: bases, police, map view (2026-11-07)
 
 - Base modules now give 4× capacity: Barracks +160 personnel, Armory +1,200 items, Motor Pool +32 vehicle bays, Helipad +4 helicopters, Hangar +12 helicopters.

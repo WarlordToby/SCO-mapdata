@@ -40,6 +40,7 @@ export async function enterTactical(o) {
     // re-centre unlock on the impact building
     setLoad('Building 3D city…');
     R = new Renderer($('#tCanvas', root), city);
+    $('#tGfx', root).textContent = 'Graphics: ' + R.gfxLabel;
     for (const t of city.tiles.values()) { R.buildTile(t); await frame(); }
     R.cc.target.set(impact.c[0], impact.z, -impact.c[1]); R.cc.dist = 900; R.cc.yaw = 0.7; R.cc.pitch = 0.85;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: R0, supply: o.supply, severity: o.severity });
@@ -56,7 +57,7 @@ export async function enterTactical(o) {
     let last = performance.now(), lastLbl = 0;
     const perf = makePerf(root, R, sim);
     let slow = 0;
-    function adapt() { const f = perf.avgFrame(); if (f > 30) slow++; else slow = Math.max(0, slow - 1); if (slow > 12 && R.pixelRatio > 1) { R.setQuality(Math.max(1, R.pixelRatio - 0.25)); slow = 0; sim.log(`Render resolution lowered to ${R.pixelRatio.toFixed(2)}× to keep the frame rate up (F3 for details).`); } }
+    function adapt() { const f = perf.avgFrame(); if (f > 30) slow++; else slow = Math.max(0, slow - 1); if (slow > 12 && R.gfx === 'high') { R.setGraphics('medium'); slow = 0; sim.log('Graphics lowered to Medium to keep the frame rate up.'); } else if (slow > 12 && R.pixelRatio > 1) { R.setQuality(Math.max(1, R.pixelRatio - 0.25)); slow = 0; sim.log(`Render resolution lowered to ${R.pixelRatio.toFixed(2)}× to keep the frame rate up (F3 for details).`); } }
     const loop = now => {
       if (!alive) return;
       const dtR = Math.min(0.1, (now - last) / 1000); last = now;
@@ -117,6 +118,7 @@ export async function enterTactical(o) {
       if (k === '1') speed = 1; if (k === '2') speed = 3; if (k === '3') speed = 8; if (k === '4') speed = 16;
       if (k === 'f3') { e.preventDefault(); perf.toggle(); }
       if (k === 'escape') { mode = null; sel = []; selB = null; updateSel(); }
+      if (k === 'v') setOverlay(!overlay);
       if (k === 'g' && selB) cmd('mark'); if (k === 'h') cmd('hold');
     };
     const ku = e => { keys[e.key.toLowerCase()] = false; };
@@ -173,29 +175,36 @@ export async function enterTactical(o) {
       const hv = e.target.closest('[data-hvt]'); if (hv) { const h = sim.hvts.find(x => x.id === hv.dataset.hvt); if (h) { R.cc.target.set(h.x, 0, -h.y); R.cc.dist = Math.min(R.cc.dist, 600); selB = h.b; sel = []; updateSel(); } }
       if (e.target.id === 'tEnd') endOperation(false);
       if (e.target.id === 'tPerfBtn') perf.toggle();
+      if (e.target.id === 'tGfx') { const l = R.nextGraphics(); e.target.textContent = 'Graphics: ' + l; sim.log(`Graphics quality: ${l}.`); }
+      if (e.target.id === 'tOverlay') setOverlay(!overlay);
     });
     function hover(x, y) { /* reserved for tooltips */ }
     function flash(t) { sim.log(t, 'warn'); }
 
     // ---------------- painting ----------------
-    const tmp = new THREE.Color(), dark = new THREE.Color(0x1b1e22), amber = new THREE.Color(0xe0a030), blue = new THREE.Color(0x3d7dff), teal = new THREE.Color(0x40d0b0), pale = new THREE.Color(0x9fd8ff), white = new THREE.Color(0xffffff);
+    const tmp = new THREE.Color(), dark = new THREE.Color(0x14161a), amber = new THREE.Color(0xe0a030), blue = new THREE.Color(0x3d7dff), teal = new THREE.Color(0x40d0b0), pale = new THREE.Color(0x9fd8ff), white = new THREE.Color(0xffffff);
     function paintBuildings() {
       const list = sim.dirtyB || []; if (!list.length) return;
-      const batch = list.splice(0, 800);
+      const batch = list.splice(0, 900);
       for (const b of batch) {
         b.colorDirty = false; if (!b.mesh) continue;
-        tmp.copy(b.baseCol);
-        if (sim.quarantine.has(b.district)) tmp.lerp(amber, 0.28);
-        if (b.evac && b.occ < b.pop0 * 0.1) tmp.multiplyScalar(0.6);
-        if (b.state === 2) tmp.lerp(teal, 0.3);
-        if (b.infest > 0.05) tmp.lerp(threatCol, 0.35 + b.infest * 0.55);
-        if (sim.garrisonMarks.has(b.idx)) tmp.lerp(pale, 0.3);
-        if (b.garrison.length) tmp.lerp(blue, 0.55);
-        const dmg = 1 - b.hp / b.hp0; if (dmg > 0) tmp.lerp(dark, dmg * 0.7);
-        if (b === selB) tmp.lerp(white, 0.35);
-        R.paintBuilding(b, tmp, b.destroyed ? 1 : dmg > 0.5 ? (dmg - 0.5) : 0);
+        // compose state tints: final = mix(base, T.rgb, T.a), applied in order
+        let tr = 0, tg = 0, tb = 0, ta = 0;
+        const lerp = (c, k) => { if (k <= 0) return; const na = 1 - (1 - ta) * (1 - k); tr = (tr * ta * (1 - k) + c.r * k) / na; tg = (tg * ta * (1 - k) + c.g * k) / na; tb = (tb * ta * (1 - k) + c.b * k) / na; ta = na; };
+        if (overlay) lerp(tmp.setHex(USE_COLORS[city.codes.use[b.use]] || 0xaaaaaa), 0.7);
+        if (sim.quarantine.has(b.district)) lerp(amber, 0.3);
+        if (b.evac && b.occ < b.pop0 * 0.1) lerp(dark, 0.3);
+        if (b.state === 2) lerp(teal, 0.35);
+        if (b.infest > 0.05) lerp(threatCol, 0.4 + b.infest * 0.5);
+        if (sim.garrisonMarks.has(b.idx)) lerp(pale, 0.35);
+        if (b.garrison.length) lerp(blue, 0.6);
+        const dmg = 1 - b.hp / b.hp0; if (dmg > 0) lerp(dark, dmg * 0.75);
+        if (b === selB) lerp(white, 0.4);
+        R.paintBuilding(b, { r: tr, g: tg, b: tb }, ta, b.destroyed ? 1 : dmg > 0.5 ? (dmg - 0.5) : 0);
       }
     }
+    let overlay = false;
+    function setOverlay(on) { overlay = on; for (const b of city.buildings) if (b.mesh) sim.dirty(b); sim.log(on ? 'Intel overlay on: buildings coloured by use (V to toggle).' : 'Intel overlay off.'); }
     // ---------------- dynamic draw ----------------
     function drawDynamic() {
       const D = R.dyn, far = R.cc.dist > 1100;
@@ -249,11 +258,9 @@ export async function enterTactical(o) {
       for (const u of sel) { if (u.dead || !u.order) continue; const t = u.order.p || u.order.b?.ent || u.order.site?.p; if (!t) continue; let prev = [u.x, u.y]; const pts = (u.path || []).slice(0, 40).concat([t]); for (const q of pts) { seg(prev, q, city.heightAt(prev[0], prev[1]) + 1.5, city.heightAt(q[0], q[1]) + 1.5, u.order.type === 'clear' ? [1, 0.35, 0.35] : [0.5, 1, 0.5]); prev = q; } }
       for (const cp of sim.checkpoints) seg(cp.a, cp.b, city.heightAt(cp.a[0], cp.a[1]) + 1, city.heightAt(cp.b[0], cp.b[1]) + 1, cp.guards.length ? [0.5, 1, 0.5] : [1, 0.55, 0.2]);
       lp.needsUpdate = true; lc.needsUpdate = true; D.lines.geometry.setDrawRange(0, nl * 2);
-      // day / night lighting
-      const h = (new Date(sim.clock).getUTCHours() + 1 + new Date(sim.clock).getUTCMinutes() / 60) % 24;
-      const day = Math.max(0, Math.min(1, (Math.sin((h - 6) / 24 * Math.PI * 2) + 0.25) * 1.3));
-      R.scene.children.forEach(l => { if (l.isHemisphereLight) l.intensity = 0.35 + day * 0.85; if (l.isDirectionalLight) l.intensity = 0.15 + day * 1.25; });
-      R.scene.background.setRGB(0.02 + day * 0.03, 0.03 + day * 0.04, 0.05 + day * 0.04); R.scene.fog.color.copy(R.scene.background);
+      // time of day drives sun, sky, window lights and street lamps
+      const d0 = new Date(sim.clock), hr = (d0.getUTCHours() + 1 + d0.getUTCMinutes() / 60) % 24;
+      if (Math.abs(hr - (R._hr ?? -9)) > 0.02) { R._hr = hr; R.setTimeOfDay(hr); }
     }
     // ---------------- labels ----------------
     const pool = []; let poolN = 0;
@@ -362,7 +369,7 @@ const frame = () => new Promise(r => requestAnimationFrame(() => r()));
 
 const TEMPLATE = `
 <canvas id="tCanvas"></canvas><div id="tLabels"></div><div id="tBox"></div>
-<div id="tTop"><b class="op">OPERATION</b><span class="clock mono"></span><div class="row" style="gap:3px"><button class="sm" data-speed="0">❚❚</button><button class="sm" data-speed="1">▶</button><button class="sm" data-speed="3">▶▶</button><button class="sm" data-speed="8">▶▶▶</button><button class="sm" data-speed="16" title="16× (4)">▶▶▶▶</button></div><button class="sm" id="tPerfBtn" title="Performance overlay (F3)">F3</button><div id="tStats"></div><span class="sp"></span><button class="warn sm" id="tEnd">End operation</button></div>
+<div id="tTop"><b class="op">OPERATION</b><span class="clock mono"></span><div class="row" style="gap:3px"><button class="sm" data-speed="0">❚❚</button><button class="sm" data-speed="1">▶</button><button class="sm" data-speed="3">▶▶</button><button class="sm" data-speed="8">▶▶▶</button><button class="sm" data-speed="16" title="16× (4)">▶▶▶▶</button></div><button class="sm" id="tPerfBtn" title="Performance overlay (F3)">F3</button><button class="sm" id="tGfx" title="Graphics quality">Graphics</button><button class="sm" id="tOverlay" title="Colour buildings by use (V)">Overlay</button><div id="tStats"></div><span class="sp"></span><button class="warn sm" id="tEnd">End operation</button></div>
 <div id="tLeft"><div class="lbl">Forces</div><div id="tUnits"></div><div class="lbl" style="margin-top:10px">Ground commander</div><div id="tCmd"></div></div>
 <div id="tRight"><div class="lbl">High value targets</div><div id="tHvt"></div></div>
 <div id="tSel"></div>
