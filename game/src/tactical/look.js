@@ -221,3 +221,42 @@ export function obb(ring) {
   if (lv > lu) return { area: best.area, len: lv, wid: lu, c: P((best.mnu + best.mxu) / 2, (best.mnv + best.mxv) / 2), ax: [-uy, ux], ay: [ux, uy] };
   return { area: best.area, len: lu, wid: lv, c: P((best.mnu + best.mxu) / 2, (best.mnv + best.mxv) / 2), ax: [ux, uy], ay: [-uy, ux] };
 }
+
+// Barriers: one instanced unit box per segment (x along the barrier 0..1, y up 0..1, z across ±0.5), sheared to follow the
+// slope. Patterns are drawn from metric coordinates: posts, bars, chain-link mesh, boards, hedge foliage, masonry courses.
+// see = see-through kinds (alpha patterns), otherwise solid. aK = kind code (+100 when knocked down).
+const STRIPE = `float stripe(float x, float p, float w){ float f = fract(x / p); float s = step(f, w / p); float fw = fwidth(x) / p; return mix(s, w / p, clamp(fw * 2.0, 0.0, 1.0)); }`;
+export function barrierMat(see) {
+  const m = new THREE.MeshLambertMaterial({ transparent: see, side: see ? THREE.DoubleSide : THREE.FrontSide, depthWrite: true });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uTac = U.uTac;
+    sh.vertexShader = 'attribute float aK; varying float vK; varying vec3 vM;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      vK = aK; vM = vec3(position.x * length(instanceMatrix[0].xyz), position.y * length(instanceMatrix[1].xyz), length(instanceMatrix[1].xyz));`);
+    sh.fragmentShader = `uniform float uTac; varying float vK; varying vec3 vM;\n${TAC}\n${NOISE}\n${STRIPE}\n` + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float k = mod(vK, 100.0), fallen = step(99.5, vK), x = vM.x, y = vM.y, H = vM.z;
+      ${see ? `
+      float post = stripe(x + 0.03, 2.5, 0.06), top = step(H - 0.05, y), bot = step(0.04, y) * step(y, 0.09), a;
+      if (k < 0.5 || abs(k - 3.0) < 0.5) a = max(max(stripe(x, 0.13, 0.025), post), max(top, bot));           // fence / railing: bars
+      else if (abs(k - 1.0) < 0.5) a = max(max(stripe(x + y, 0.075, 0.011), stripe(x - y, 0.075, 0.011)) * 0.95, max(post, top)); // chain-link mesh
+      else if (abs(k - 4.0) < 0.5) a = max(stripe(x + 0.05, 3.0, 0.08), stripe(y + 0.1, H / 3.2, 0.012));          // wire strands
+      else if (abs(k - 10.0) < 0.5) a = max(step(0.45, y) * step(y, 0.75), stripe(x + 0.05, 2.0, 0.1));         // guard rail
+      else a = 1.0;
+      if (a < 0.03) discard;
+      diffuseColor.a = clamp(a, 0.0, 1.0);
+      diffuseColor.rgb *= 0.92 + 0.12 * post;` : `
+      if (abs(k - 2.0) < 0.5) { float bd = floor(x / 0.15); diffuseColor.rgb *= (0.84 + 0.22 * fract(sin(bd * 91.7) * 4375.5)) * (1.0 - 0.25 * stripe(x, 0.15, 0.012)); }   // boards
+      else if (abs(k - 5.0) < 0.5) { float n = fbm(vec2(x, y) * 2.2), n2 = fbm(vec2(x, y) * 7.0 + 4.0); diffuseColor.rgb *= (0.62 + 0.55 * n) * (0.85 + 0.25 * n2) * (0.75 + 0.25 * smoothstep(0.0, 0.6, y)); } // foliage
+      else { float n = fbm(vec2(x, y) * 1.3); diffuseColor.rgb *= (0.9 + 0.16 * n) * (1.0 - 0.06 * stripe(y, 0.26, 0.02)); diffuseColor.rgb *= 1.0 + 0.12 * step(H - 0.07, y); } // masonry, coping
+      `}
+      diffuseColor.rgb *= 1.0 - 0.3 * fallen;
+      diffuseColor.rgb = mix(diffuseColor.rgb, tacPal(diffuseColor.rgb), uTac);`);
+  };
+  m.customProgramCacheKey = () => 'barrier' + see;
+  return m;
+}
+export const BARRIER_LOOK = { // [colours], thickness m, see-through
+  fence: [[0x3b4a40, 0x50555a, 0x2b2e30], 0.04, true], chain: [[0x2f4a36, 0x2c4433, 0x8a9091], 0.03, true], wood: [[0x7a5a3a, 0x8b7355, 0x6d6a63, 0x5e4a36], 0.06, false],
+  railing: [[0x2b2e30, 0x3a4a3d, 0xd8d6cf, 0x3a3a3a], 0.04, true], wire: [[0x77736b], 0.03, true], hedge: [[0x2e4a22, 0x35512a, 0x3c5a2c, 0x2b4420], 0.75, false],
+  wall: [[0xc8bfae, 0xb9b2a4, 0x9d968a, 0xb98f70], 0.25, false], muret: [[0xd6cfc0, 0xc2b8a5, 0xe0dbd0], 0.25, false], retaining: [[0x8f8b84], 0.3, false],
+  jersey: [[0xa9a7a1], 0.6, false], guard: [[0xb7bcbf], 0.12, true], city_wall: [[0x9b7d68], 1.5, false],
+};

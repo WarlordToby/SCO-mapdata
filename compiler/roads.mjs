@@ -7,7 +7,7 @@ const C = Object.fromEntries(CLASSES.map((c, i) => [c, i]));
 const HW = { motorway: 'motorway', motorway_link: 'motorway', trunk: 'trunk', trunk_link: 'trunk', primary: 'primary', primary_link: 'primary', secondary: 'secondary', secondary_link: 'secondary', tertiary: 'tertiary', tertiary_link: 'tertiary', unclassified: 'unclassified', road: 'unclassified', residential: 'residential', living_street: 'living_street', service: 'service', track: 'track', pedestrian: 'pedestrian', footway: 'footway', path: 'footway', bridleway: 'footway', corridor: 'footway', cycleway: 'cycleway', steps: 'steps' };
 export const CTRL = ['none', 'priority', 'right_priority', 'stop', 'yield', 'signal', 'roundabout'];
 export const TURN = ['through', 'left', 'right', 'uturn'];
-export const FLAG = { oneway: 1, bridge: 2, tunnel: 4, roundabout: 8, private: 16, drive: 32, walk: 64, isolated_f: 128, isolated_b: 256, link: 512, bus: 1024 };
+export const FLAG = { oneway: 1, bridge: 2, tunnel: 4, roundabout: 8, private: 16, drive: 32, walk: 64, isolated_f: 128, isolated_b: 256, link: 512, bus: 1024, barrier: 2048 };
 
 const DEF_LANES = { motorway: 2, trunk: 2, primary: 1, secondary: 1, tertiary: 1, unclassified: 1, residential: 1, living_street: 1, service: 1, track: 1 };
 const DEF_SPEED = { motorway: 110, trunk: 90, primary: 50, secondary: 50, tertiary: 50, unclassified: 50, residential: 50, living_street: 20, service: 20, track: 20, pedestrian: 10 };
@@ -79,7 +79,7 @@ export function buildRoads(osm, P) {
     for (let i = 1; i < R.length; i++) {
       if (i === R.length - 1 || isJ(R[i]) || extraJ.has(R[i])) {
         const pts = []; let ok = true; for (let k = start; k <= i; k++) { const p = nodeXY(R[k]); if (!p) { ok = false; break; } pts.push(p); }
-        if (ok && pts.length > 1) edges.push(mkEdge(h, t, pts, jid(R[start]), jid(R[i]), R[start], R[i]));
+        if (ok && pts.length > 1) { const e = mkEdge(h, t, pts, jid(R[start]), jid(R[i]), R[start], R[i]); e.refs = R.slice(start, i + 1); edges.push(e); }
         start = i;
       }
     }
@@ -104,6 +104,12 @@ export function buildRoads(osm, P) {
     if (t['busway'] || t['lanes:bus'] || t.psv === 'designated') flags |= FLAG.bus;
     return { id: edges.length, a, b, oa, ob, way: h.w.id, cls: C[cls], lf, lb, turnF, turnB, speed: parseSpeed(t.maxspeed, cls), layer: parseInt(t.layer) || 0, name: t.name || t.ref || '', flags, pts, len: polyLen(pts), width: parseFloat(t.width) || 0 };
   }
+  // 3b. Point barriers on the carriageway (bollards, blocks, cycle barriers…) close a way to motor traffic but not to people.
+  const NOCAR = new Set(['bollard', 'block', 'jersey_barrier', 'cycle_barrier', 'planter', 'bus_trap', 'debris', 'log', 'chain', 'rope', 'kissing_gate', 'stile', 'turnstile', 'full-height_turnstile', 'motorcycle_barrier', 'barrier_board', 'sump_buster']);
+  const blockNode = new Set();
+  for (const n of tagged) { const b = n.tags.barrier; if (!b) continue; if ((NOCAR.has(b) && n.tags.motor_vehicle !== 'yes' && n.tags.access !== 'yes') || (b === 'gate' && n.tags.locked === 'yes')) blockNode.add(n.id); }
+  let nBlocked = 0;
+  for (const e of edges) if ((e.flags & FLAG.drive) && e.refs.some(r => blockNode.has(r))) { e.flags = (e.flags & ~FLAG.drive) | FLAG.barrier; nBlocked++; }
   // 4. Junction approaches/exits
   for (const e of edges) {
     const n = e.pts.length;
@@ -195,7 +201,7 @@ export function buildRoads(osm, P) {
   const main = size.indexOf(Math.max(...size));
   for (const e of edges) if (e.flags & FLAG.drive) { if (!(comp[e.a] === main && comp[e.b] === main)) { e.flags |= FLAG.isolated_f; if (!(e.flags & FLAG.oneway)) e.flags |= FLAG.isolated_b; } }
 
-  return { edges, junctions: jn, conn, stats: { edges: edges.length, junctions: jn.length, signals: nSignals, connections: conn.length, restrictions: [...restr.values()].reduce((a, r) => a + r.length, 0), mainComponentNodes: Math.max(...size) } };
+  return { edges, junctions: jn, conn, stats: { edges: edges.length, junctions: jn.length, signals: nSignals, connections: conn.length, restrictions: [...restr.values()].reduce((a, r) => a + r.length, 0), mainComponentNodes: Math.max(...size), closedToCars: nBlocked } };
 }
 
 // Two- to four-phase fixed-time plan. Opposite approaches share a phase; dedicated left lanes get a protected phase.

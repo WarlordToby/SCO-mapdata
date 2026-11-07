@@ -263,6 +263,7 @@ export async function enterTactical(o) {
       for (const b of sim.infested) if (b.infest > 0.35 && !b.destroyed) srcs.push(b._smk || (b._smk = { x: b.c[0], y: b.c[1], z: b.z1, r: Math.min(14, Math.sqrt(b.area) * 0.5) }));
       for (const b of sim.damaged || []) if (b.hp < b.hp0 * 0.6 && b.mesh) srcs.push(b._smk2 || (b._smk2 = { x: b.c[0], y: b.c[1], z: b.z + 2, r: Math.min(18, Math.sqrt(b.area) * 0.6) }));
       for (const s of srcs) s.rate = 2.5;
+      R.updateBarriers();
       R.updateSmoke(srcs.slice(0, 60), Math.min(0.1, speed ? 0.016 * Math.max(1, speed) : 0.016));
       // time of day drives sun, sky, window lights and street lamps
       const d0 = new Date(sim.clock), hr = (d0.getUTCHours() + 1 + d0.getUTCMinutes() / 60) % 24;

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { FLAG } from './city.js';
 import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
-import { U, flatMat, buildingMat, treeMat, waterMat, parkMat, makeSky, skyAt, AREA, GROUND, ROOF_PITCH, ROOF_FLAT, wallStyle, wallColor, obb } from './look.js';
+import { U, flatMat, buildingMat, treeMat, waterMat, parkMat, makeSky, skyAt, AREA, GROUND, ROOF_PITCH, ROOF_FLAT, wallStyle, wallColor, obb, barrierMat, BARRIER_LOOK } from './look.js';
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
@@ -15,11 +15,12 @@ export const USE_COLORS = {
 };
 const GFX = {
   low: { shadows: false, map: 0, treeShadows: false, pr: 1, label: 'Low' },
-  medium: { shadows: true, map: 2048, treeShadows: false, pr: 1.25, label: 'Medium' },
-  high: { shadows: true, map: 4096, treeShadows: true, pr: 1.5, label: 'High' },
+  medium: { shadows: true, map: 2048, treeShadows: false, barShadows: true, pr: 1.25, label: 'Medium' },
+  high: { shadows: true, map: 4096, treeShadows: true, barShadows: true, pr: 1.5, label: 'High' },
 };
 const OLD_TOWN = /^(Centre|Bourse-Esplanade-Krutenau|Tribunal-Gare|Orangerie|Neudorf)/;
 const rng = seed => { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822507) ^ Math.imul(s ^ (s >>> 13), 3266489909)) >>> 0) / 4294967296; };
+const BARRIER_KINDS_IDX = { fence: 0, chain: 1, wood: 2, railing: 3, wire: 4, hedge: 5, wall: 6, muret: 7, retaining: 8, jersey: 9, guard: 10, city_wall: 11 };
 const strHash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
 
 export class Renderer {
@@ -43,6 +44,7 @@ export class Renderer {
     this.lampMat = new THREE.PointsMaterial({ color: 0xffd9a0, size: 7, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, map: glowTex() });
     this.poolMat = new THREE.MeshBasicMaterial({ color: 0xffb860, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, map: glowTex(), polygonOffset: true, polygonOffsetFactor: -5, polygonOffsetUnits: -5 });
     this.treeGeo = { broad: treeGeometry(false), needle: treeGeometry(true) };
+    this.mat.barS = barrierMat(false); this.mat.barT = barrierMat(true); this.barGeo = new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0.5, 0); this.barMeshes = new Map();
     this.cc = { target: new THREE.Vector3(0, 0, 0), dist: 1400, yaw: 0.6, pitch: 0.95 };
     this.dyn = {};
     this.initDynamic();
@@ -57,7 +59,7 @@ export class Renderer {
     try { localStorage.setItem('sco_gfx', level); } catch (e) { }
     this.r.shadowMap.enabled = q.shadows; this.sun.castShadow = q.shadows;
     if (q.shadows) { this.sun.shadow.mapSize.set(q.map, q.map); if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; } }
-    this.scene.traverse(o => { if (o.userData.tree) o.castShadow = q.treeShadows; if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
+    this.scene.traverse(o => { if (o.userData.tree) o.castShadow = q.treeShadows; if (o.userData.barShadow) o.castShadow = !!q.barShadows; if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.needsUpdate = true); });
     this.setQuality(Math.min(q.pr, devicePixelRatio || 1));
   }
   nextGraphics() { const k = Object.keys(GFX); this.setGraphics(k[(k.indexOf(this.gfx) + 1) % k.length]); return this.gfxLabel; }
@@ -196,7 +198,7 @@ export class Renderer {
     if (bmesh) { g.add(bmesh); this.pickMeshes.push(bmesh); }
     // trees & street lamps
     this.buildTrees(tile, g, L);
-    if (!L) this.buildLamps(tile, g);
+    if (!L) { this.buildLamps(tile, g); this.buildBarriers(tile, g); } else this.barMeshes.delete(tile.key);
     this.groundMeshes.push(ground);
     this.scene.add(g);
     this.tileGroups.set(tile.key, { g, b: bmesh, ground });
@@ -317,6 +319,45 @@ export class Renderer {
       m.castShadow = GFX[this.gfx].treeShadows; m.receiveShadow = false; m.userData.tree = true; m.computeBoundingSphere();
       g.add(m);
     }
+  }
+  // Fences, walls and hedges: two instanced meshes per tile (solid / see-through); rebuilt when a section is knocked down.
+  buildBarriers(tile, g) {
+    const old = this.barMeshes.get(tile.key); if (old) for (const m of old) { m.parent?.remove(m); m.geometry.dispose(); m.dispose(); }
+    const segs = (tile.barSegs || []).filter(s => !s.dead); if (!segs.length) { this.barMeshes.delete(tile.key); return; }
+    const city = this.city, items = { s: [], t: [] }, col = new THREE.Color();
+    for (const s of segs) {
+      const look = BARRIER_LOOK[s.kind] || BARRIER_LOOK.fence, seed = Math.abs(Math.sin(s.ax * 12.9898 + s.ay * 78.233)) * 43758.5 % 1;
+      const pal = look[0], c = pal[Math.floor(seed * pal.length) % pal.length];
+      if (s.kind === 'muret') { // low masonry wall topped by a railing
+        const base = Math.min(0.6, s.h * 0.5);
+        items.s.push([s, base, look[1], c, 7]);
+        items.t.push([s, s.h - base, 0.04, [0x2b2e30, 0x3a4a3d, 0xd8d6cf][Math.floor(seed * 30) % 3], 3, base]);
+      } else (look[2] ? items.t : items.s).push([s, s.h, look[1], c, BARRIER_KINDS_IDX[s.kind] ?? 0]);
+    }
+    const X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3(), m4 = new THREE.Matrix4(), out = [];
+    const shadows = !!GFX[this.gfx].barShadows;
+    for (const [key, list] of Object.entries(items)) {
+      if (!list.length) continue;
+      const mesh = new THREE.InstancedMesh(this.barGeo, key === 's' ? this.mat.barS : this.mat.barT, list.length), aK = new Float32Array(list.length);
+      list.forEach(([s, h, th, c, k, lift = 0], i) => {
+        const za = city.heightAt(s.ax, s.ay) + lift, zb = city.heightAt(s.bx, s.by) + lift, dx = s.bx - s.ax, dy = s.by - s.ay, L = Math.hypot(dx, dy) || 0.01, ux = dx / L, uy = dy / L;
+        X.set(dx, zb - za, -dy);
+        if (s.down) {
+          if (s.kind === 'hedge') { Y.set(0, 0.35, 0); Z.set(uy, 0, ux).multiplyScalar(th * 1.3); m4.makeBasis(X, Y, Z).setPosition(s.ax, za - 0.05, -s.ay); }
+          else { Y.set(uy, 0, ux).multiplyScalar(h); Z.set(0, Math.max(0.03, th), 0); m4.makeBasis(X, Y, Z).setPosition(s.ax, za + Math.max(0.03, th) / 2 + 0.02, -s.ay); }
+        } else { Y.set(0, h, 0); Z.set(uy, 0, ux).multiplyScalar(th); m4.makeBasis(X, Y, Z).setPosition(s.ax, za - 0.04, -s.ay); }
+        mesh.setMatrixAt(i, m4); col.setHex(c); mesh.setColorAt(i, col); aK[i] = k + (s.down ? 100 : 0);
+      });
+      mesh.geometry = this.barGeo.clone(); mesh.geometry.setAttribute('aK', new THREE.InstancedBufferAttribute(aK, 1));
+      mesh.castShadow = key === 's' && shadows; mesh.userData.barShadow = key === 's'; mesh.receiveShadow = key === 's'; mesh.userData.paths = true; mesh.visible = this._paths !== false;
+      mesh.computeBoundingSphere(); g.add(mesh); out.push(mesh);
+    }
+    this.barMeshes.set(tile.key, out);
+  }
+  updateBarriers() {
+    const B = this.city.bars; if (!B.dirty.size) return;
+    for (const k of B.dirty) { const tg = this.tileGroups.get(k), tile = this.city.tiles.get(k); if (tg && tile && tile.unlocked) this.buildBarriers(tile, tg.g); }
+    B.dirty.clear();
   }
   buildLamps(tile, g) {
     const city = this.city, t = tile.data, pts = [], pools = [];

@@ -1,7 +1,8 @@
 // City world model built from loaded pack tiles: buildings as entities, road graph, terrain, spatial indices.
 import { loadManifest, loadTile } from './pack.js';
+import { Barriers } from './barriers.js';
 
-export const FLAG = { oneway: 1, bridge: 2, tunnel: 4, roundabout: 8, private: 16, drive: 32, walk: 64, isolated_f: 128, isolated_b: 256 };
+export const FLAG = { oneway: 1, bridge: 2, tunnel: 4, roundabout: 8, private: 16, drive: 32, walk: 64, isolated_f: 128, isolated_b: 256, link: 512, bus: 1024, barrier: 2048 };
 
 export class Grid {
   constructor(c) { this.c = c; this.m = new Map(); }
@@ -19,6 +20,7 @@ export class City {
     this.use = Object.fromEntries(this.codes.use.map((u, i) => [u, i]));
     this.districts = this.m.districts.map((d, i) => ({ ...d, id: i, quarantined: false, buildings: [], pop0: 0 }));
     this.zMin = null;
+    this.bars = new Barriers(this);
   }
   key(x, y) { return `${Math.floor(x / this.T)}_${Math.floor(y / this.T)}`; }
   hasTile(k) { return this.m.tiles.some(t => t.key === k); }
@@ -43,6 +45,7 @@ export class City {
       this.buildings.push(b); tile.bIdx.push(i); this.bGrid.add(b.c[0], b.c[1], i);
       const d = this.districts[b.district]; if (d) { d.buildings.push(i); d.pop0 += b.pop0; }
     }
+    this.bars.addTile(tile);
     for (const e of t.edges) { e.z = []; this.edges.set(e.id, e); }
     for (const j of t.junctions) { j.z -= this.zMin; j.out = []; j.in = []; j.green = null; this.junctions.set(j.id, j); }
     this.areas.push(...t.areas.map(a => ({ ...a, tile: t.key })));

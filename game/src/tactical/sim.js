@@ -1,15 +1,16 @@
 // City-layer simulation: evacuation & traffic, ambient police/medical, HVTs, threat creatures, player forces,
 // combat, supply, quarantine cordons, the AI ground commander and spread-driven map unlocking.
 import { FLAG, Grid, Heap } from './city.js';
+import { Barriers } from './barriers.js';
 import { ITEM } from '../catalog.js';
 
 export const TH = { // per-threat creature profiles
-  undead: { hp: 110, speed: 1.4, dmg: 9, range: 1.8, aggro: 45, convert: 0.35, bDmg: 0.2, nest: 0, size: 1, sense: 260 },
-  mutant: { hp: 520, speed: 3.2, dmg: 45, range: 2.5, aggro: 70, convert: 0, bDmg: 6, nest: 0, size: 2.2, sense: 300 },
-  alien: { hp: 180, speed: 2.4, dmg: 14, range: 55, aggro: 120, convert: 0.05, bDmg: 1.5, nest: 0.02, size: 1.3, sense: 400, ranged: true },
-  vampire: { hp: 240, speed: 4.2, dmg: 26, range: 2, aggro: 80, convert: 0.12, bDmg: 0.3, nest: 0, size: 1.2, sense: 350, night: true },
-  lycan: { hp: 300, speed: 5.5, dmg: 32, range: 2.2, aggro: 90, convert: 0.06, bDmg: 0.8, nest: 0, size: 1.6, sense: 350 },
-  swarm: { hp: 18, speed: 3.0, dmg: 4, range: 1.5, aggro: 35, convert: 0, bDmg: 0.4, nest: 0.12, size: 0.55, sense: 220 },
+  undead: { vault: 2.2, hp: 110, speed: 1.4, dmg: 9, range: 1.8, aggro: 45, convert: 0.35, bDmg: 0.2, nest: 0, size: 1, sense: 260 },
+  mutant: { vault: 1.2, hp: 520, speed: 3.2, dmg: 45, range: 2.5, aggro: 70, convert: 0, bDmg: 6, nest: 0, size: 2.2, sense: 300 },
+  alien: { vault: 1.0, hp: 180, speed: 2.4, dmg: 14, range: 55, aggro: 120, convert: 0.05, bDmg: 1.5, nest: 0.02, size: 1.3, sense: 400, ranged: true },
+  vampire: { vault: 0.5, hp: 240, speed: 4.2, dmg: 26, range: 2, aggro: 80, convert: 0.12, bDmg: 0.3, nest: 0, size: 1.2, sense: 350, night: true },
+  lycan: { vault: 0.5, hp: 300, speed: 5.5, dmg: 32, range: 2.2, aggro: 90, convert: 0.06, bDmg: 0.8, nest: 0, size: 1.6, sense: 350 },
+  swarm: { vault: 0.7, hp: 18, speed: 3.0, dmg: 4, range: 1.5, aggro: 35, convert: 0, bDmg: 0.4, nest: 0.12, size: 0.55, sense: 220 },
 };
 const FIRST = ['Claire', 'Julien', 'Nathalie', 'Marc', 'Isabelle', 'Thomas', 'Sophie', 'Laurent', 'Camille', 'Antoine', 'Hélène', 'Pierre', 'Élodie', 'François', 'Amélie', 'Nicolas', 'Inès', 'Yann', 'Léa', 'Karim'];
 const LAST = ['Muller', 'Schmitt', 'Meyer', 'Klein', 'Weber', 'Wagner', 'Roth', 'Hoffmann', 'Fischer', 'Bernard', 'Lefèvre', 'Moreau', 'Laurent', 'Girard', 'Fournier', 'Haddad', 'Keller', 'Zimmermann', 'Durand', 'Petit'];
@@ -286,7 +287,7 @@ export class Sim {
         if (enemy) c.target = { kind: 'u', u: enemy };
         else if (!c.target || c.target.kind !== 'b' || c.target.b.occ <= 0.5) {
           let best = null, bd = Infinity;
-          C.bGrid.near(c.x, c.y, P.sense, i => { const b = C.buildings[i]; if (b.occ < 1 || !C.unlockedAt(b.c[0], b.c[1]) && Math.random() < 0.7) return; const d = (b.c[0] - c.x) ** 2 + (b.c[1] - c.y) ** 2 - b.occ * 40 + (b.garrison.length ? 1e5 : 0); if (d < bd) { bd = d; best = b; } });
+          C.bGrid.near(c.x, c.y, P.sense, i => { const b = C.buildings[i]; if (b === c.noB || b.occ < 1 || !C.unlockedAt(b.c[0], b.c[1]) && Math.random() < 0.7) return; const d = (b.c[0] - c.x) ** 2 + (b.c[1] - c.y) ** 2 - b.occ * 40 + (b.garrison.length ? 1e5 : 0); if (d < bd) { bd = d; best = b; } });
           for (const z of this.sites) if (z.kind === 'safezone' && z.people > 30) { const d = (z.p[0] - c.x) ** 2 + (z.p[1] - c.y) ** 2 - z.people * 60; if (d < bd && d < P.sense * P.sense * 2) { bd = d; best = null; c.target = { kind: 'z', z }; c.path = null; } }
           if (best) { c.target = { kind: 'b', b: best }; c.path = null; }
           else if (!c.target) { const a = Math.random() * Math.PI * 2; c.target = { kind: 'p', p: [c.x + Math.cos(a) * 200, c.y + Math.sin(a) * 200] }; c.path = null; }
@@ -320,13 +321,55 @@ export class Sim {
     // buildings with no creatures inside slowly lose infestation status only when cleared by force (see clearing)
   }
   stepAlongPath(o, tx, ty, step, walk) {
-    // follow a cached walk-graph path for longer trips, straight line for the last stretch
-    const far = Math.hypot(tx - o.x, ty - o.y) > 60;
-    if (far && (!o.path || o.pathT !== tx + ',' + ty)) { o.path = this.walkPath([o.x, o.y], [tx, ty], walk === false || o.kind === 'vehicle'); o.pathT = tx + ',' + ty; }
-    let gx = tx, gy = ty;
-    if (far && o.path && o.path.length) { gx = o.path[0][0]; gy = o.path[0][1]; if (Math.hypot(gx - o.x, gy - o.y) < Math.max(2, step)) { o.path.shift(); } }
-    const dx = gx - o.x, dy = gy - o.y, d = Math.hypot(dx, dy) || 1;
-    const s = Math.min(step, d); o.x += dx / d * s; o.y += dy / d * s; o.hx = dx / d; o.hy = dy / d;
+    // Long trips follow the road/path network. Legs off the network (to the first network node, the last stretch to the
+    // target, and detours) collide with fences, walls, hedges and buildings.
+    const B = this.city.bars, dt = this.dtNow || 0.1;
+    if (o.vault) { o.vault.left -= dt; if (o.vault.left <= 0) { o.x = o.vault.x; o.y = o.vault.y; o.vault = null; } return; }
+    if (o.crash > 0) { o.crash -= dt; step *= 0.45; }
+    const far = Math.hypot(tx - o.x, ty - o.y) > 60, tk = Math.round(tx / 4) + ',' + Math.round(ty / 4);
+    if (far && (!o.path || o.pathT !== tk)) { o.path = this.walkPath([o.x, o.y], [tx, ty], walk === false || o.kind === 'vehicle'); o.pathT = tk; o.pathFresh = true; }
+    let gx = tx, gy = ty, offNet = true;
+    if (far && o.path && o.path.length) {
+      gx = o.path[0][0]; gy = o.path[0][1]; offNet = !!o.pathFresh;
+      if (Math.hypot(gx - o.x, gy - o.y) < Math.max(2, step)) { o.path.shift(); o.pathFresh = false; }
+    }
+    const fx = gx, fy = gy, gk = Math.round(fx) + ',' + Math.round(fy);
+    if (offNet && o.detour && o.detourK === gk) {
+      while (o.detour.length && Math.hypot(o.detour[0][0] - o.x, o.detour[0][1] - o.y) < Math.max(0.6, step)) o.detour.shift();
+      if (o.detour.length) { gx = o.detour[0][0]; gy = o.detour[0][1]; }
+    }
+    const dx = gx - o.x, dy = gy - o.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    const sm = Math.min(step, d); let nx = o.x + ux * sm, ny = o.y + uy * sm;
+    if (offNet && B && sm > 0) {
+      B.owKey = (B.owKey || 0) + 1; const hit = B.firstHit(o.x, o.y, nx, ny, fx, fy);
+      if (hit) {
+        const w = Barriers.who(o, ITEM), hx = o.x + ux * sm * hit.t, hy = o.y + uy * sm * hit.t;
+        if (hit.s && !B.blocks(hit.s, w)) {
+          if (w.veh) { B.breakAt(hit.s, hx, hy); o.crash = 0.8; }
+          else { o.x = hx - ux * 0.25; o.y = hy - uy * 0.25; o.hx = ux; o.hy = uy; o.vault = { left: o.kind === 'squad' ? 1.1 : (this.P?.vault ?? 1.5), x: hx + ux * 0.45, y: hy + uy * 0.45 }; return; }
+        } else {
+          // blocked: find a way round (a limited number of searches per tick; others wait a tick)
+          if (this.routeBudget <= 0) return;
+          this.routeBudget--;
+          const r = B.route(o.x, o.y, fx, fy, w);
+          if (r === null) { this.onBlocked(o); return; }
+          if (!r || !r.length) { o.stuck = (o.stuck || 0) + dt * 4; if (o.stuck > 6) { o.stuck = 0; this.onBlocked(o); } return; }
+          o.detour = r.slice(); o.detourK = gk; o.stuck = 0;
+          return;
+        }
+      }
+    }
+    o.x = nx; o.y = ny; o.hx = ux; o.hy = uy;
+  }
+  onBlocked(o) {
+    o.detour = null; o.path = null;
+    if (o.order !== undefined) { // player unit
+      if (!o.blockLog || this.t - o.blockLog > 20) { o.blockLog = this.t; this.log(`${o.name} can't get through: the way is fenced or walled off.${o.kind === 'squad' ? ' A vehicle can breach fences.' : ''}`, 'bad'); }
+      if (o.order && o.order.type !== 'recon') o.order = null;
+    } else { // creature: give up on this target for a while
+      if (o.target?.kind === 'b') o.noB = o.target.b;
+      o.target = null; o.think = 0.5 + Math.random();
+    }
   }
   walkPath(a, b, drive = false) {
     const C = this.city;
@@ -625,6 +668,7 @@ export class Sim {
 
   // ---------- main step ----------
   step(dt) {
+    this.dtNow = dt; this.routeBudget = 16;
     this.t += dt; this.clock += dt * 1000 * 6; // compressed clock: 1 s of action = 6 s on the clock
     while (this.pending.length && this.clock >= this.pending[0].at) { const p = this.pending.shift(); const u = this.addUnit(p.f); this.log(`${u.name} arrived at staging ${p.f.approach}.`, 'good'); }
     this.zoneT -= dt; if (this.zoneT <= 0) { this.zoneT = 1; this.computeZone(); }

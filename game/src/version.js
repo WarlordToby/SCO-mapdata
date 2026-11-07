@@ -1,9 +1,21 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.6.2';
+export const VERSION = '0.7.0';
 export const SAVE_FORMAT = 2; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.7.0', date: '2026-11-07', title: 'Fences, walls and hedges',
+    items: [
+      'Barriers are now on the map: every fence, wall, hedge, retaining wall, guard rail and city wall mapped in OpenStreetMap, opened where gates, paths and roads pass through.',
+      'Property fences: house lots are fenced along their real boundaries from the French cadastre (plan cadastral, Etalab). Low fences, railings or low walls with a gate face the street; hedges, board fences, mesh fences or walls run between neighbours. In Strasbourg that is about 1,470 km of fencing around 33,500 lots, alongside 335 km of mapped barriers.',
+      'Barriers are gameplay: away from roads and paths, soldiers and creatures cannot walk through fences, walls, hedges or buildings. Low barriers (up to 1.3 m) are vaulted, which takes a moment (slow for the undead, quick for vampires and lycans); tall ones force a way round through gates and gaps.',
+      'Vehicles drive through fences and hedges, flattening a section that stays open for everyone. Trucks, APCs and tanks also push through masonry garden walls; jeeps and light cars cannot. Retaining walls and city walls stop everything.',
+      'A unit that cannot reach its objective reports it ("fenced or walled off") instead of walking through walls. Creatures pick another target.',
+      'Bollards, blocks and cycle barriers close streets to cars but not to people.',
+      'Individually mapped trees and street lamps now appear (they were dropped when tiles loaded).',
+    ],
+  },
   {
     v: '0.6.2', date: '2026-11-07', title: 'Map polish',
     items: [

@@ -37,10 +37,12 @@ export function decodeTile(t) {
   const areas = A.kind.map((k, i) => ({ kind: k, ring: arings[i], holes: (A.holes[i] || []).map(h => holeRing(h, ox, oy)) }));
   const L = t.lines, lpts = ringsFrom(L.pts, L.ps, ox, oy);
   const lines = L.kind.map((k, i) => ({ kind: k, flags: L.flags[i], pts: lpts[i] }));
+  const BR = t.barriers; let barriers = [];
+  if (BR) { const bp = ringsFrom(BR.pts, BR.ps, ox, oy); barriers = BR.kind.map((k, i) => ({ kind: k, h: BR.h[i] / 10, src: BR.src[i], pts: bp[i] })); }
   const pois = t.pois.map(([k, x, y, name]) => ({ kind: k, p: [ox + x / 10, oy + y / 10], name }));
   // terrain
   const bin = atob(t.terrain.b64), buf = new Int16Array(bin.length / 2);
   for (let i = 0; i < buf.length; i++) buf[i] = (bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8)) << 16 >> 16;
   const terrain = { n: t.terrain.n, step: t.terrain.step, scale: t.terrain.scale, data: buf, ox, oy };
-  return { key: t.key, origin: [ox, oy], buildings, edges, junctions, areas, lines, pois, terrain };
+  return { key: t.key, origin: [ox, oy], buildings, edges, junctions, areas, lines, pois, barriers, terrain, trees: t.trees, lamps: t.lamps };
 }
