@@ -1,0 +1,56 @@
+name: Compile city batch
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Comma-separated city slugs (empty = every city in pipeline/cities.json)
+        required: false
+        default: ''
+      release:
+        description: Release tag that receives the bundles
+        required: false
+        default: packs-v1
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - id: plan
+        run: echo "matrix=$(node pipeline/plan.mjs --only '${{ inputs.only }}')" >> "$GITHUB_OUTPUT"
+      - name: Ensure release exists
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release view "${{ inputs.release }}" -R "${{ github.repository }}" >/dev/null 2>&1 || gh release create "${{ inputs.release }}" -R "${{ github.repository }}" --title "City packs (${{ inputs.release }})" --notes "Compiled SCO city bundles (gzip JSON). © OpenStreetMap contributors (ODbL), Copernicus DEM, Plan cadastral DGFiP/Etalab (France)."
+
+  compile:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - name: Install osmium
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool
+      - run: npm ci
+      - name: Fetch, compile, bundle
+        run: node pipeline/batch.mjs --cities "${{ matrix.cities }}" --id "${{ matrix.id }}" --out bundles
+      - name: Upload bundles to release
+        if: always()
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          ls -la bundles || true
+          for f in bundles/*; do [ -f "$f" ] && gh release upload "${{ inputs.release }}" "$f" --clobber -R "${{ github.repository }}"; done

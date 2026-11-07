@@ -11,7 +11,8 @@ import { Readable } from 'node:stream';
 const UA = 'SCO-mapdata-pipeline/1.0 (+https://github.com/WarlordToby/sco-mapdata)';
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, arr) => (v.startsWith('--') ? [...a, [v.slice(2), arr[i + 1]]] : a), []));
 const out = path.resolve(args.out || 'work');
-fs.mkdirSync(out, { recursive: true });
+const cache = path.resolve(args.cache || out); // big downloads (regional extracts, DEM tiles) can be shared between cities
+fs.mkdirSync(out, { recursive: true }); fs.mkdirSync(cache, { recursive: true });
 
 async function getJSON(url) {
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
@@ -44,7 +45,9 @@ const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat];
 console.log(`City: ${displayName}\nCentre ${lat.toFixed(5)}, ${lon.toFixed(5)} · radius ${radius} km · bbox ${bbox.map(v => v.toFixed(4)).join(',')}`);
 
 // 2. Pick the smallest Geofabrik extracts that cover the area (a border city can need several, e.g. Strasbourg + Kehl)
-const index = await getJSON('https://download.geofabrik.de/index-v1.json');
+const idxFile = path.join(cache, 'geofabrik-index.json');
+if (!fs.existsSync(idxFile)) fs.writeFileSync(idxFile, JSON.stringify(await getJSON('https://download.geofabrik.de/index-v1.json')));
+const index = JSON.parse(fs.readFileSync(idxFile, 'utf8'));
 const feats = index.features;
 const inRing = (pt, ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) c = !c; } return c; };
 const inGeom = (pt, g) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).some(p => inRing(pt, p[0]) && !p.slice(1).some(h => inRing(pt, h)));
@@ -66,7 +69,7 @@ console.log(`Extracts: ${[...regions.keys()].join(', ')}`);
 // 3. Download, cut to bbox, merge, convert to OPL text for the compiler
 const cut = [];
 for (const [id, p] of regions) {
-  const pbf = path.join(out, `${id.replace(/\//g, '_')}.osm.pbf`);
+  const pbf = path.join(cache, `${id.replace(/\//g, '_')}.osm.pbf`);
   await download(p.urls.pbf, pbf);
   const part = path.join(out, `cut_${id.replace(/\//g, '_')}.osm.pbf`);
   execFileSync('osmium', ['extract', '-b', bbox.join(','), '-s', 'complete_ways', '--overwrite', '-o', part, pbf], { stdio: 'inherit' });
@@ -82,8 +85,8 @@ const dem = [];
 for (let la = Math.floor(bbox[1]); la <= Math.floor(bbox[3]); la++) for (let lo = Math.floor(bbox[0]); lo <= Math.floor(bbox[2]); lo++) {
   const ns = (la >= 0 ? 'N' : 'S') + String(Math.abs(la)).padStart(2, '0'), ew = (lo >= 0 ? 'E' : 'W') + String(Math.abs(lo)).padStart(3, '0');
   const name = `Copernicus_DSM_COG_10_${ns}_00_${ew}_00_DEM`;
-  const file = path.join(out, name + '.tif');
-  if (await download(`https://copernicus-dem-30m.s3.amazonaws.com/${name}/${name}.tif`, file)) dem.push(path.basename(file));
+  const file = path.join(cache, name + '.tif');
+  if (await download(`https://copernicus-dem-30m.s3.amazonaws.com/${name}/${name}.tif`, file)) { if (cache !== out && !fs.existsSync(path.join(out, name + '.tif'))) fs.symlinkSync(file, path.join(out, name + '.tif')); dem.push(name + '.tif'); }
   else console.log(`  no DEM tile ${name} (sea) — treated as 0 m`);
 }
 
