@@ -1,4 +1,14 @@
 // Loads and decodes SCO city packs (format v1) into absolute local-metre geometry.
+// Single-file city bundle (gzip JSON {manifest, tiles}); decompressed in the browser.
+export async function loadBundle(url) {
+  const r = await fetch(url); if (!r.ok) throw new Error('Map pack not found: ' + url);
+  const buf = new Uint8Array(await r.arrayBuffer());
+  let text;
+  if (buf[0] === 0x1f && buf[1] === 0x8b) text = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  else text = new TextDecoder().decode(buf); // already decoded by the server
+  const b = JSON.parse(text); if (b.format !== 'sco-citybundle') throw new Error('Not a city bundle: ' + url);
+  return b;
+}
 export async function loadManifest(base) {
   const r = await fetch(base + 'manifest.json'); if (!r.ok) throw new Error('Map pack not found: ' + base);
   return r.json();

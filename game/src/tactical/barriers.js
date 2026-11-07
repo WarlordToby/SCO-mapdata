@@ -4,6 +4,8 @@
 import { Heap } from './city.js';
 
 export const VAULT_H = 1.3;
+export const EYE_H = 1.7; // solid barriers at least this tall block sight for people on the ground
+const HARD = new Set(['wall', 'muret', 'retaining', 'jersey', 'city_wall']), SOFT = new Set(['hedge', 'wood']);
 const MAX_SEG = 10, CELL = 12;
 
 class SegHash {
@@ -17,6 +19,18 @@ class SegHash {
         const key = this.k(Math.floor((x + dx) / c), Math.floor((y + dy) / c)); if (seen.has(key)) continue; seen.add(key);
         let a = this.m.get(key); if (!a) this.m.set(key, a = []); a.push(s);
       }
+    }
+  }
+  // visit the cells a segment passes through (DDA), for long sight lines
+  line(x0, y0, x1, y1, fn) {
+    const c = this.c; let i = Math.floor(x0 / c), j = Math.floor(y0 / c); const i1 = Math.floor(x1 / c), j1 = Math.floor(y1 / c);
+    const dx = x1 - x0, dy = y1 - y0, si = Math.sign(dx), sj = Math.sign(dy);
+    const tdx = dx ? Math.abs(c / dx) : Infinity, tdy = dy ? Math.abs(c / dy) : Infinity;
+    let tx = dx ? ((si > 0 ? (i + 1) * c - x0 : x0 - i * c) / Math.abs(dx)) : Infinity, ty = dy ? ((sj > 0 ? (j + 1) * c - y0 : y0 - j * c) / Math.abs(dy)) : Infinity;
+    for (let n = 0; n < 400; n++) {
+      const a = this.m.get(this.k(i, j)); if (a) for (const s of a) fn(s);
+      if (i === i1 && j === j1) break;
+      if (tx < ty) { tx += tdx; i += si; } else { ty += tdy; j += sj; }
     }
   }
   each(x0, y0, x1, y1, fn) {
@@ -76,6 +90,23 @@ export class Barriers {
     return best;
   }
   ownWall(w, sx, sy, gx, gy) { const b = w.b; if (b._ow === this.owKey) return b._owv; b._ow = this.owKey; let near = false; const r = b.ring; for (let i = 0; i < r.length && !near; i++) { const q = r[(i + 1) % r.length]; near = segD(gx, gy, { ax: r[i][0], ay: r[i][1], bx: q[0], by: q[1] }) < 1.0; } return (b._owv = near || inRing(sx, sy, r) || inRing(gx, gy, r)); }
+  // Line of sight from a shooter to a target on the ground. Buildings block (except the shooter's own when firing from it);
+  // solid barriers at eye height or taller block; lower solid barriers close to the target give it cover (hard: walls,
+  // soft: hedges, board fences). See-through fences neither block nor cover. Shooters firing from upper floors (elev) see
+  // over garden barriers. Returns { clear, cover } where cover multiplies the damage that gets through.
+  sight(x0, y0, x1, y1, elev = false, ownB = null) {
+    const st = ++this.stamp; let clear = true, cover = 1; const L = Math.hypot(x1 - x0, y1 - y0) || 1;
+    this.wall.line(x0, y0, x1, y1, w => { if (!clear || w.st === st) return; w.st = st; if (w.b === ownB || w.b.destroyed) return; if (crossT(x0, y0, x1, y1, w) >= 0) clear = false; });
+    if (!clear || elev) return { clear, cover };
+    this.bar.line(x0, y0, x1, y1, s => {
+      if (!clear || s.st === st || s.down || s.dead) return; s.st = st;
+      const hard = HARD.has(s.kind); if (!hard && !SOFT.has(s.kind)) return;
+      const t = crossT(x0, y0, x1, y1, s); if (t < 0) return;
+      if (s.h >= EYE_H && s.kind !== 'muret') { clear = false; return; }
+      if ((1 - t) * L < 4) cover = Math.min(cover, hard ? 0.45 : 0.7);
+    });
+    return { clear, cover };
+  }
   // flatten a stretch of barrier around the impact point
   breakAt(s, px, py, w = 3.6) {
     if (s.down || s.dead) return;

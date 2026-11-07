@@ -5,7 +5,8 @@ import { distKm, compass, bearing } from './geo.js';
 import { UI } from './tabs.js';
 import { VERSION } from './version.js';
 import { enterTactical } from './tactical/index.js';
-export const PACKS = { Strasbourg: 'packs/strasbourg/' };
+import { packFor, packUrl } from './packs.js';
+const packOf = city => packFor(G.getS().nation.cca2, city.name);
 
 export function modal(html, cls = 'dlg') { const m = $('#modal'); m.innerHTML = `<div class="${cls}">${html}</div>`; m.classList.add('on'); }
 export function closeModal() { $('#modal').classList.remove('on'); $('#modal').innerHTML = ''; UI.refresh(); }
@@ -180,14 +181,14 @@ export function showHandoff(inc) {
    <div class="mut">${esc(T.name)} · ${esc(inc.district)} · spread ${Math.round(inc.infest)} · city integrity ${Math.round(city.integrity)}%</div>
    <div class="card" style="margin-top:10px"><div class="lbl" style="margin-bottom:6px">Staging areas: ${dirs.join(', ') || '—'}</div>
    ${us.map(u => `<div class="row"><span class="sp">${esc(u.name)}</span><span class="mut" style="font-size:12px">${u.pers} pers</span><span class="${u.status === 'onscene' ? 'good' : 'amb'}" style="width:90px;text-align:right">${u.status === 'onscene' ? 'on scene' : 'ETA ' + dur(u.route.arr - S.t)}</span></div>`).join('')}</div>
-   ${PACKS[city.name] && city.surveyed ? `<div class="card" style="font-size:12.5px"><b class="acc">City survey on file.</b><div class="mut" style="margin-top:4px">Take command in the 3D city: real buildings, roads and traffic of ${esc(city.name)}. Units already on scene start operating at once; units still en route join as reinforcements when they arrive.</div></div>`
+   ${packOf(city) ? `<div class="card" style="font-size:12.5px"><b class="acc">City survey on file.</b><div class="mut" style="margin-top:4px">Take command in the 3D city: real buildings, roads and traffic of ${esc(city.name)}. Units already on scene start operating at once; units still en route join as reinforcements when they arrive.</div></div>`
      : `<div class="card" style="border-color:#c9a22755;font-size:12.5px"><b class="amb">No detailed survey for ${esc(city.name)}.</b><div class="mut" style="margin-top:4px">Without a city map pack the operation is resolved from force strength, protective gear and spread.</div></div>`}
-   <div class="foot"><button onclick="__close()">Hold position</button>${PACKS[city.name] && city.surveyed ? `<button class="pri" id="hTac" ${onscene.length ? '' : 'disabled'}>Take command</button>` : `<button class="pri" id="hRes" ${onscene.length ? '' : 'disabled'}>Resolve automatically</button>`}</div>`);
+   <div class="foot"><button onclick="__close()">Hold position</button>${packOf(city) ? `<button class="pri" id="hTac" ${onscene.length ? '' : 'disabled'}>Take command</button>` : `<button class="pri" id="hRes" ${onscene.length ? '' : 'disabled'}>Resolve automatically</button>`}</div>`);
   const tac = $('#hTac');
   if (tac) tac.onclick = async () => {
     closeModal(); S.speed = 0;
     const forces = us.filter(u => u.status === 'onscene' || u.status === 'transit').map(u => ({ id: u.id, name: u.name, tpl: u.tpl, pers: u.pers, items: u.items, vehicle: u.vehicle, approach: u.approach, carrier: u.vehicle ? null : u.carrier, arriveIn: u.status === 'transit' ? Math.max(0, u.route.arr - S.t) : 0 }));
-    const res = await enterTactical({ base: PACKS[city.name], threat: inc.threat, threatName: T.name, threatColor: T.color, cityName: city.name, district: inc.district, clock: S.t, forces, supply: 120, severity: 1 + inc.infest / 30 });
+    const res = await enterTactical({ base: packUrl(packOf(city)), threat: inc.threat, threatName: T.name, threatColor: T.color, cityName: city.name, district: inc.district, clock: S.t, forces, supply: 120, severity: 1 + inc.infest / 30 });
     if (res.aborted) return UI.refresh();
     const r = G.resolveTactical(inc.id, res); G.save(); UI.refresh();
     modal(`<h2>${r.success ? 'Threat eliminated' : 'Containment failed'} — ${esc(city.name)}</h2><div class="stats"><span>Soldiers killed</span><span>${r.kia}</span><span>Units lost</span><span>${r.lost.length ? esc(r.lost.join(', ')) : 'None'}</span><span>Civilian casualties</span><span>${num(r.civDead)}</span><span>Evacuated</span><span>${num(r.evacuated)}</span><span>HVTs evacuated / lost</span><span>${r.hvtSaved} / ${r.hvtLost}</span><span>Government standing</span><span>${Math.round(S.standing)}</span><span>Public trust</span><span>${Math.round(S.trust)}</span></div><div class="foot"><button class="pri" onclick="__close()">Continue</button></div>`);

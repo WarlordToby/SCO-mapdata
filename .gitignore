@@ -2,3 +2,4 @@ node_modules/
 work/
 game/dist/
 game/out/
+bundles/

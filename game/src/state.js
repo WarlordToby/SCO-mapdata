@@ -1,3 +1,4 @@
+import { packFor } from './packs.js';
 import { ITEM, isVehicle, isHeli, STARTING_STOCK, GARRISON_STOCK, BASE_SIZES, MODULES, TEMPLATES, THREATS, DISTRICTS } from './catalog.js';
 import { VERSION, SAVE_FORMAT, migrate } from './version.js';
 import { byCcn3, territoryOf, citiesOf, distKm, bearing, compass, interp } from './geo.js';
@@ -22,10 +23,8 @@ export function newGame({ ccn3, orgName, acronym, badge }) {
   const country = byCcn3(ccn3), m = country.meta;
   const terr = territoryOf(country);
   const cities = citiesOf(m.cca2, terr).map(c => ({ ...c, integrity: 100, panic: Math.round(rnd(2, 8) + (c.capital ? 3 : 0)), status: 'normal', surveyed: false }));
-  // Surveyed city (has building/traffic data for the tactical layer)
-  let surveyed = cities.find(c => c.name === 'Strasbourg') ||
-    [...cities].sort((a, b) => b.pop - a.pop)[Math.min(cities.length - 1, 6)];
-  if (surveyed) surveyed.surveyed = true;
+  // Surveyed cities: a compiled 3D map pack is bundled with the game (buildings, roads, traffic model)
+  for (const c of cities) c.surveyed = !!packFor(m.cca2, c.name);
   const grant = clamp((m.gdp || 5e10) * 1.4e-5, 2e6, 120e6);
   S = {
     v: 1, saveFormat: SAVE_FORMAT, gameVersion: VERSION, createdWith: VERSION, ccn3, t: START_T, speed: 0,
@@ -266,7 +265,9 @@ export function dispatch(incidentId, unitIds, approach) {
 
 // ---------- Incidents ----------
 function spawnIncident() {
-  const pool = S.cities.filter(c => c.surveyed && c.status === 'normal');
+  let pool = S.cities.filter(c => c.surveyed && c.status === 'normal');
+  // countries without a city map still get outbreaks in their largest cities (resolved on the strategic layer)
+  if (!S.cities.some(c => c.surveyed)) pool = [...S.cities].sort((a, b) => b.pop - a.pop).slice(0, 5).filter(c => c.status === 'normal');
   if (!pool.length) return;
   const city = pool[Math.floor(Math.random() * pool.length)];
   const keys = Object.keys(THREATS), threat = keys[Math.floor(Math.random() * keys.length)];
@@ -436,4 +437,4 @@ const KEY = 'sco_save_v1';
 export function save() { try { S.gameVersion = VERSION; S.saveFormat = SAVE_FORMAT; localStorage.setItem(KEY, JSON.stringify(S)); return true; } catch (e) { return false; } }
 export function saveInfo() { try { const s = JSON.parse(localStorage.getItem(KEY)); return s ? { version: s.gameVersion || '0.3.0 or older', org: s.org?.name, t: s.t } : null; } catch (e) { return null; } }
 export function hasSave() { try { return !!localStorage.getItem(KEY); } catch (e) { return false; } }
-export function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (!s) return false; if (s.nextIncident === null) s.nextIncident = Infinity; const m = migrate(s); setS(m.s); if (m.migratedFrom) log('info', `Save upgraded to game version ${VERSION}.`); return true; } catch (e) { return false; } }
+export function load() { try { const s = JSON.parse(localStorage.getItem(KEY)); if (!s) return false; if (s.nextIncident === null) s.nextIncident = Infinity; const m = migrate(s); setS(m.s); for (const c of m.s.cities || []) c.surveyed = !!packFor(m.s.nation.cca2, c.name); if (m.migratedFrom) log('info', `Save upgraded to game version ${VERSION}.`); return true; } catch (e) { return false; } }

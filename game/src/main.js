@@ -7,6 +7,8 @@ import { $, $$, esc, eur, big, num, setTZ, fmtDate } from './util.js';
 import { renderTab, renderCtx, UI } from './tabs.js';
 import { VERSION, CHANGELOG } from './version.js';
 import { modal, showBroadcast, showDispatch, showHandoff, closeModal, escMenu } from './modals.js';
+import { loadPackIndex } from './packs.js';
+const packsReady = loadPackIndex();
 
 const screens = ['menu', 'select', 'found', 'game'];
 function show(id) { screens.forEach(s => $('#' + s).classList.toggle('on', s === id)); }
@@ -46,8 +48,8 @@ function renderChangelog(mode, seen) {
   $('#chAll').textContent = mode === 'all' ? 'Latest only' : 'Full changelog';
   $('#chAll').onclick = () => renderChangelog(mode === 'all' ? 'latest' : 'all');
 }
-$('#btnNew').onclick = () => selectCountry();
-$('#btnContinue').onclick = () => { if (G.load()) startGame(); };
+$('#btnNew').onclick = async () => { await packsReady; selectCountry(); };
+$('#btnContinue').onclick = async () => { await packsReady; if (G.load()) startGame(); };
 
 // ---------------- Country select ----------------
 let selMap = null, selCountry = null;

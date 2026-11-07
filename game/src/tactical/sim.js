@@ -303,8 +303,10 @@ export class Sim {
       else if (tg.kind === 'z') { tx = tg.z.p[0]; ty = tg.z.p[1]; if (Math.hypot(tx - c.x, ty - c.y) < tg.z.r * 0.6) { if (c.atk <= 0 && tg.z.people > 0) { c.atk = 1; const k = Math.min(tg.z.people, P.dmg * 0.15); tg.z.people -= k; this.stats.civDead += k; this.stats.evacuated -= k; if (P.convert > 0.2 && Math.random() < 0.3) this.spawnCreature(c.x, c.y); } if (tg.z.people <= 0) c.target = null; continue; } }
       else { tx = tg.p[0]; ty = tg.p[1]; }
       const d = Math.hypot(tx - c.x, ty - c.y);
-      if (tg.kind === 'u' && d <= P.range + 1) {
-        if (c.atk <= 0) { c.atk = 1; this.hurtUnit(tg.u, P.dmg * nightMul); if (P.ranged) this.tracers.push({ a: [c.x, c.y, 2], b: [tx, ty, 1.5], t: 0.12, enemy: true }); }
+      let los = null;
+      if (tg.kind === 'u' && d <= P.range + 1 && P.ranged && d > 4 && tg.u.kind !== 'heli') { los = C.bars.sight(c.x, c.y, tx, ty); if (!los.clear) los = false; }
+      if (tg.kind === 'u' && d <= P.range + 1 && los !== false) {
+        if (c.atk <= 0) { c.atk = 1; this.hurtUnit(tg.u, P.dmg * nightMul * (los ? los.cover : 1)); if (P.ranged) this.tracers.push({ a: [c.x, c.y, 2], b: [tx, ty, 1.5], t: 0.12, enemy: true }); }
         continue;
       }
       if (tg.kind === 'b' && d < 3) {
@@ -461,13 +463,19 @@ export class Sim {
       // shooting
       if (u.range > 0 && u.ammo > 0 && u.cool <= 0 && (u.kind !== 'squad' || u.men > 0)) {
         const r = u.range + (u.inB ? 60 : 0);
-        let best = null, bd = r * r;
-        this.cGrid.near(u.x, u.y, r, c => { if (c.hp <= 0 || !c.vis) return; const d = (c.x - u.x) ** 2 + (c.y - u.y) ** 2; if (d < bd) { bd = d; best = c; } });
+        // nearest visible threat in clear line of sight (helicopters fire from above)
+        const cand = []; this.cGrid.near(u.x, u.y, r, c => { if (c.hp <= 0 || !c.vis) return; const d = (c.x - u.x) ** 2 + (c.y - u.y) ** 2; if (d < r * r) cand.push([d, c]); });
+        cand.sort((a, b) => a[0] - b[0]);
+        let best = null, bd = 0, cover = 1;
+        for (let k = 0; k < Math.min(5, cand.length); k++) {
+          const c = cand[k][1], los = u.kind === 'heli' ? { clear: true, cover: 1 } : C.bars.sight(u.x, u.y, c.x, c.y, !!u.inB, u.inB);
+          if (los.clear) { best = c; bd = cand[k][0]; cover = los.cover; break; }
+        }
         if (best) {
           const dps = u.fire * (u.kind === 'squad' ? u.men : 1);
           u.cool = 0.5;
           const dist = Math.sqrt(bd), acc = Math.max(0.35, 1 - dist / (r * 1.6));
-          best.hp -= dps * 0.5 * acc * (best.max > 300 && u.kind === 'squad' ? 0.6 : 1);
+          best.hp -= dps * 0.5 * acc * cover * (best.max > 300 && u.kind === 'squad' ? 0.6 : 1);
           u.ammo -= u.kind === 'squad' ? 0.25 : 0.4; this.stats.supplyUsed += 0.02;
           this.tracers.push({ a: [u.x, u.y, u.inB ? u.inB.z + 6 : u.kind === 'heli' ? 60 : 1.6], b: [best.x, best.y, 1.2], t: 0.08 });
           if (best.hp <= 0) { u.kills++; this.stats.kills++; if (Math.random() < 0.04) { this.stats.specimens++; } }

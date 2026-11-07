@@ -1,5 +1,5 @@
 // City world model built from loaded pack tiles: buildings as entities, road graph, terrain, spatial indices.
-import { loadManifest, loadTile } from './pack.js';
+import { loadManifest, loadTile, loadBundle, decodeTile } from './pack.js';
 import { Barriers } from './barriers.js';
 
 export const FLAG = { oneway: 1, bridge: 2, tunnel: 4, roundabout: 8, private: 16, drive: 32, walk: 64, isolated_f: 128, isolated_b: 256, link: 512, bus: 1024, barrier: 2048 };
@@ -15,7 +15,8 @@ export class Grid {
 export class City {
   constructor(base) { this.base = base; this.tiles = new Map(); this.buildings = []; this.edges = new Map(); this.junctions = new Map(); this.bGrid = new Grid(60); this.areas = []; this.lines = []; this.pois = []; this.listeners = []; }
   async init() {
-    this.m = await loadManifest(this.base);
+    if (/\.bin$/.test(this.base)) { this.bundle = await loadBundle(this.base); this.m = this.bundle.manifest; }
+    else this.m = await loadManifest(this.base);
     this.T = this.m.tileSize; this.codes = this.m.codes;
     this.use = Object.fromEntries(this.codes.use.map((u, i) => [u, i]));
     this.districts = this.m.districts.map((d, i) => ({ ...d, id: i, quarantined: false, buildings: [], pop0: 0 }));
@@ -26,7 +27,7 @@ export class City {
   hasTile(k) { return this.m.tiles.some(t => t.key === k); }
   async ensureTiles(keys, unlocked) {
     const todo = keys.filter(k => this.hasTile(k) && !this.tiles.has(k));
-    const loaded = await Promise.all(todo.map(k => loadTile(this.base, k)));
+    const loaded = this.bundle ? todo.map(k => { const raw = this.bundle.tiles[k]; if (!raw) return null; delete this.bundle.tiles[k]; return decodeTile(raw); }) : await Promise.all(todo.map(k => loadTile(this.base, k)));
     loaded.forEach((t, n) => { if (t) this.addTile(t); });
     for (const k of keys) { const t = this.tiles.get(k); if (t && unlocked && !t.unlocked) { t.unlocked = true; t.justUnlocked = true; } }
     return loaded.filter(Boolean).map(t => t.key);
