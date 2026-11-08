@@ -24,7 +24,8 @@ async function enterTactical_(o) {
   const setLoad = t => { $('#tLoad b', root).textContent = t; };
   const gen = o.rural ? generateRural(o.rural) : null;
   const city = new City(o.base, gen);
-  let figs = null; const makeFigures = () => new Figures(R.scene, sim, { region: city.m.region, cc: city.m.country, month: new Date(o.clock).getUTCMonth(), lat: city.m.center?.lat ?? 45, arid: !!city.m.climate?.arid, playerCc: o.playerCc || city.m.country, nationCc: o.rural?.cc || city.m.country });
+  const GORE_NAMES = ['Off', 'Reduced', 'Full'];
+  let figs = null; const makeFigures = () => { const f = new Figures(R.scene, sim, { gore: (() => { try { const v = localStorage.getItem('sco.gore'); return v === null ? 2 : +v; } catch (_) { return 2; } })(), region: city.m.region, cc: city.m.country, month: new Date(o.clock).getUTCMonth(), lat: city.m.center?.lat ?? 45, arid: !!city.m.climate?.arid, playerCc: o.playerCc || city.m.country, nationCc: o.rural?.cc || city.m.country }); $('#tGore', root).textContent = 'Gore: ' + GORE_NAMES[f.goreLevel]; return f; };
   let R, sim, raf, alive = true, speed = 1, mode = null, sel = [], selB = null, lastHud = 0, dragging = null, keys = {}, result = null;
   if (gen) try {
     setLoad('Laying out the countryside…');
@@ -204,6 +205,7 @@ async function enterTactical_(o) {
       const hv = e.target.closest('[data-hvt]'); if (hv) { const h = sim.hvts.find(x => x.id === hv.dataset.hvt); if (h) { R.cc.target.set(h.x, 0, -h.y); R.cc.dist = Math.min(R.cc.dist, 600); selB = h.b; sel = []; updateSel(); } }
       if (e.target.id === 'tEnd') endOperation(false);
       if (e.target.id === 'tPerfBtn') perf.toggle();
+      if (e.target.id === 'tGore') { const l = (figs.goreLevel + 2) % 3; figs.setGore(l); try { localStorage.setItem('sco.gore', String(l)); } catch (_) {} e.target.textContent = 'Gore: ' + GORE_NAMES[l]; sim.log(`Gore: ${GORE_NAMES[l]}.`); }
       if (e.target.id === 'tGfx') { const l = R.nextGraphics(); e.target.textContent = 'Graphics: ' + l; sim.log(`Graphics quality: ${l}.`); }
       if (e.target.id === 'tOverlay') setOverlay(!overlay);
     });
@@ -293,6 +295,7 @@ async function enterTactical_(o) {
       for (const b of sim.infested) if (b.infest > 0.35 && !b.destroyed) srcs.push(b._smk || (b._smk = { x: b.c[0], y: b.c[1], z: b.z1, r: Math.min(14, Math.sqrt(b.area) * 0.5) }));
       for (const b of sim.damaged || []) if (b.hp < b.hp0 * 0.6 && b.mesh) srcs.push(b._smk2 || (b._smk2 = { x: b.c[0], y: b.c[1], z: b.z + 2, r: Math.min(18, Math.sqrt(b.area) * 0.6) }));
       for (const s of srcs) s.rate = 2.5;
+      for (const s of figs.gore.smoke) srcs.push(s._s || (s._s = { x: s.x, y: s.y, z: s.z, r: 3, rate: 30 }));
       R.updateBarriers();
       R.updateSmoke(srcs.slice(0, 60), Math.min(0.1, speed ? 0.016 * Math.max(1, speed) : 0.016));
       // time of day drives sun, sky, window lights and street lamps
@@ -396,12 +399,12 @@ async function enterTactical_(o) {
       const s = sim.summary(), st = sim.stats;
       if (!success && !why && !confirm_()) return;
       result = { success, why: why || (success ? 'Threat eliminated.' : 'Forces withdrawn.'), stats: { ...st, civDead: Math.round(st.civDead), evacuated: Math.round(st.evacuated) }, integrity: s.integrity, clock: sim.clock,
-        rural: !!sim.rural, breach: sim.breach, natKIA: st.natKIA || 0, units: sim.units.filter(u => !u.ai).map(u => ({ ref: u.ref, dead: u.dead, men: u.kind === 'squad' ? u.men : (u.dead ? 0 : u.pers) })), popAffected: s.pop0, hvts: sim.hvts.map(h => ({ name: h.name, role: h.role, state: h.state })) };
+        rural: !!sim.rural, breach: sim.breach, natKIA: st.natKIA || 0, units: sim.units.filter(u => !u.ai).map(u => ({ ref: u.ref, wounded: u.wounded || 0, dead: u.dead, men: u.kind === 'squad' ? u.men : (u.dead ? 0 : u.pers) })), popAffected: s.pop0, hvts: sim.hvts.map(h => ({ name: h.name, role: h.role, state: h.state })) };
       speed = 0;
       const M = $('#tEndDlg', root);
       M.innerHTML = `<div class="dlg"><h2>${sim.rural ? (success ? 'The line held' : 'The line broke') : success ? 'Threat eliminated' : 'Operation ended'} — ${esc(o.cityName)}</h2><div class="mut">${esc(result.why)}</div>
-        <div class="stats" style="margin-top:10px">${sim.rural ? `<span>Breakthroughs</span><span class="${sim.breach >= sim.breachMax ? 'bad' : ''}">${sim.breach} / ${sim.breachMax}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Your soldiers killed</span><span>${st.soldiersKIA}</span><span>National troops killed</span><span>${st.natKIA || 0}</span><span>National units still holding</span><span>${sim.units.filter(u => u.ai && !u.dead).length} / ${sim.rural.platoons}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Samples recovered</span><span>${st.specimens}</span>`
-          : `<span>City integrity</span><span>${Math.round(s.integrity)}%</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Soldiers killed</span><span>${st.soldiersKIA}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Police officers lost</span><span>${st.policeLost || 0}</span><span>Buildings destroyed</span><span>${st.bDestroyed}</span><span>HVTs evacuated / lost</span><span>${st.hvtSaved} / ${st.hvtLost}</span><span>Samples recovered</span><span>${st.specimens}</span>`}</div>
+        <div class="stats" style="margin-top:10px">${sim.rural ? `<span>Breakthroughs</span><span class="${sim.breach >= sim.breachMax ? 'bad' : ''}">${sim.breach} / ${sim.breachMax}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Your soldiers killed</span><span>${st.soldiersKIA}</span><span>Wounded evacuated</span><span>${sim.units.reduce((a, u) => a + (u.ai ? 0 : u.wounded || 0), 0)}</span><span>National troops killed</span><span>${st.natKIA || 0}</span><span>National units still holding</span><span>${sim.units.filter(u => u.ai && !u.dead).length} / ${sim.rural.platoons}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Samples recovered</span><span>${st.specimens}</span>`
+          : `<span>City integrity</span><span>${Math.round(s.integrity)}%</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Soldiers killed</span><span>${st.soldiersKIA}</span><span>Wounded evacuated</span><span>${sim.units.reduce((a, u) => a + (u.wounded || 0), 0)}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Police officers lost</span><span>${st.policeLost || 0}</span><span>Buildings destroyed</span><span>${st.bDestroyed}</span><span>HVTs evacuated / lost</span><span>${st.hvtSaved} / ${st.hvtLost}</span><span>Samples recovered</span><span>${st.specimens}</span>`}</div>
         <div class="foot"><button class="pri" id="tBack">Return to strategic command</button></div></div>`;
       M.style.display = 'flex';
       $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); figs?.dispose(); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
@@ -423,7 +426,7 @@ const frame = () => new Promise(r => requestAnimationFrame(() => r()));
 
 const TEMPLATE = `
 <canvas id="tCanvas"></canvas><div id="tLabels"></div><div id="tBox"></div>
-<div id="tTop"><b class="op">OPERATION</b><span class="clock mono"></span><div class="row" style="gap:3px"><button class="sm" data-speed="0">❚❚</button><button class="sm" data-speed="1">▶</button><button class="sm" data-speed="3">▶▶</button><button class="sm" data-speed="8">▶▶▶</button><button class="sm" data-speed="16" title="16× (4)">▶▶▶▶</button></div><button class="sm" id="tPerfBtn" title="Performance overlay (F3)">F3</button><button class="sm" id="tGfx" title="Graphics quality">Graphics</button><button class="sm" id="tOverlay" title="Colour buildings by use (V)">Overlay</button><div id="tStats"></div><span class="sp"></span><button class="warn sm" id="tEnd">End operation</button></div>
+<div id="tTop"><b class="op">OPERATION</b><span class="clock mono"></span><div class="row" style="gap:3px"><button class="sm" data-speed="0">❚❚</button><button class="sm" data-speed="1">▶</button><button class="sm" data-speed="3">▶▶</button><button class="sm" data-speed="8">▶▶▶</button><button class="sm" data-speed="16" title="16× (4)">▶▶▶▶</button></div><button class="sm" id="tPerfBtn" title="Performance overlay (F3)">F3</button><button class="sm" id="tGore" title="Blood and dismemberment">Gore</button><button class="sm" id="tGfx" title="Graphics quality">Graphics</button><button class="sm" id="tOverlay" title="Colour buildings by use (V)">Overlay</button><div id="tStats"></div><span class="sp"></span><button class="warn sm" id="tEnd">End operation</button></div>
 <div id="tLeft"><div class="lbl">Forces</div><div id="tUnits"></div><div class="lbl" style="margin-top:10px">Ground commander</div><div id="tCmd"></div></div>
 <div id="tRight"><div class="lbl">High value targets</div><div id="tHvt"></div></div>
 <div id="tSel"></div>

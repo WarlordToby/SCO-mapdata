@@ -354,8 +354,9 @@ export function resolveTactical(incId, r) {
   const lost = [];
   for (const ur of r.units) {
     const u = S.units.find(x => x.id === ur.ref); if (!u) continue;
-    if (ur.dead || ur.men <= 0) { lost.push(u.name); S.units = S.units.filter(x => x !== u); S.groups.forEach(g => g.unitIds = g.unitIds.filter(i => i !== u.id)); continue; }
-    u.pers = Math.min(u.pers, ur.men);
+    const back = ur.men + (ur.wounded || 0); // the wounded were evacuated and return to the unit
+    if (back <= 0) { lost.push(u.name); S.units = S.units.filter(x => x !== u); S.groups.forEach(g => g.unitIds = g.unitIds.filter(i => i !== u.id)); continue; }
+    u.pers = Math.min(u.pers, back);
     const b = S.bases.find(x => x.id === u.baseId);
     u.route = { from: [u.lon, u.lat], to: [b.lon, b.lat], dep: r.clock, arr: r.clock + Math.max(HOUR, (u.route.arr - u.route.dep)), mode: u.route.mode }; u.status = 'returning';
   }
@@ -512,7 +513,8 @@ export function resolveFront(fid, r) {
   const inf = S.world.inf, k = f.k, lost = []; let kia = 0;
   if (r.units) for (const ur of r.units) {
     const u = S.units.find(x => x.id === ur.ref); if (!u) continue;
-    if (ur.dead || ur.men <= 0) { kia += u.pers; lost.push(u.name); S.units = S.units.filter(x => x !== u); S.groups.forEach(g => g.unitIds = g.unitIds.filter(i => i !== u.id)); f.units = f.units.filter(i => i !== u.id); continue; }
+    ur.men += ur.wounded || 0;
+    if (ur.men <= 0) { kia += u.pers; lost.push(u.name); S.units = S.units.filter(x => x !== u); S.groups.forEach(g => g.unitIds = g.unitIds.filter(i => i !== u.id)); f.units = f.units.filter(i => i !== u.id); continue; }
     kia += Math.max(0, u.pers - ur.men); u.pers = Math.min(u.pers, ur.men);
   } else { // automatic: the line's strength against the pressure decides, and the units bleed for it
     let power = 0; for (const id of f.units) { const u = S.units.find(x => x.id === id); if (u && u.status === 'front') power += f.power?.[id] || 1; }

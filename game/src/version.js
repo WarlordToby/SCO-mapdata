@@ -1,9 +1,21 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.12.0';
+export const VERSION = '0.13.0';
 export const SAVE_FORMAT = 3; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.13.0', date: '2026-11-08', title: 'Flesh and blood',
+    items: [
+      'Bites turn victims: anyone bitten on the street (civilians, police officers, soldiers) struggles, goes down, and gets back up as one of them 15–40 seconds later, in their own clothes. A blast near the body stops it rising.',
+      'Dismemberment: machine guns, cannon, blasts and vehicles tear off arms, legs and heads; severed limbs fly and land, stumps show raw flesh and bone. Undead who lose their legs keep coming, crawling on their arms. Cannon and grenades can blow hostiles apart.',
+      'Blood: spray on hits, pools that spread under the dead, bloodied clothes as wounds mount. Gore setting in the battle bar: Off, Reduced or Full (remembered).',
+      'New animations: biting and being bitten, vampires lifting and feeding, lycans and vampires pouncing, flinching from heavy hits, crawling, the dead rising, undead feeding on bodies, civilians cowering, soldiers reloading and throwing grenades.',
+      'Grenades: rifle squads lob a grenade at packs of hostiles 12–35 m away (one per soldier, every 20–30 s).',
+      'Wounded: some soldiers hit by ranged attacks are wounded rather than killed; a comrade drags them back and they return to the unit after the operation.',
+      'Collisions: people no longer walk through each other. Hostiles pile up, crowds jostle, squads keep their spacing, and vehicles shove through. Vehicles run down hostiles in their way (ramming works), and traffic hits hostiles on the road; fast, careless driving can kill civilians.',
+    ],
+  },
   {
     v: '0.12.0', date: '2026-11-08', title: 'People',
     items: [

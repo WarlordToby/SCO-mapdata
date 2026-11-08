@@ -106,6 +106,13 @@ export class Wardrobe {
     d[3] = 0.6 + R() * 0.4;
     return { key: b.key, scale: b.scale, look: { c, d } };
   }
+  // a bitten victim risen as undead: same clothes, grey skin, bloodied
+  undeadFrom(f, seed = 0.5) {
+    if (!f) return this.undead(seed);
+    const unp = v => ((v / 65536 | 0) << 16) | (((v / 256 | 0) & 255) << 8) | (v & 255), c = f.look.c.slice(), d = f.look.d.slice();
+    c[0] = pack(mix(unp(c[0]), 0x8a9078, 0.55)); c[1] = pack(mix(unp(c[1]), 0x4a4038, 0.25)); c[2] = pack(mix(unp(c[2]), 0x3a3430, 0.2)); d[3] = Math.max(0.55, d[3] || 0) + 0.25;
+    return { key: f.key, scale: f.scale, look: { c, d } };
+  }
   vampire(seed) {
     const R = rng(seed), key = R() < 0.5 ? 'vamp_m' : 'vamp_f', dark = [0x141416, 0x1d1d20, 0x2a1418, 0x3a3c40, 0x4a1520, 0x24324a];
     return { key, scale: 1.02 + R() * 0.06, look: { c: [pack(jitter(R, 0xe6e0da, 0.03)), pack(pick(R, dark)), pack(pick(R, dark)), pack(R() < 0.7 ? 0x141210 : 0xd8d4cc)], d: [pack(0x6a1018), 0, 0, 0.12] } };
