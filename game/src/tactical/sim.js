@@ -5,6 +5,8 @@ import { Barriers } from './barriers.js';
 import { ITEM } from '../catalog.js';
 import { installHostiles } from './hostiles.js';
 import { starterKit } from '../nations.js';
+import { installInterior, facing } from './interior.js';
+import { installHelis } from './helis.js';
 
 export const TH = { // per-threat creature profiles
   undead: { vault: 2.2, hp: 110, speed: 1.4, dmg: 9, range: 1.8, aggro: 45, convert: 0.35, bDmg: 0.2, nest: 0, size: 1, sense: 260 },
@@ -49,7 +51,7 @@ export class Sim {
     this.supply = opts.supply ?? 120; this.cmd = { garrisonKey: true, manCheckpoints: true, resupply: true, clear: true };
     this.cid = 0; this.uid = 0; this.cGrid = new Grid(40); this.pedGrid = new Grid(30);
     this.pending = []; this.infested = new Set(); this.intelT = 0; this.zoneT = 0; this.sumT = -1;
-    this.evacZones = []; this.quarantine = new Set(); this.checkpoints = []; this.garrisonMarks = new Set(); this.unlockR = opts.unlockR;
+    this.activeB = new Set(); this.evacZones = []; this.quarantine = new Set(); this.checkpoints = []; this.garrisonMarks = new Set(); this.unlockR = opts.unlockR;
   }
   log(text, kind = 'info') { this.events.unshift({ t: this.clock, text, kind }); if (this.events.length > 60) this.events.pop(); }
   hour() { return new Date(this.clock).getUTCHours() + 1; }
@@ -208,8 +210,8 @@ export class Sim {
     this.evacW = C.walkField(exitsW);
     this.fieldCache = new Map();
   }
-  edgeBlocked(e) { return false; }
-  fieldTo(key, targets, walk) { let f = this.fieldCache.get(key); if (!f) { f = walk ? this.city.walkField(targets) : this.city.driveField(targets); this.fieldCache.set(key, f); } return f; }
+  edgeBlocked(e) { const C = this.city; return !!C.bars && (e._tb ?? (e._tb = (e.pts || []).some((p, i) => i > 0 && C.bars.hitsWall(e.pts[i - 1][0], e.pts[i - 1][1], p[0], p[1])))); } // passages under buildings
+  fieldTo(key, targets, walk) { let f = this.fieldCache.get(key); if (!f) { f = walk ? this.city.walkField(targets) : this.city.driveField(targets, e => this.edgeBlocked(e)); this.fieldCache.set(key, f); } return f; }
   inQuarantineXY(x, y) { if (!this.quarantine.size) return false; const b = this.nearestBuilding(x, y, 120); return b ? this.quarantine.has(b.district) : false; }
   nearestBuilding(x, y, r = 80, filter) { let best = null, bd = r * r; this.city.bGrid.near(x, y, r, i => { const b = this.city.buildings[i]; if (filter && !filter(b)) return; const d = (b.c[0] - x) ** 2 + (b.c[1] - y) ** 2; if (d < bd) { bd = d; best = b; } }); return best; }
 
@@ -261,7 +263,8 @@ export class Sim {
       for (let i = 0; i < a.length; i++) {
         const c = a[i], e = c.e, emerg = c.kind !== 'civ';
         if (c.parked) { c.v = 0; continue; }
-        const vmax = Math.min(e.speed / 3.6 * (emerg ? 1.25 : 1), emerg ? 22 : 16) * (c.kind === 'civ' && this.zoneB && this.inZoneEdge(e) ? 0.8 : 1);
+        if (c.cp && c.wait > 3) { const q = this.carPos(c); if (Math.hypot(q[0] - c.cp.b[0], q[1] - c.cp.b[1]) < 110) { c.parked = true; c.v = 0; continue; } } // close enough: block the road here
+        const vmax = Math.min(c.cp && !c.parked ? Math.max(15, e.speed / 3.6 * 1.8) : e.speed / 3.6 * (emerg ? 1.25 : 1), emerg ? 22 : 16) // cordon cars run on blue lights * (c.kind === 'civ' && this.zoneB && this.inZoneEdge(e) ? 0.8 : 1);
         let gap = Infinity;
         if (i > 0) gap = a[i - 1].s - 5 - c.s;
         const toEnd = e.L - c.s;
@@ -298,7 +301,7 @@ export class Sim {
     if (c.task?.field) { const n = c.task.field.next.get(J.id); if (n) arc = n; else if (c.task.field.dist.has(J.id)) return null; }
     else if (c.kind === 'civ') { const n = this.evacD.next.get(J.id); if (n) arc = n; else if (this.evacD.dist.has(J.id)) return null; }
     if (!arc) { // wander
-      const opts = J.out.filter(o => !(o.e === c.e && o.dir === -c.dir)); if (!opts.length) return J.out[0] ? { e: J.out[0].e, dir: J.out[0].dir } : null;
+      const opts = J.out.filter(o => !(o.e === c.e && o.dir === -c.dir) && !this.edgeBlocked(o.e)); if (!opts.length) return J.out[0] ? { e: J.out[0].e, dir: J.out[0].dir } : null;
       arc = opts[Math.floor(Math.random() * opts.length)];
     }
     const cs = J.cmap.get(c.e.id + ':' + c.dir) || [];
@@ -327,7 +330,7 @@ export class Sim {
       if (k >= 0 && J.yield && J.yield[k]) return false;
       if (J.ctrl === 2 || J.ctrl === 1 || J.ctrl === 6) return Math.random() < 0.5;
     }
-    const n = c.next; if (n) { const tl = this.laneMap?.get(n.e.id * 4 + (n.dir === 1 ? 0 : 2) + ':' + (n.toLane || 0)); if (tl && tl.length && tl[tl.length - 1].s < 5.5) return false; }
+    const n = c.next; if (n && !(c.cp && c.wait > 6)) { const tl = this.laneMap?.get(n.e.id * 4 + (n.dir === 1 ? 0 : 2) + ':' + (n.toLane || 0)); if (tl && tl.length && tl[tl.length - 1].s < 5.5) return false; }
     return true;
   }
   carPos(c) {
@@ -364,7 +367,7 @@ export class Sim {
     if (this.creatures.length > 3500) return null;
     const P = this.P, c = { id: ++this.cid, x, y, hp: P.hp, max: P.hp, inB, target: null, path: null, think: Math.random() * 2, atk: 0, hx: 1, hy: 0 };
     if (this.kindSet()) this.assignKind(c);
-    this.creatures.push(c); return c;
+    this.creatures.push(c); if (inB) this.enterInterior(c, inB); return c;
   }
   updateCreatures(dt) {
     const C = this.city, P = this.P, night = this.isNight();
@@ -378,7 +381,8 @@ export class Sim {
         const b = c.inB;
         b.infest = Math.min(1, b.infest + dt * 0.02 * nightMul); b.state = 1; this.dirty(b); if (b.infest > 0.1) this.infested.add(b);
         if (c.K && this.kindInBuilding(c, b, dt)) continue;
-        if (b.occ > 0) {
+        if (!c.inside) this.enterInterior(c, b);
+        if (false) {
           const k = Math.min(b.occ, dt * 1.2 * nightMul * (b.garrison.length ? 0.2 : 1));
           b.occ -= k; b.dead += k; this.stats.civDead += k; if (this.hive) this.hive.biomass += k * 0.3; if (b.dead > 3 && !b.known) { b.known = true; this.dirty(b); this.log(`Emergency calls from ${b.name || b.addr || 'a building'}: attack in progress.`, 'bad'); } b.convAcc = (b.convAcc || 0) + k * P.convert;
           while (b.convAcc >= 1) { b.convAcc--; this.spawnCreature(b.ent[0], b.ent[1], b); }
@@ -386,7 +390,7 @@ export class Sim {
         if (P.nest && Math.random() < P.nest * dt) this.spawnCreature(b.ent[0], b.ent[1], null);
         if (Q.bDmg) this.damageBuilding(b, Q.bDmg * dt * 10);
         if (b.garrison.length) { for (const u of b.garrison) this.hurtUnit(u, Q.dmg * dt * 0.3); }
-        if ((b.occ <= 0.5 && b.infest >= 0.95 && c.think <= 0) || (P.night && !night && false)) { c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 1 + Math.random() * 3; }
+        if ((b.occ <= 0.5 && b.infest >= 0.95 && c.think <= 0 && !this.units.some(u => u.inside === b)) || (P.night && !night && false)) { this.leaveInterior(c); c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 1 + Math.random() * 3; }
         if (P.night && !night) continue; // nocturnal threats shelter by day
         continue;
       }
@@ -443,7 +447,7 @@ export class Sim {
         const b = tg.b;
         if (tg.deposit && this.kindArrive(c, tg)) continue;
         if (b.garrison.length) { if (c.atk <= 0) { c.atk = 1; this.damageBuilding(b, Q.dmg * 2); for (const u of b.garrison) this.hurtUnit(u, Q.dmg * 0.25); } continue; }
-        c.inB = b; c.target = null; c.path = null; b.state = 1; continue;
+        c.inB = b; c.target = null; c.path = null; b.state = 1; this.enterInterior(c, b); continue;
       }
       if (tg.kind === 'p' && d < 4) { c.target = null; continue; }
       const cs = Q.speed * nightMul * dt * (c.crawl ? 0.22 : 1) * (c.K ? Math.min(1.25, this.boost(c)) : 1);
@@ -468,7 +472,7 @@ export class Sim {
       // join the route at the nearest point we can reach in a straight line, not always at its first junction: a unit
       // halfway along a curving street would otherwise cut the corner into the buildings
       if (B && o.path.length > 1) { let bk = -1, bdd = Infinity; B.owKey = (B.owKey || 0) + 1;
-        for (let k = 0; k < Math.min(16, o.path.length); k++) { const q = o.path[k], dd = Math.hypot(q[0] - o.x, q[1] - o.y); if (dd < bdd && dd < 150 && !B.firstHit(o.x, o.y, q[0], q[1])) { bdd = dd; bk = k; } }
+        for (let k = 0; k < Math.min(16, o.path.length); k++) { const q = o.path[k], dd = Math.hypot(q[0] - o.x, q[1] - o.y); if (dd < bdd && dd < 150 && !B.firstHit(o.x, o.y, q[0], q[1], q[0], q[1], o.kind === 'vehicle' || o.riding)) { bdd = dd; bk = k; } }
         if (bk > 0) o.path.splice(0, bk); } }
     let gx = tx, gy = ty, offNet = true;
     if (far && o.path && o.path.length) {
@@ -483,7 +487,7 @@ export class Sim {
     const dx = gx - o.x, dy = gy - o.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
     const sm = Math.min(step, d); let nx = o.x + ux * sm, ny = o.y + uy * sm;
     if (offNet && B && sm > 0) {
-      B.owKey = (B.owKey || 0) + 1; const hit = B.firstHit(o.x, o.y, nx, ny, fx, fy);
+      B.owKey = (B.owKey || 0) + 1; const hit = B.firstHit(o.x, o.y, nx, ny, fx, fy, o.kind === 'vehicle' || !!o.riding || !!o.K?.smash);
       if (hit) {
         const w = Barriers.who(o, ITEM), hx = o.x + ux * sm * hit.t, hy = o.y + uy * sm * hit.t;
         if (hit.s && !B.blocks(hit.s, w)) {
@@ -491,7 +495,7 @@ export class Sim {
           else { o.x = hx - ux * 0.25; o.y = hy - uy * 0.25; o.hx = ux; o.hy = uy; o.vault = { left: o.kind === 'squad' ? 1.1 : ((o.K || this.P)?.vault ?? 1.5), x: hx + ux * 0.45, y: hy + uy * 0.45 }; return; }
         } else {
           // titans tear through the building in their way
-          if (o.K?.smash && hit.wall) { this.damageBuilding(hit.wall.b, 650 * dt); if (Math.random() < dt * 3) this.fxPush({ k: 'smash', x: hx, y: hy, c: o, small: true }); return; }
+          if (o.K?.smash && hit.wall) { this.damageBuilding(hit.wall.b, 650 * dt); this.hitBuildingAt(hit.wall.b, hx, hy, (hit.wall.b.z || 0) + 1 + Math.random() * 6, 140 * dt); if (Math.random() < dt * 3) this.fxPush({ k: 'smash', x: hx, y: hy, c: o, small: true }); return; }
           // blocked: find a way round (a limited number of searches per tick; others wait a tick)
           if (this.routeBudget <= 0) return;
           this.routeBudget--;
@@ -548,6 +552,7 @@ export class Sim {
       const J = C.junctions.get(id); if (!J) continue;
       const nb = drive ? [...J.out.map(o => o.e), ...J.in.map(o => o.e)] : J.walk;
       for (const e of nb) {
+        if (drive && this.edgeBlocked(e)) continue; // passages under buildings
         const o = e.a === id ? e.b : e.a, O = C.junctions.get(o); if (!O) continue;
         const ng = g.get(id) + e.L; if (ng < (g.get(o) ?? Infinity)) { g.set(o, ng); prev.set(o, { id, e }); open.push(ng + Math.hypot(O.p[0] - tp[0], O.p[1] - tp[1]), o); }
       }
@@ -579,6 +584,7 @@ export class Sim {
       mg: it ? 0 : Object.entries(f.items).reduce((a, [id, q]) => a + (/mg|lmg|mmg/i.test(id) ? q : 0), 0) / Math.max(1, f.pers), nades: it ? 0 : f.pers, nadeCool: 5 + Math.random() * 10, wounded: 0,
       x: base[0] + (Math.random() - .5) * 40, y: base[1] + (Math.random() - .5) * 40, hx: 1, hy: 0, order: null, manual: false, inB: null, path: null, cool: 0, hvt: null, carrying: [], approach: f.approach, kills: 0, dead: false,
     };
+    if (kind === 'heli') { u.alt = 45; u.altMode = 'high'; }
     this.units.push(u); return u;
   }
   hurtUnit(u, dmg, src = null) {
@@ -586,6 +592,7 @@ export class Sim {
     const gearBonus = u.gear && this.P && ((this.threat === 'undead' || this.threat === 'swarm' || this.threat === 'mutant') && u.gear === 'nrbc' || (this.threat === 'vampire' || this.threat === 'alien') && u.gear === 'nvg') ? 0.75 : 1;
     const ap = src?.K?.smash ? 0.35 : src?.K?.charge ? 0.6 : 1, d = dmg * (1 - u.armor * ap) * gearBonus * (u.inB ? 0.45 : 1);
     u.hp -= d;
+    if (u.kind === 'heli') { if (u.hp <= 0 && !u.dead) { const below = this.roofsNear(u.x, u.y, 1).find(q => q.d < 0.5 && q.top < u.alt); this.heliCrash(u, below?.b || null); return; } this.heliHit(u); }
     const kk = u.ai ? 'natKIA' : 'soldiersKIA';
     if (u.kind === 'squad') { const men = Math.max(0, Math.ceil(u.hp / 100)); if (men < u.men) { for (let i = u.men - 1; i >= men; i--) this.manDown(u, i, src, kk); u.men = men; } }
     if (u.hp <= 0) {
@@ -615,14 +622,18 @@ export class Sim {
     this.cGrid.near(x, y, r, c => { const d = Math.hypot(c.x - x, c.y - y); if (d > r || c.inB) return; c.hp -= dmg * (1 - d / r * 0.7); c.lastBy = 'blast'; c.hitT = this.t; if (c.hp > 0 && this.limbable && Math.random() < 0.6) this.loseLimb(c, 'blast'); });
     this.pedGrid.near(x, y, r * 0.8, p => { if (!p.dead && Math.hypot(p.x - x, p.y - y) < r * 0.8) { p.dead = true; this.stats.civDead += p.people * 0.5; this.fxPush({ k: 'ped', p, by: 'blast' }); } });
     for (const k of this.risers) if (!k.done && Math.hypot(k.x - x, k.y - y) < r) k.destroyed = true;
+    // blasts against buildings knock out the sections next to them
+    if (r >= 3) this.city.bGrid.near(x, y, r + 10, i => { const b = this.city.buildings[i]; if (b.destroyed) return; const L = this.layoutOf(b); for (const s of L.sections) if (s.f <= 1 && !s.dead && Math.hypot(s.cx - x, s.cy - y) < r + Math.sqrt(s.a) * 0.4) this.damageSection(b, s, dmg * 0.6 * (s.f ? 0.5 : 1)); });
     this.fxPush({ k: 'boom', x, y, r, src });
   }
-  order(u, ord) { u.order = ord; u.path = null; u.manual = !!ord.manual; if (u.inB && ord.type !== 'garrison') this.ungarrison(u); }
+  order(u, ord) { if (u.inside && ord.b !== u.inside) this.leaveInterior(u); u.order = ord; u.path = null; u.manual = !!ord.manual; if (u.inB && ord.type !== 'garrison') this.ungarrison(u); }
   ungarrison(u) { const b = u.inB; if (!b) return; b.garrison = b.garrison.filter(x => x !== u); this.dirty(b); u.inB = null; u.x = b.ent[0] + (Math.random() - .5) * 6; u.y = b.ent[1] + (Math.random() - .5) * 6; }
   updateUnits(dt) {
     const C = this.city;
     for (const u of this.units) {
       if (u.dead) continue;
+      if (u.inside) { if (u.men <= 0) this.leaveInterior(u); continue; } // inside a building: see stepInteriors
+      if (u.kind === 'heli' && (this.stepHeli(u, dt) || u.lost)) continue;
       u.cool -= dt;
       const o = u.order;
       // movement
@@ -636,7 +647,7 @@ export class Sim {
         if (tx !== undefined) {
           const d = Math.hypot(tx - u.x, ty - u.y);
           if (d > arrive) {
-            if (u.kind === 'heli') { const dx = tx - u.x, dy = ty - u.y; const s = Math.min(d, u.speed * dt); u.x += dx / d * s; u.y += dy / d * s; u.hx = dx / d; u.hy = dy / d; }
+            if (u.kind === 'heli') { const dx = tx - u.x, dy = ty - u.y; const s = Math.min(d, u.speed * dt), nx = u.x + dx / d * s, ny = u.y + dy / d * s; u.hx = dx / d; u.hy = dy / d; if (!this.heliBlocked(u, nx, ny)) { u.x = nx; u.y = ny; } else if (!this.heliBlocked(u, nx, u.y)) u.x = nx; else if (!this.heliBlocked(u, u.x, ny)) u.y = ny; } // pilots don't fly the rotor into a facade
             else {
               // squads ride their transport (assigned at dispatch) on long moves when no hostiles are close
               let ride = false;
@@ -655,10 +666,22 @@ export class Sim {
         cand.sort((a, b) => a[0] - b[0]);
         let best = null, bd = 0, cover = 1;
         for (let k = 0; k < Math.min(5, cand.length); k++) {
-          const c = cand[k][1], los = u.kind === 'heli' ? { clear: true, cover: 1 } : C.bars.sight(u.x, u.y, c.x, c.y, !!u.inB, u.inB);
+          const c = cand[k][1], los = u.kind === 'heli' ? (this.heliSight(u, c.x, c.y) ? { clear: true, cover: 1 } : { clear: false }) : C.bars.sight(u.x, u.y, c.x, c.y, !!u.inB, u.inB);
           if (los.clear) { best = c; bd = cand[k][0]; cover = los.cover; break; }
         }
+        // nothing in the street: hostiles seen through the windows of nearby buildings
+        let inWin = null;
+        if (!best) for (const b of this.activeB) {
+          if (b === u.inB || (b.c[0] - u.x) ** 2 + (b.c[1] - u.y) ** 2 > (r + 30) ** 2) continue;
+          const L = b.L; if (!L) continue;
+          for (const c of b.inside) { if (c.kind || c.hp <= 0 || !c.sec || c.sec.dead && false) continue; const s = c.sec; if (s.glass <= 0 && !s.dead && false) continue;
+            if (!s.dead && !facing(L, s, u.x, u.y)) continue; const d2 = (s.cx - u.x) ** 2 + (s.cy - u.y) ** 2; if (d2 > r * r) continue;
+            const los = u.kind === 'heli' ? { clear: this.heliSight(u, s.cx, s.cy, s.z - C.heightAt(s.cx, s.cy) + 1) } : C.bars.sight(u.x, u.y, s.cx, s.cy, !!u.inB, b); if (!los.clear) continue;
+            best = c; bd = d2; cover = s.dead ? 0.8 : 0.5; inWin = { b, s }; break; }
+          if (best) break;
+        }
         if (best) {
+          if (inWin) { inWin.s.glass = Math.max(0, inWin.s.glass - 0.12); this.fxPush({ k: 'glass', b: inWin.b, s: inWin.s, from: [u.x, u.y] }); if (u.fire >= 63) this.damageSection(inWin.b, inWin.s, 25); }
           const dps = u.fire * (u.kind === 'squad' ? u.men : 1);
           u.cool = 0.5; u.fireT = this.t; u.aimAt = [best.x, best.y];
           const dist = Math.sqrt(bd), acc = Math.max(0.35, 1 - dist / (r * 1.6));
@@ -697,12 +720,14 @@ export class Sim {
       return;
     }
     if (o.type === 'clear') {
-      const b = o.b; const inside = this.creatures.filter(c => c.inB === b);
+      const b = o.b;
+      if (u.kind === 'squad') { if (u.men > 0 && !u.inside) { this.enterInterior(u, b); this.log(`${u.name} entering ${b.name || b.addr || 'the building'}.`); } return; } // the squad goes in and clears it floor by floor
+      const L = this.layoutOf(b), inside = this.creatures.filter(c => c.inB === b && c.sec && facing(L, c.sec, u.x, u.y)); // vehicles support from the street, firing in through the windows
       const dps = u.fire * (u.kind === 'squad' ? u.men : 1) * 0.5;
       if (u.cool <= 0 && u.ammo > 0) {
         u.cool = 0.5; u.ammo -= 0.35;
-        if (inside.length) { const c = inside[0]; c.hp -= dps * 1.2; if (c.hp <= 0) { this.stats.kills++; u.kills++; } this.hurtUnit(u, (c.K || this.P).dmg * 0.4 * Math.min(4, inside.length)); }
-        else { b.infest = Math.max(0, b.infest - 0.06 * (1 - 0.6 * (b.hive || 0))); if (b.infest <= 0) { if (b.hive) this.clearHive(b); b.state = 2; this.infested.delete(b); this.dirty(b); this.stats.specimens += 1; this.log(`${u.name} cleared ${b.name || b.addr || 'a building'} — samples taken.`, 'good'); u.order = this.garrisonMarks.has(b.idx) ? { type: 'garrison', b } : null; } }
+        if (inside.length) { const c = inside[0]; c.hp -= dps * 0.8; c.hitT = this.t; c.lastBy = u.fire >= 63 ? 'cannon' : 'heavy'; c.sec.glass = Math.max(0, c.sec.glass - 0.15); if (u.fire >= 63) this.damageSection(b, c.sec, 30); u.fireT = this.t; u.aimAt = [c.sec.cx, c.sec.cy]; this.fxPush({ k: 'glass', b, s: c.sec, from: [u.x, u.y] }); if (c.hp <= 0) { this.stats.kills++; u.kills++; } }
+        else if (false) { b.infest = Math.max(0, b.infest - 0.06 * (1 - 0.6 * (b.hive || 0))); if (b.infest <= 0) { if (b.hive) this.clearHive(b); b.state = 2; this.infested.delete(b); this.dirty(b); this.stats.specimens += 1; this.log(`${u.name} cleared ${b.name || b.addr || 'a building'} — samples taken.`, 'good'); u.order = this.garrisonMarks.has(b.idx) ? { type: 'garrison', b } : null; } }
         this.dirty(b);
       }
       return;
@@ -725,6 +750,35 @@ export class Sim {
     this.computeCheckpoints(); this.refreshFields();
     for (const i of this.city.districts[d].buildings) this.dirty(this.city.buildings[i]);
     this.log(`${this.city.districts[d].name}: quarantine ${this.quarantine.has(d) ? 'declared — cordon and evacuation under way' : 'lifted'}.`, this.quarantine.has(d) ? 'warn' : 'info');
+  }
+  // the police seal off the outbreak: quarantine districts around it, 20–30 patrol cars parked across every road
+  // out, their officers holding the line until the SCO has cleared the area. The cordon widens as the outbreak does.
+  updateCordon() {
+    if (this.rural || !this.impact || this.t < 12) return;
+    const C = this.city, ds = new Map([[this.impact.district, 0]]);
+    const add = (d, x, y) => { if (d === undefined || d < 0 || !C.districts[d]) return; const dd = Math.hypot(x - this.origin[0], y - this.origin[1]); if (!ds.has(d) || ds.get(d) > dd) ds.set(d, dd); };
+    for (const b of this.infested) if (b.known && !b.destroyed) add(b.district, b.c[0], b.c[1]);
+    for (const c of this.creatures) if (!c.inB && c.vis && c.hp > 0) { const b = this.nearestBuilding(c.x, c.y, 80); if (b) add(b.district, c.x, c.y); }
+    const seal = [...ds.entries()].sort((a, b) => a[1] - b[1]).slice(0, 8).map(e => e[0]), fresh = seal.filter(d => !this.quarantine.has(d));
+    if (fresh.length) {
+      for (const d of fresh) { this.quarantine.add(d); for (const i of C.districts[d].buildings) this.dirty(C.buildings[i]); }
+      this.computeCheckpoints(); this.refreshFields();
+      this.log(`Police seal off ${fresh.map(d => C.districts[d].name).join(', ')}: quarantine cordon going up.`, 'warn');
+    }
+    const cps = this.checkpoints.slice().sort((a, b) => (C.edges.get(a.id)?.cls ?? 9) - (C.edges.get(b.id)?.cls ?? 9)).slice(0, 15);
+    const police = this.cars.filter(c => c.kind === 'police'), want = Math.min(30, Math.max(20, cps.length * 2));
+    // reinforcements drive in from outside the area until the cordon has its cars
+    if (police.length < want + 4) { const js = this._edgeJs || (this._edgeJs = [...C.junctions.values()].filter(j => j.out.length && C.unlockedAt(j.p[0], j.p[1]) && Math.hypot(j.p[0] - this.origin[0], j.p[1] - this.origin[1]) > 700)); for (let i = 0; i < 4 && js.length; i++) { const c = this.spawnCar(js[Math.floor(Math.random() * js.length)].p, 'police'); if (c) c.reinf = true; } if (!this._reinfLog) { this._reinfLog = true; this.log('Police reinforcements are converging on the cordon from across the city.', 'info'); } }
+    for (const cp of this.checkpoints) cp.cars = (cp.cars || []).filter(c => this.cars.includes(c));
+    for (const cp of cps) {
+      if (cp.cars.length === 0 && cp.manned) { cp.manned = false; this.log(`The police post at a cordon checkpoint has been overrun.`, 'bad'); }
+      while (cp.cars.length < 2) {
+        let best = null, bd = Infinity; for (const c of this.cars) { if (c.kind !== 'police' || c.cp && this.checkpoints.includes(c.cp) || c.hp <= 0) continue; const q = this.carPos(c), d = Math.hypot(q[0] - cp.b[0], q[1] - cp.b[1]) + (c.task && c.parked ? 0 : 50); if (d < bd) { bd = d; best = c; } }
+        if (!best) break;
+        const j = C.nearestJunction(cp.b[0], cp.b[1], j => j.in.length > 0, 200); if (!j) break;
+        best.cp = cp; best.role = null; best.parked = false; best.task = { field: this.fieldTo('j' + j.id, [j.id]), park: true }; cp.cars.push(best); cp.manned = true;
+      }
+    }
   }
   computeCheckpoints() {
     const C = this.city, out = [];
@@ -751,13 +805,12 @@ export class Sim {
       z.guards = (z.guards || []).filter(u => !u.dead && u.order?.type === 'guard' && u.order.zone === z);
       if (!z.guards.length) { const u = take(u => u.kind !== 'heli' && u.ammo > 25 && (u.kind !== 'squad' || u.men >= 2), z.p); if (u) { this.order(u, { type: 'guard', p: z.p, zone: z }); z.guards.push(u); this.log(`${u.name} securing ${z.name}.`); } }
     }
-    // helicopters: extract HVTs that can still be reached, otherwise fly reconnaissance over the outbreak
+    // helicopters: containment — patrol tight circles over the hostiles and fire down (HVT lifts only when you order them)
     for (const h of this.units) {
       if (h.dead || h.kind !== 'heli' || h.manual || (h.order && h.order.type !== 'recon')) continue;
-      const hv = h.pax > 0 && this.hvts.find(v => v.state === 'inside' && !v.b.infest && !this.units.some(u => !u.dead && u.order?.b === v.b));
-      if (hv) { this.order(h, { type: 'extract', b: hv.b }); this.log(`${h.name} flying to extract ${hv.name}.`); }
-      else if (!h.order) this.order(h, { type: 'recon', c: this.outbreakCentre(), r: 380, a: Math.random() * 6.28 });
-      else h.order.c = this.outbreakCentre();
+      const p = this.containPoint();
+      if (!h.order) this.order(h, { type: 'recon', c: p, r: h.fire > 20 ? 90 : 140, a: Math.random() * 6.28 });
+      else h.order.c = p;
     }
     // garrison marked & key buildings (HVT locations, hospitals, police stations near the threat)
     if (this.cmd.garrisonKey) {
@@ -776,7 +829,7 @@ export class Sim {
       inf.sort((a, b) => Math.hypot(a.c[0] - this.origin[0], a.c[1] - this.origin[1]) - Math.hypot(b.c[0] - this.origin[0], b.c[1] - this.origin[1]));
       for (const b of inf.slice(0, 6)) {
         if (this.units.some(u => !u.dead && u.order?.type === 'clear' && u.order.b === b)) continue;
-        const u = take(u => (u.kind === 'squad' && u.men >= 3 || u.kind === 'vehicle' && u.fire > 20) && u.ammo > 40, b.c); if (u) this.order(u, { type: 'clear', b });
+        const u = take(u => u.kind === 'squad' && u.men >= 3 && u.ammo > 40, b.c); if (u) this.order(u, { type: 'clear', b });
       }
     }
     // hunt visible hostiles with whatever is still idle
@@ -789,13 +842,14 @@ export class Sim {
     // man quarantine checkpoints
     if (this.cmd.manCheckpoints) for (const cp of this.checkpoints.slice(0, 40)) {
       cp.guards = cp.guards.filter(u => !u.dead && u.order?.type === 'guard' && u.order.cp === cp);
-      if (cp.guards.length) continue;
+      if (cp.guards.length || (cp.cars || []).length) continue; // the police hold this one
       const u = take(u => u.ammo > 20, cp.p); if (u) { this.order(u, { type: 'guard', p: cp.p, cp }); cp.guards.push(u); }
     }
   }
   updateServices(dt) {
     // police cars head to checkpoints / evacuation perimeter and park; ambulances shuttle casualties
     for (const c of this.cars) {
+      if (c.kind === 'police' && c.cp) continue; // on the cordon
       if (c.kind === 'police' && !c.task && c.role === 'patrol') {
         // response car: drive towards the nearest hostile activity and stop short of it
         const tgt = this.nearestThreatTo(this.carPos(c));
@@ -894,7 +948,7 @@ export class Sim {
     this.nades = this.nades.filter(g => { if (t < g.t1) return true; this.explode(g.x, g.y, 7, 240, g.u); this.stats.supplyUsed += 0.3; return false; });
     // ---- collisions ----
     const rad = { lycan: 0.55, mutant: 0.8, swarm: 0.25 }[this.threat] || 0.36;
-    const push = (o, dx, dy) => { const nx = o.x + dx, ny = o.y + dy; if (Math.abs(dx) + Math.abs(dy) > 0.04 && C.bars.firstHit(o.x, o.y, nx, ny)) return; o.x = nx; o.y = ny; };
+    const push = (o, dx, dy) => { const nx = o.x + dx, ny = o.y + dy; if (Math.abs(dx) + Math.abs(dy) < 1e-4 || C.bars.firstHit(o.x, o.y, nx, ny, nx, ny, true)) return; o.x = nx; o.y = ny; };
     for (const c of this.creatures) {
       if (c.inB || c.hp <= 0) continue;
       this.cGrid.near(c.x, c.y, rad * 2 + 0.1, k => { if (k === c || k.id < c.id || k.inB || k.hp <= 0) return; const dx = k.x - c.x, dy = k.y - c.y, d = Math.hypot(dx, dy), m = rad * 2 - d; if (m <= 0) return; const ux = d > 1e-3 ? dx / d : Math.random() - .5, uy = d > 1e-3 ? dy / d : Math.random() - .5, f = Math.min(m, 0.6) * 0.5; push(c, -ux * f, -uy * f); push(k, ux * f, uy * f); });
@@ -930,6 +984,7 @@ export class Sim {
     if (this.rural) this.stepRural(dt);
     this.updateCreatures(dt);
     if (this.gas) this.stepHostiles(dt);
+    this.stepInteriors(dt); this.stepCollapse();
     this.intelT -= dt; if (this.intelT <= 0) { this.intelT = 0.5; this.updateIntel(); }
     this.policeT = (this.policeT || 0) - dt; if (this.policeT <= 0) { this.policeT = 0.2; this.updatePolice(0.2); }
     this.updateUnits(dt);
@@ -937,9 +992,9 @@ export class Sim {
     this.updateHVTs(dt);
     this.updateSafeZones(dt);
     this.tracers = this.tracers.filter(t => (t.t -= dt) > 0);
-    this.cmdT = (this.cmdT || 0) - dt; if (this.cmdT <= 0) { this.cmdT = 2; this.updateCommander(); this.updateServices(dt); }
+    this.cmdT = (this.cmdT || 0) - dt; if (this.cmdT <= 0) { this.cmdT = 2; this.updateCordon(); this.updateCommander(); this.updateServices(dt); }
     // infested buildings without creatures still count until cleared; creatures leaking out of a quarantine at unguarded checkpoints
-    if (this.quarantine.size && Math.random() < dt) for (const cp of this.checkpoints) if (!cp.guards.length) this.cGrid.near(cp.p[0], cp.p[1], 25, c => { if (Math.random() < 0.05) { c.x = cp.b[0]; c.y = cp.b[1]; } });
+    if (this.quarantine.size && Math.random() < dt) for (const cp of this.checkpoints) if (!cp.guards.length && !(cp.cars || []).some(c => c.parked)) this.cGrid.near(cp.p[0], cp.p[1], 25, c => { if (Math.random() < 0.05) { c.x = cp.b[0]; c.y = cp.b[1]; } });
   }
   dirty(b) { if (!b.colorDirty) { b.colorDirty = true; (this.dirtyB || (this.dirtyB = [])).push(b); } }
   outbreakCentre() {
@@ -1009,3 +1064,5 @@ export class Sim {
   }
 }
 installHostiles(Sim);
+installInterior(Sim);
+installHelis(Sim);

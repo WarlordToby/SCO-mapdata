@@ -68,9 +68,9 @@ export class Vehicles {
       // wreck: burns once, keeps its place
       if (u.dead) {
         if (u.kind === 'squad') continue;
-        if (!u._wreck) { u._wreck = { x: u.x, y: u.y, h, kind: meta.turret && hash(u.id) > 0.45 ? 2 : 1, t }; const z = heightAt(u.x, u.y); gore.burn(u.x, u.y, z + (meta.deck || 1.5) * 0.8, meta.heli ? 60 : 120, meta.len > 6 ? 1.3 : 0.9); gore.boom(u.x, u.y, z + 1, meta.turret ? 6 : 4); }
+        if (!u._wreck) { const wa = u.wreckAt; u._wreck = { x: wa ? wa.x : u.x, y: wa ? wa.y : u.y, z: wa ? wa.z : null, h, kind: meta.turret && hash(u.id) > 0.45 ? 2 : 1, t }; const z = wa ? wa.z : heightAt(u.x, u.y); gore.burn(u.x, u.y, z + (meta.deck || 1.5) * 0.8, meta.heli ? 60 : 120, meta.len > 6 ? 1.3 : 0.9); gore.boom(u.x, u.y, z + 1, meta.turret ? 6 : 4); }
         const w = u._wreck; if (!inView(w.x, w.y)) continue;
-        if (meta.heli) { this.fleet(model).put(this.pose(w.x, w.y, w.h, meta, heightAt, 0, vs), [0, 0, 0, 0], [1, 0, 1, 0], paint.P, paint.M); continue; }
+        if (meta.heli) { this.fleet(model).put(this.pose(w.x, w.y, w.h, meta, w.z != null ? () => w.z : heightAt, 0, vs), [0, 0, 0, 0], [1, 0, 1, 0], paint.P, paint.M); continue; } // a crashed helicopter rests where it came down: in the street, or in the floors it tore open
         this.fleet(model).put(this.pose(w.x, w.y, w.h, meta, heightAt, -0.08, vs), [u._ty || 0, -0.12, 0, m.d], [1, 0, w.kind, 0], paint.P, paint.M);
         continue;
       }
@@ -89,8 +89,8 @@ export class Vehicles {
       }
       if (!inView(u.x, u.y, 100)) continue;
       if (meta.heli) {
-        const v = m.v, want = v > 2 ? 45 : 22; u._alt = (u._alt ?? 45) + (want - (u._alt ?? 45)) * Math.min(1, dt * 0.4);
-        const mat = this.pose(u.x, u.y, h, meta, () => 0, heightAt(u.x, u.y) + u._alt, vs); const tilt = -Math.min(0.22, v / 50); this._e.set(0, h, tilt, 'YZX'); this._q.setFromEuler(this._e); mat.compose(this._p, this._q, this._s);
+        const v = m.v; u._alt = u.alt ?? 45;
+        const mat = this.pose(u.x, u.y, h, meta, () => 0, heightAt(u.x, u.y) + u._alt, vs); const tilt = u.lost ? 0.35 * Math.sin(t * 3) : -Math.min(0.22, v / 50); this._e.set(u.lost ? 0.3 : 0, h, tilt, 'YZX'); this._q.setFromEuler(this._e); mat.compose(this._p, this._q, this._s);
         this.fleet(model).put(mat, [0, 0, 0, t * 32], [Math.max(0, 1 - u.hp / u.maxHp), 0, 0, lights], paint.P, paint.M);
         continue;
       }

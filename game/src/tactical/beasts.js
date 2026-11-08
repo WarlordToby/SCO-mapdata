@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { RIGS, LOOKS, GLOW, SL } from './beast-rigs.js';
 import { CLIP } from './people.js';
+import { spots } from './detail.js';
 
 const MAXJ = 28;
 const ICHOR = [0x8a8a1a, 0x9aa024, 0x6a7014, 0xb0b040], ACID = [0x6a9a1a, 0x8ab828, 0x4a7a10, 0x9ad040];
@@ -177,6 +178,10 @@ export class Beasts {
           else if (c.carry.n) { const n = Math.min(3, c.carry.n), off = c.M ? 1.4 : 0.8; for (let i = 0; i < n; i++) { const f = W.civ(c.carry.seeds[i]), ox = Math.cos(h) * off - Math.sin(h) * (i - (n - 1) / 2) * 0.5, oy = Math.sin(h) * off + Math.cos(h) * (i - (n - 1) / 2) * 0.5; this.figs.crowd('dead', f.key).put(c.x + ox, c.y + oy, z + (c.M ? 0.9 : 0.25), h + Math.PI / 2, f.scale * sc, f.look, CLIP.lifted, t - i, 1, 0.5, { wound: 0.2 }); } }
         }
       }
+      // hostiles inside close-up buildings, on their floor
+      if (this.detail) for (const [b] of this.detail.on) { const L = b.L; if (!L || !b.inside || !inView(b.c[0], b.c[1], 20)) continue; const cut = this.detail.cutOf(b);
+        for (const c of b.inside) { if (c.kind === undefined || c.hp <= 0 || !c.sec || c.sec.f >= cut || c.sec.dead || !c.K) continue; const [x, y] = spots(c.sec, 1, L, c.id)[0], K = c.K, atkP = c.atk > 0 && c.atk <= 1 ? Math.min(1, (1 - c.atk) / 0.6) : 0, sz = K.size >= 2 ? Math.min(1, 2.6 / (K.size)) : 1;
+          this.herd(this.key(c)).put(x, y, c.sec.z, (c.id * 2.3) % 6.28, (c.M ? 1.4 : 1) * sz, [t * 0.5, 0, atkP, 0], [...this.look(c, c.kind), Math.max(0, 1 - c.hp / c.max) * 0.9, (c.id * 0.618) % 1]); } }
       // the dead: fold up over a second, then lie
       this.corpses = this.corpses.filter(k => t - k.t < 300);
       for (const k of this.corpses) { if (!inView(k.x, k.y, 10)) continue; const st = Math.min(1, (t - k.t) / 0.9); this.herd(k.key).put(k.x, k.y, heightAt(k.x, k.y), k.h, k.s * ((RIGS[k.base] && (k.base === 'titan' || k.base === 'crusher')) ? 1 : sc), [0, 0, 0, st], [...k.look, k.husk ? 0 : 0.6, k.seed]); }

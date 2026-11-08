@@ -5,6 +5,7 @@ import { Renderer, USE_COLORS } from './render.js';
 import { Sim } from './sim.js';
 import { generateRural } from './rural.js';
 import { Beasts } from './beasts.js';
+import { DetailBuildings } from './detail.js';
 import { Figures } from './figures.js';
 import { Vehicles } from './veh/vehicles.js';
 import { ITEM } from '../catalog.js';
@@ -27,7 +28,7 @@ async function enterTactical_(o) {
   const city = new City(o.base, gen);
   const GORE_NAMES = ['Off', 'Reduced', 'Full'];
   let vehs = null; const makeVehicles = () => new Vehicles(R.scene, sim, { region: city.m.region, cc: city.m.country, playerCc: o.playerCc || city.m.country, nationCc: o.rural?.cc || city.m.country });
-  let beasts = null;
+  let beasts = null, detail = null;
   let figs = null; const makeFigures = () => { const f = new Figures(R.scene, sim, { gore: (() => { try { const v = localStorage.getItem('sco.gore'); return v === null ? 2 : +v; } catch (_) { return 2; } })(), region: city.m.region, cc: city.m.country, month: new Date(o.clock).getUTCMonth(), lat: city.m.center?.lat ?? 45, arid: !!city.m.climate?.arid, playerCc: o.playerCc || city.m.country, nationCc: o.rural?.cc || city.m.country }); $('#tGore', root).textContent = 'Gore: ' + GORE_NAMES[f.goreLevel]; return f; };
   let R, sim, raf, alive = true, speed = 1, mode = null, sel = [], selB = null, lastHud = 0, dragging = null, keys = {}, result = null;
   if (gen) try {
@@ -43,8 +44,8 @@ async function enterTactical_(o) {
     R.cc.target.set(tdx * 300, city.heightAt(tdx * 300, tdy * 300), -tdy * 300); R.cc.dist = 1600; R.cc.yaw = Math.atan2(-tdx, tdy); R.cc.pitch = 0.8;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: gen.half * 1.5, supply: o.supply, severity: 1 });
     sim.startRural(o.forces, { threatDir: gen.threatDir, half: gen.half, duration: o.rural.duration, waves: o.rural.waves, platoons: o.rural.platoons, nation: o.rural.nation, cc: o.rural.cc, frontName: o.cityName });
-    figs = makeFigures(); vehs = makeVehicles(); beasts = figs.humanoid ? null : new Beasts(R.scene, sim, figs);
-    window.__tac = { city, sim, R, gen, figs, vehs, beasts };
+    figs = makeFigures(); vehs = makeVehicles(); beasts = figs.humanoid ? null : new Beasts(R.scene, sim, figs); detail = new DetailBuildings(R.scene, city, sim, R); R.extraPick = () => detail.pickMeshes(); figs.detail = detail; if (window.__tac) window.__tac.detail = detail; if (beasts) beasts.detail = detail;
+    window.__tac = { city, sim, R, gen, figs, vehs, beasts, detail };
     $('#tRight', root).style.display = 'none';
     $('#tLoad', root).style.display = 'none';
   } catch (e) {
@@ -77,8 +78,8 @@ async function enterTactical_(o) {
     R.cc.target.set(impact.c[0], impact.z, -impact.c[1]); R.cc.dist = 900; R.cc.yaw = 0.7; R.cc.pitch = 0.85;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: R0, supply: o.supply, severity: o.severity });
     sim.start(impact, o.forces, o.forces.map(f => f.approach));
-    figs = makeFigures(); vehs = makeVehicles(); beasts = figs.humanoid ? null : new Beasts(R.scene, sim, figs);
-    window.__tac = { city, sim, R, figs, vehs, beasts };
+    figs = makeFigures(); vehs = makeVehicles(); beasts = figs.humanoid ? null : new Beasts(R.scene, sim, figs); detail = new DetailBuildings(R.scene, city, sim, R); R.extraPick = () => detail.pickMeshes(); figs.detail = detail; if (window.__tac) window.__tac.detail = detail; if (beasts) beasts.detail = detail;
+    window.__tac = { city, sim, R, figs, vehs, beasts, detail };
     $('#tLoad', root).style.display = 'none';
   } catch (e) {
     console.error(e); setLoad('Failed to load the city: ' + e.message); await new Promise(r => setTimeout(r, 2500)); root.remove(); return { aborted: true };
@@ -150,6 +151,7 @@ async function enterTactical_(o) {
       if (k === ' ') { e.preventDefault(); speed = speed ? 0 : 1; }
       if (k === '1') speed = 1; if (k === '2') speed = 3; if (k === '3') speed = 8; if (k === '4') speed = 16;
       if (k === 'f3') { e.preventDefault(); perf.toggle(); }
+      if ((k === '[' || k === ']' || k === 'pageup' || k === 'pagedown') && selB && detail) { e.preventDefault(); detail.stepCut(selB, k === ']' || k === 'pageup' ? 1 : -1); } // cut the selected building away floor by floor
       if (k === 'escape') { mode = null; sel = []; selB = null; updateSel(); }
       if (k === 'v') setOverlay(!overlay);
       if (k === 'g' && selB) cmd('mark'); if (k === 'h') cmd('hold');
@@ -194,7 +196,10 @@ async function enterTactical_(o) {
     function cmd(c) {
       if (c === 'hold') sel.forEach(u => sim.order(u, { type: 'move', p: [u.x, u.y], manual: true }));
       if (c === 'release') sel.forEach(u => { u.manual = false; u.order = null; });
+      if (c === 'altHigh' || c === 'altLow') sel.forEach(u => { if (u.kind === 'heli') u.altMode = c === 'altLow' ? 'low' : 'high'; });
       if (c === 'outpost' || c === 'camp' || c === 'quarantine') { mode = c; }
+      if (selB && /^(floor|holdfloor):/.test(c)) { const f = +c.split(':')[1], hold = c.startsWith('hold'); for (const u of sim.units) if (!u.dead && u.kind === 'squad' && (u.inside === selB || u.order?.b === selB)) sim.order(u, { type: 'clear', b: selB, floor: f, hold, manual: true }); sim.log(`Squads ${hold ? 'holding the stairwell on' : 'moving to'} ${f ? 'floor ' + f : 'the ground floor'} of ${selB.name || selB.addr || 'the building'}.`); }
+      if (selB && c === 'resume') for (const u of sim.units) if (!u.dead && u.kind === 'squad' && (u.inside === selB || u.order?.b === selB)) sim.order(u, { type: 'clear', b: selB, manual: true });
       if (c === 'mark' && selB) { sim.garrisonMarks.has(selB.idx) ? sim.garrisonMarks.delete(selB.idx) : sim.garrisonMarks.add(selB.idx); sim.dirty(selB); }
       if (c === 'qsel' && selB) sim.toggleQuarantine(selB.district);
       if (c === 'evac' && selB) { sim.evacZones.push({ c: selB.c, r: 300 }); sim.log(`Evacuation ordered around ${selB.name || selB.addr || 'the selected block'} (300 m).`); }
@@ -243,6 +248,7 @@ async function enterTactical_(o) {
     // ---------------- dynamic draw ----------------
     function drawDynamic() {
       const D = R.dyn, far = R.cc.dist > 1100;
+      if (detail) { const now = performance.now(), ddt = Math.min(0.2, (now - (drawDynamic.t || now)) / 1000); drawDynamic.t = now; detail.update([R.cc.target.x, -R.cc.target.z], R.cc.dist, selB, ddt); }
       let nc = 0, np = 0, nb = 0;
       const bp = D.blips.geometry.attributes.position, bc = D.blips.geometry.attributes.color;
       const blip = (x, y, z, r, g, b) => { if (nb >= 12000) return; bp.setXYZ(nb, x, z + 2, -y); bc.setXYZ(nb, r, g, b); nb++; };
@@ -260,10 +266,10 @@ async function enterTactical_(o) {
       for (const u of sim.units) {
         if (u.dead) continue;
         const z = city.heightAt(u.x, u.y);
-        const hz = u.kind === 'heli' ? z + (u._alt ?? 45) : 0;
+        const hz = u.kind === 'heli' ? z + (u.alt ?? 45) : 0;
         if (far) blip(u.x, u.y, u.kind === 'heli' ? hz : z, 0.5, 1, 0.45);
         const dr = (u.kind === 'squad' ? 5 : Math.max(2.6, vehs.footprint(u))) * us;
-        R.setInstS(D.discs, nd++, u.x, u.y, (u.kind === 'heli' ? hz : u.inB ? u.inB.z1 : z) + 0.4, dr, 1, dr, u.ai ? 0x5aa8e0 : 0x5ee07a);
+        R.setInstS(D.discs, nd++, u.x, u.y, (u.kind === 'heli' ? hz : u.inside && u.sec ? u.sec.z : u.inB ? u.inB.z1 : z) + 0.4, dr, 1, dr, u.ai ? 0x5aa8e0 : 0x5ee07a);
         if (sel.includes(u)) R.setInstS(D.rings, nr++, u.x, u.y, (u.kind === 'heli' ? hz : u.inB ? u.inB.z1 : z) + 0.5, 7 * us, 1, 7 * us);
       }
       { const close = R.cc.dist < 320; D.discs.material.opacity = close ? 0.2 : 0.55; D.discs.material.depthTest = close; }
@@ -350,6 +356,17 @@ async function enterTactical_(o) {
       $('#tFeed', root).innerHTML = sim.events.slice(0, 6).map(e => `<div class="${e.kind}">${esc(e.text)}</div>`).join('');
       if (!root.querySelector('#tSel:hover')) updateSel(true);
     }
+    // the building's floors and sections: who is where (hostiles, squads, civilians); send the squads inside to a floor or hold a stairwell
+    function floorGrid(b) {
+      const L = sim.layoutOf(b), ins = [...(b.inside || [])], sq = ins.filter(o => o.kind && !o.dead);
+      const ord = sim.units.some(u => !u.dead && u.kind === 'squad' && (u.inside === b || u.order?.b === b));
+      const rows = []; for (let f = Math.min(L.floors, 40) - 1; f >= 0; f--) {
+        const cells = L.kList.map(k => { const s = sim.layoutOf(b).byFK.get(f * 100 + k); if (!s) return '<span></span>'; if (s.dead) return '<span class="cell dead" title="Destroyed">✕</span>';
+          const h = ins.filter(o => !o.kind && o.sec === s && o.hp > 0).length, u = sq.filter(o => o.sec === s).length, c = Math.round(s.occ);
+          return `<span class="cell${h ? ' h' : u ? ' u' : s.clear ? ' c' : ''}" title="${s.type}${c ? ` · ${c} civilians` : ''}${h ? ` · ${h} hostile` : ''}${u ? ` · ${u} squad` : ''}${s.glass < 0.5 ? ' · windows shattered' : ''}">${h ? h : u ? '◆' : c ? '·' : ''}</span>`; }).join('');
+        rows.push(`<div class="frow"><button class="fl" data-c="floor:${f}" ${ord ? '' : 'disabled'} title="Send the squads here">${f === 0 ? 'G' : f}</button>${cells}<button class="fl" data-c="holdfloor:${f}" ${ord ? '' : 'disabled'} title="Hold the stairwell on this floor">⇅</button></div>`); }
+      return `<div class="lbl" style="margin-top:8px">Interior · ${L.floors} floors × ${L.nk} sections${L.floors > 40 ? ' (lowest 40 shown)' : ''}</div><div class="floors">${rows.join('')}</div>${ord ? '<div class="row" style="margin-top:4px"><button data-c="resume">Resume clearing</button></div>' : ''}`;
+    }
     function updateSel(soft) {
       const P = $('#tSel', root);
       $('#tMode', root).textContent = mode === 'outpost' ? 'Click the map to place a supply outpost (12 supply)' : mode === 'camp' ? 'Click the map to place a forward camp (30 supply)' : mode === 'quarantine' ? 'Click a building to quarantine its district' : sel.length ? 'Right-click: move · right-click building: garrison / clear / extract HVT' : 'Drag to select forces · middle-drag rotate · wheel zoom · WASD pan';
@@ -358,12 +375,12 @@ async function enterTactical_(o) {
         const state = b.destroyed ? '<b class="bad">Collapsed</b>' : b.hive > 0.05 ? `<b class="bad">${b.hive >= 1 ? 'Hive' : 'Resin ' + Math.round(b.hive * 100) + '%'}${b.eggs ? ` · ${b.eggs} egg-nest${b.eggs > 1 ? 's' : ''}` : ''}${b.cocoons?.length ? ` · ${b.cocoons.length} cocooned — clear it to free them` : ''}</b>` : b.infest > 0.1 ? `<b class="bad">Infested ${Math.round(b.infest * 100)}%</b>` : b.garrison.length ? '<b class="acc">Garrisoned</b>' : b.state === 2 ? '<b class="good">Cleared</b>' : b.evac ? 'Evacuating' : 'Normal';
         P.innerHTML = `<div class="title">${esc(b.name || b.addr || city.codes.use[b.use])}</div><div class="mut">${esc(b.name && b.addr ? b.addr + ' · ' : '')}${esc(d?.name || '')}</div>
           <div class="stats"><span>Use</span><span>${city.codes.use[b.use]}${b.gen ? ' <span class="mut">(estimated building)</span>' : ''}</span><span>Floors / height</span><span>${b.levels} / ${b.h.toFixed(0)} m${b.est ? ' (est.)' : ''}</span><span>Occupants</span><span>${num(b.occ)} / ${num(b.pop0)}</span><span>Status</span><span>${state}</span><span>Structure</span><span>${Math.round(b.hp / b.hp0 * 100)}%</span>${b.dead >= 1 ? `<span>Casualties</span><span class="bad">${num(b.dead)}</span>` : ''}${hv ? `<span>HVT</span><span class="amb">★ ${esc(hv.name)} (${hv.state})</span>` : ''}</div>
-          <div class="row wrap" style="margin-top:8px"><button data-c="mark">${sim.garrisonMarks.has(b.idx) ? 'Unmark garrison' : 'Mark for garrison (G)'}</button><button data-c="evac">Evacuate 300 m</button><button data-c="qsel">${sim.quarantine.has(b.district) ? 'Lift quarantine' : 'Quarantine ' + esc(d?.name || 'district')}</button></div>`;
+          <div class="row wrap" style="margin-top:8px"><button data-c="mark">${sim.garrisonMarks.has(b.idx) ? 'Unmark garrison' : 'Mark for garrison (G)'}</button><button data-c="evac">Evacuate 300 m</button><button data-c="qsel">${sim.quarantine.has(b.district) ? 'Lift quarantine' : 'Quarantine ' + esc(d?.name || 'district')}</button></div>${floorGrid(b)}`;
         P.style.display = 'block';
       } else if (sel.length === 1) {
         const u = sel[0];
         P.innerHTML = `<div class="title">${esc(u.name)}</div><div class="mut">${u.kind === 'squad' ? 'Infantry squad' : esc(ITEM[u.vehicle]?.name || '')}</div><div class="stats"><span>Strength</span><span>${u.kind === 'squad' ? u.men + ' / ' + u.pers + ' men' : Math.round(u.hp / u.maxHp * 100) + '%'}</span><span>Ammunition</span><span>${Math.round(u.ammo)}%</span><span>Firepower</span><span>${Math.round(u.fire * (u.kind === 'squad' ? u.men : 1))}</span><span>Range</span><span>${u.range} m</span><span>Protection</span><span>${Math.round(u.armor * 100)}%${u.gear ? ' + ' + u.gear.toUpperCase() : ''}</span><span>Kills</span><span>${u.kills}</span></div>
-          <div class="row" style="margin-top:8px"><button data-c="hold">Hold (H)</button><button data-c="release">Return to commander</button></div>`;
+          <div class="row" style="margin-top:8px"><button data-c="hold">Hold (H)</button><button data-c="release">Return to commander</button></div>${u.kind === 'heli' ? `<div class="row" style="margin-top:6px"><button data-c="altHigh" class="${u.altMode !== 'low' ? 'on' : ''}" title="Above the rooftops: safe, but street canyons hide targets">Fly high</button><button data-c="altLow" class="${u.altMode === 'low' ? 'on' : ''}" title="Between the buildings: clear shots down the streets, but rotor strikes are possible">Fly low</button><span class="mut" style="font-size:11px">${Math.round(u.alt || 0)} m</span></div>` : ''}`;
         P.style.display = 'block';
       } else if (sel.length > 1) { P.innerHTML = `<div class="title">${sel.length} units selected</div><div class="row" style="margin-top:8px"><button data-c="hold">Hold</button><button data-c="release">Return to commander</button></div>`; P.style.display = 'block'; }
       else P.style.display = 'none';
@@ -408,7 +425,7 @@ async function enterTactical_(o) {
           : `<span>City integrity</span><span>${Math.round(s.integrity)}%</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Soldiers killed</span><span>${st.soldiersKIA}</span><span>Wounded evacuated</span><span>${sim.units.reduce((a, u) => a + (u.wounded || 0), 0)}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Police officers lost</span><span>${st.policeLost || 0}</span><span>Buildings destroyed</span><span>${st.bDestroyed}</span><span>HVTs evacuated / lost</span><span>${st.hvtSaved} / ${st.hvtLost}</span><span>Samples recovered</span><span>${st.specimens}</span>`}</div>
         <div class="foot"><button class="pri" id="tBack">Return to strategic command</button></div></div>`;
       M.style.display = 'flex';
-      $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); figs?.dispose(); vehs?.dispose(); beasts?.dispose(); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
+      $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); figs?.dispose(); vehs?.dispose(); beasts?.dispose(); detail?.dispose(); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
     }
     function confirm_() { const s = sim.summary(); if (sim.rural || s.creatures || s.infested) { if (!root.dataset.confirmEnd) { root.dataset.confirmEnd = 1; sim.log('Hostiles remain. Click "End operation" again to withdraw (counts as a failure).', 'warn'); setTimeout(() => delete root.dataset.confirmEnd, 5000); return false; } } return true; }
     hud(); updateSel();

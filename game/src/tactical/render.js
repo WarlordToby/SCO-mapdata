@@ -444,15 +444,34 @@ export class Renderer {
       pa.addUpdateRange(b.vStart * 3, b.vCount * 3); pa.needsUpdate = true; b.collapsed = collapse; m.geometry.computeBoundingSphere();
     }
   }
+  // close-up buildings replace the simple box: hide it (vertices sunk under the ground) and give back its roof shapes
+  hideCoarse(b, on) {
+    const m = b.mesh; if (!m) return; const pa = m.geometry.attributes.position;
+    if (on && !b._hid) { b._cy = new Float32Array(b.vCount); for (let v = 0; v < b.vCount; v++) { b._cy[v] = pa.getY(b.vStart + v); pa.setY(b.vStart + v, b.z - 4); } b._hid = true; }
+    else if (!on && b._hid) { for (let v = 0; v < b.vCount; v++) pa.setY(b.vStart + v, b._cy[v]); b._hid = false; }
+    else return;
+    pa.addUpdateRange(b.vStart * 3, b.vCount * 3); pa.needsUpdate = true;
+  }
+  coarseRoof(b) {
+    if (b._roof) return b._roof; const m = b.mesh; if (!m) return null; const g = m.geometry, pa = g.attributes.position, ca = g.attributes.color, ks = g.attributes.aKS, out = [];
+    const Y = v => b._hid ? b._cy[v - b.vStart] : pa.getY(v);
+    for (let v = b.vStart; v < b.vStart + b.vCount; v += 3) {
+      const kind = Math.round(ks.getX(v) * 255); const ys = [Y(v), Y(v + 1), Y(v + 2)];
+      if (!(kind === 1 || kind === 2 || (kind === 6 && Math.min(...ys) >= (b.zEave ?? 0) - 0.01))) continue;
+      out.push([0, 1, 2].map(k => [pa.getX(v + k), -pa.getZ(v + k), ys[k]]).concat([[ca.getX(v), ca.getY(v), ca.getZ(v)]]));
+    }
+    return (b._roof = out);
+  }
   setTileLocked(tile) { const tg = this.tileGroups.get(tile.key); if (tg) this.buildTile(tile); }
 
   // ---------------- Picking ----------------
   ray(sx, sy) { const v = new THREE.Vector2(sx / this.w * 2 - 1, -(sy / this.h) * 2 + 1); const rc = new THREE.Raycaster(); rc.setFromCamera(v, this.cam); return rc; }
   pick(sx, sy) {
     const rc = this.ray(sx, sy);
-    const hits = rc.intersectObjects([...this.pickMeshes, ...this.groundMeshes], false);
+    const hits = rc.intersectObjects([...(this.extraPick?.() || []), ...this.pickMeshes, ...this.groundMeshes], false);
     for (const h of hits) {
       const p = [h.point.x, -h.point.z];
+      if (h.object.userData.bld) return { building: h.object.userData.bld, p };
       if (h.object.userData.tri2b) return { building: this.city.buildings[h.object.userData.tri2b[h.faceIndex]], p };
       return { p };
     }

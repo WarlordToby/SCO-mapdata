@@ -106,7 +106,7 @@ table.t td.n,table.t th.n{text-align:right;font-family:var(--mono)}table.t tr.it
 #tRight{position:absolute;right:10px;top:56px;width:300px;max-height:34vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px}
 .hv{padding:4px 2px;font-size:12px;cursor:pointer;border-bottom:1px solid #ffffff08}.hv:hover{background:#ffffff08}.hv.lost{opacity:.5;text-decoration:line-through}.hv.saved{color:var(--grn)}
 #tSel{position:absolute;right:10px;bottom:120px;width:300px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px;display:none}
-#tSel .title{font-size:15px}#tSel button{font-size:11.5px;padding:4px 8px}
+#tSel .floors{max-height:220px;overflow:auto;margin-top:4px;display:flex;flex-direction:column;gap:2px}#tSel .frow{display:flex;gap:2px;align-items:center}#tSel .frow .cell{flex:1;height:16px;background:#2a3036;border-radius:2px;font:10px ui-monospace,monospace;text-align:center;line-height:16px;color:#9aa}#tSel .frow .cell.h{background:#6a2424;color:#fdd}#tSel .frow .cell.u{background:#24486a;color:#cdf}#tSel .frow .cell.c{background:#244a3e}#tSel .frow .cell.dead{background:#111;color:#a55}#tSel .frow button.fl{padding:0 5px;font-size:10px;min-width:22px;height:16px}#tSel .title{font-size:15px}#tSel button{font-size:11.5px;padding:4px 8px}
 #tBar{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;align-items:center}
 #tMode{font-size:11.5px}
 #tFeed{position:absolute;left:10px;bottom:12px;width:min(520px,40vw);display:flex;flex-direction:column;gap:3px;pointer-events:none}

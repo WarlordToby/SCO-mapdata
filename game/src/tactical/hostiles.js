@@ -125,16 +125,16 @@ export function installHostiles(Sim) {
       const was = b.hive || 0; this.makeHive(b, Math.min(1, was + dt * 0.03 * w));
       if (was < 1 && b.hive >= 1) this.log(`The swarm has turned ${b.name || b.addr || 'a building'} into a hive.`, 'bad');
       if (b.hive >= 1 && (b.eggs || 0) < (c.M ? 3 : 2) && H.biomass >= (c.M ? 2 : 4) && Math.random() < dt * 0.1 * w) { H.biomass -= c.M ? 2 : 4; b.eggs = (b.eggs || 0) + 1; this.dirty(b); if (b.eggs === 1) this.log(`Egg-nests are growing in ${b.name || b.addr || 'a hive'}.`, 'bad'); }
-      if (b.hive >= 1 && c.think <= 0) { c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 0.5 + Math.random(); }
+      if (b.hive >= 1 && c.think <= 0) { this.leaveInterior(c); c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 0.5 + Math.random(); }
       return true;
     }
     if (K.capture) { // take people out alive
       const cap = c.M ? 3 : 1;
       if (!c.carry && b.occ >= 1) { c.capT = (c.capT || 0) + dt * this.boost(c); if (c.capT > 3) { c.capT = 0; const n = Math.min(cap, Math.floor(b.occ)); b.occ -= n; c.carry = { n, seeds: Array.from({ length: n }, () => Math.random() * 1000) }; this.stats.captured = (this.stats.captured || 0) + n; } }
-      if (c.carry || b.occ < 1) { c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 0; }
+      if (c.carry || b.occ < 1) { this.leaveInterior(c); c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 0; }
       return true;
     }
-    if (K.drag && c.carry) { c.carry = null; c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 1; return true; }
+    if (K.drag && c.carry) { c.carry = null; this.leaveInterior(c); c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 1; return true; }
     return false;
   };
 
@@ -191,8 +191,8 @@ export function installHostiles(Sim) {
     const K = c.K, ch = c.charge; if (!ch) return false;
     if (this.t > ch.t1) { c.charge = null; c.chargeCD = this.t + 8; return false; }
     const s = K.charge.v * (c.M ? 1.3 : 1) * dt, nx = c.x + ch.dx * s, ny = c.y + ch.dy * s, B = this.city.bars;
-    if (B) { B.owKey = (B.owKey || 0) + 1; const hit = B.firstHit(c.x, c.y, nx, ny);
-      if (hit) { if (hit.s && B.breakable(hit.s, { veh: true, armour: 2 })) B.breakAt(hit.s, nx, ny); else { c.charge = null; c.chargeCD = this.t + 8; c.biteT = this.t + 1.6; if (hit.wall) this.damageBuilding(hit.wall.b, 300); this.fxPush({ k: 'smash', x: c.x, y: c.y, c, small: true }); return true; } } }
+    if (B) { B.owKey = (B.owKey || 0) + 1; const hit = B.firstHit(c.x, c.y, nx, ny, nx, ny, true);
+      if (hit) { if (hit.s && B.breakable(hit.s, { veh: true, armour: 2 })) B.breakAt(hit.s, nx, ny); else { c.charge = null; c.chargeCD = this.t + 8; c.biteT = this.t + 1.6; if (hit.wall) { this.damageBuilding(hit.wall.b, 300); this.hitBuildingAt(hit.wall.b, nx, ny, (hit.wall.b.z || 0) + 1.5, c.M ? 160 : 90); } this.fxPush({ k: 'smash', x: c.x, y: c.y, c, small: true }); return true; } } }
     c.x = nx; c.y = ny; c.hx = ch.dx; c.hy = ch.dy;
     const dm = K.charge.dmg * this.boost(c) * (c.M ? 1.8 : 1);
     for (const u of this.units) { if (u.dead || u.inB || u.kind === 'heli' || ch.hit.has(u)) continue; if (Math.hypot(u.x - c.x, u.y - c.y) < (c.M ? 4.5 : 3.2)) { ch.hit.add(u); this.hurtUnit(u, dm, c); if (u.kind === 'vehicle') { u.crash = 1.2; ch.t1 = Math.min(ch.t1, this.t + 0.2); } } }

@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { humanGeometry, lycanGeometry, peopleMaterial, Crowd, CLIP, PIVOTS, LOST, GORE_U } from './people.js';
 import { FIGURES, Wardrobe } from './outfits.js';
 import { Gore } from './gore.js';
+import { spots } from './detail.js';
 
 const CAP = { civ: 3000, police: 500, soldier: 2400, undead: 3000, vampire: 1500, lycan: 1000, dead: 1800, part: 600, act: 300 };
 // where each severable part sits on the figure (rest pose), to lay severed pieces on the ground
@@ -89,6 +90,11 @@ export class Figures {
         this.gore.boom(e.x, e.y, this.hAt(e.x, e.y), e.r);
       } else if (e.k === 'throw') {
         e.u._throw = { i: e.i, t0: t }; this.gore.throwNade(e.u.x, e.u.y, this.hAt(e.u.x, e.u.y) + 1.8, e.to[0], e.to[1], this.hAt(e.to[0], e.to[1]) + 0.1, t, e.t1);
+      } else if (e.k === 'secDie') { // a section blown out: flash, rubble and dust
+        const S = e.s, z = S.z + (e.b.L?.fh || 3) * 0.5; this.gore.boom(S.cx, S.cy, z - 1, 5); this.gore.gib(S.cx, S.cy, z, 30, 7, [0x8a857c, 0x6a665e, 0xa8a296, 0x4a4844, 0x9a8e7a, 0x5a5650]); this.gore.smoke.push({ x: S.cx, y: S.cy, z, rate: 18, left: 8, big: true });
+      } else if (e.k === 'iboom') { const S = e.s; this.gore.boom(S.cx, S.cy, S.z, 2);
+      } else if (e.k === 'glass') { // windows shot through: glass showers onto the street
+        const S = e.s; if (Math.random() < 0.5) { const dx = e.from[0] - S.cx, dy = e.from[1] - S.cy, d = Math.hypot(dx, dy) || 1, ext = Math.sqrt(S.a) * 0.45, x = S.cx + dx / d * ext, y = S.cy + dy / d * ext; this.gore.gib(x, y, S.z + 0.6, 6, 2.5, [0xc8dce8, 0xa8c4d4, 0xe0eef4]); }
       } else if (e.k === 'runover') {
         const c = e.c; this.gore.blood(c.x, c.y, this.hAt(c.x, c.y) + 0.6, 10, 0, 0, 3); this.gore.pool(c.x, c.y, this.hAt(c.x, c.y), 0.6, 2);
       }
@@ -167,6 +173,28 @@ export class Figures {
         else if (moving) { clip = m.v > 2.4 ? CLIP.rifleRun : CLIP.rifleWalk; rate = m.v > 2.4 ? m.v / 2.6 : Math.max(0.7, m.v / 1.5); }
         else if (firing) { clip = ((t * 0.07 + sd) % 1) < 0.1 ? CLIP.reload : i % 2 ? CLIP.kneelFire : CLIP.fire; if (u.aimAt) h = Math.atan2(u.aimAt[1] - y, u.aimAt[0] - x) + (sd - 0.5) * 0.15; }
         this.crowd('soldier', f.key).put(x, y, heightAt(x, y), h, f.scale * sc, f.look, clip, t0, rate, sd);
+      }
+    }
+    // inside close-up buildings: soldiers, hostiles and the people sheltering, on their own floor
+    if (draw && this.detail) for (const [b] of this.detail.on) {
+      const L = b.L; if (!L || !inView(b.c[0], b.c[1])) continue; const cut = this.detail.cutOf(b);
+      const ins = b.inside ? [...b.inside] : [];
+      for (const o of ins) {
+        const s = o.sec; if (!s || s.f >= cut || s.dead) continue;
+        if (o.kind === 'squad' && !o.dead) {
+          const pts = spots(s, Math.max(0, o.men), L, this.uSeed(o) * 100), cc = o.ai ? this.nationCc : this.playerCc, firing = o.fireT !== undefined && t - o.fireT < 1.2;
+          const foe = ins.find(c => !c.kind && c.hp > 0 && c.sec === s) || ins.find(c => !c.kind && c.hp > 0 && c.sec && c.sec.f === s.f);
+          pts.forEach(([x, y], i) => { const f = (o._figs || (o._figs = []))[i] || (o._figs[i] = this.W.soldier(this.uSeed(o) + i * 0.013, cc)), sd = (i * 0.618 + this.uSeed(o)) % 1;
+            const h = foe ? Math.atan2(foe.y - y, foe.x - x) : Math.atan2(L.uy, L.ux) * (i % 2 ? 1 : -1);
+            this.crowd('soldier', f.key).put(x, y, s.z, h, f.scale * sc, f.look, firing ? (i % 2 ? CLIP.kneelFire : CLIP.fire) : CLIP.rifleIdle, sd * 10, 1, sd); });
+        } else if (!o.kind && o.hp > 0 && this.humanoid) {
+          const f = this.creatureFig(o), [x, y] = spots(s, 1, L, o.id)[0], atk = o.atk > 0.35;
+          this.crowd(th, f.key).put(x, y, s.z, (o.id * 2.3) % 6.28, f.scale * sc, f.look, atk ? CLIP.claw : th === 'undead' ? CLIP.shamble : CLIP.prowl, (o.id % 10), 0.6, (o.id * 0.618) % 1, { lost: this.goreLevel >= 2 ? o.lost || 0 : 0, wound: o.max ? Math.max(0, 1 - o.hp / o.max) * 0.9 : 0 });
+        }
+      }
+      for (const s of L.sections) { // people sheltering
+        if (s.dead || s.f >= cut || s.occ < 0.6) continue; const n = Math.min(3, Math.round(s.occ)), threat = ins.some(c => !c.kind && c.sec === s);
+        spots(s, n, L, 77).forEach(([x, y], i) => { const f = this.W.civ(s.id * 7.3 + i); this.crowd('civ', f.key).put(x, y, s.z, (s.id + i) * 1.7, f.scale * sc, f.look, threat ? CLIP.cower : i % 2 ? CLIP.idle : CLIP.cower, i * 3, 1, (s.id * 0.37 + i * 0.11) % 1); });
       }
     }
     // wounded dragged back to the squad by a comrade

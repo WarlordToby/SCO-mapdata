@@ -2,6 +2,20 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.16.0 — Buildings, cordons and helicopters (2026-11-08)
+
+- Buildings have interiors: every building is split into floors, and each floor into a few large sections (open-plan office floors, apartment corridors, shops, the stair core). Civilians, hostiles and squads inside each stand in a section, so fights there are physical: point-blank in the same section, medium range into the next one along the floor, stairs between the floors.
+- Squads ordered to clear a building go in and sweep it section by section and floor by floor; the building panel shows each floor and section (hostiles, your squads, civilians, destroyed sections) and lets you send the squads to a floor or hold a stairwell.
+- Close-up buildings are rebuilt with real facades: window openings with sills, reveals and lintels that stop well short of the ceiling, glass you can see through, mullions, balconies on flats, shopfronts on the ground floor, floor bands and parapets; inside are floor slabs, partitions with doorways, stairs and, when you look in, furniture. People inside are drawn on their floor.
+- Windows are real: troops in the street shoot hostiles they can see through them (and vice versa), and glass shatters onto the pavement when fire goes through it. Vehicles support a clearing squad by firing in through the windows.
+- Cutaway: select a building, or get close to one with a fight inside, and the floors above the action peel away; [ and ] (or Page Up / Down) cut the selected building floor by floor.
+- Heavy damage knocks sections out and leaves real holes: helicopter crashes, tank fire, explosions, titans and charging crushers. A section whose support has gone can come down, and a building that has lost most of its sections collapses.
+- Police cordons: police seal off the districts around the outbreak with a quarantine and park 20–30 patrol cars across every road out, reinforcements driving in on blue lights; their officers hold the line until your teams clear the area, and the cordon widens as the outbreak spreads. SCO units no longer get tied down on checkpoints the police already hold.
+- Helicopters no longer run HVT errands on their own: they patrol tight circles over the hostiles and fire down (you can still order lifts). Choose Fly high (above the rooftops, safe, but buildings hide targets in the street canyons) or Fly low (between the buildings, clear shots, but a rotor strike is possible). Pilots steer clear of facades; a badly damaged helicopter can lose control.
+- A helicopter that crashes into a building blows out the floors it hits and its wreck stays lodged in the hollow; otherwise it falls to the street.
+- Fixed: vehicles could pass through buildings — shoves between vehicles slipped through walls, vehicles ignored the walls of the building they were sent to, and roads through building passages were treated as driveable. None of that happens now, for military vehicles or traffic.
+- Windows on the simple buildings in the distance also stop below the ceiling now.
+
 ## v0.15.0 — Mutants, the hive, and national armies (2026-11-08)
 
 - Mutant outbreaks are made of different kinds, each with its own model, gait and attacks: brutes (the rank and file, one oversized club arm), slitherers (fast masses of limbs and tentacles that drag victims away), spitters (corrosive bile at range), bloaters (burst into a caustic cloud when they reach you or die) and titans (eight-metre hulks that stamp cars flat, walk through garden walls, tear through buildings in their way and wreck light armour).

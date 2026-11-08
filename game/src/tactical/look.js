@@ -94,11 +94,11 @@ export function buildingMat(locked = false) {
           float fl = floor(vUV.y / fh), fy = fract(vUV.y / fh);
           float bay = kind == 4.0 ? 3.4 : kind == 7.0 ? 1.6 : 2.7;
           float col = floor(vUV.x / bay), fx = fract(vUV.x / bay);
-          float win = step(0.28, fx) * step(fx, 0.72) * step(0.33, fy) * step(fy, 0.8);
-          if (kind == 4.0) win = step(0.1, fx) * step(fx, 0.9) * step(0.22, fy) * step(fy, 0.86);
+          float win = step(0.28, fx) * step(fx, 0.72) * step(0.31, fy) * step(fy, 0.72);
+          if (kind == 4.0) win = step(0.1, fx) * step(fx, 0.9) * step(0.27, fy) * step(fy, 0.78);
           if (kind == 3.0 && fl < 0.5) win = step(0.06, fx) * step(fx, 0.94) * step(0.06, fy) * step(fy, 0.72);
           if (kind == 5.0) win = step(0.62, fy) * step(fy, 0.82) * step(0.05, fx) * step(fx, 0.95) * step(1.0, fl + 0.5);
-          if (kind == 7.0) win = step(0.06, fx) * step(fx, 0.94) * step(0.06, fy) * step(fy, 0.94);
+          if (kind == 7.0) win = step(0.06, fx) * step(fx, 0.94) * step(0.14, fy) * step(fy, 0.8);
           if (kind == 6.0) win = 0.0;
           if (vUV.y < 0.7 && kind != 3.0) win = 0.0;
           vec3 glass = mix(vec3(0.16, 0.2, 0.25), vec3(0.42, 0.5, 0.58), 0.35 + 0.3 * hh(vec3(col, fl, seed)));

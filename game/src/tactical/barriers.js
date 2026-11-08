@@ -84,10 +84,13 @@ export class Barriers {
 
   // first obstacle on the move p0→p1: {t, s} barrier, or {t, wall}
   // (gx, gy) = where the mover is ultimately heading: walls of the building it is leaving or entering do not block
-  firstHit(x0, y0, x1, y1, gx = x1, gy = y1) {
+  // does this line cross any building wall? (roads through building passages are no way for vehicles)
+  hitsWall(x0, y0, x1, y1) { let hit = false; const st = ++this.stamp; this.wall.each(x0, y0, x1, y1, w => { if (hit || w.st === st) return; w.st = st; if (!w.b.destroyed && crossT(x0, y0, x1, y1, w) >= 0) hit = true; }); return hit; }
+  // strict: no building is exempt (vehicles never enter buildings; pushes and shoves never pass a wall)
+  firstHit(x0, y0, x1, y1, gx = x1, gy = y1, strict = false) {
     let best = null, bt = 2; const st = ++this.stamp;
     this.bar.each(x0, y0, x1, y1, s => { if (s.st === st || s.down || s.dead) return; s.st = st; const t = crossT(x0, y0, x1, y1, s); if (t >= 0 && t < bt) { bt = t; best = { t, s }; } });
-    this.wall.each(x0, y0, x1, y1, w => { if (w.st === st) return; w.st = st; if (w.b.destroyed) return; const t = crossT(x0, y0, x1, y1, w); if (t >= 0 && t < bt && !this.ownWall(w, x0, y0, gx, gy)) { bt = t; best = { t, wall: w }; } });
+    this.wall.each(x0, y0, x1, y1, w => { if (w.st === st) return; w.st = st; if (w.b.destroyed) return; const t = crossT(x0, y0, x1, y1, w); if (t >= 0 && t < bt && (strict || !this.ownWall(w, x0, y0, gx, gy))) { bt = t; best = { t, wall: w }; } });
     return best;
   }
   ownWall(w, sx, sy, gx, gy) { const b = w.b; if (b._ow === this.owKey) return b._owv; b._ow = this.owKey; let near = false; const r = b.ring; for (let i = 0; i < r.length && !near; i++) { const q = r[(i + 1) % r.length]; near = segD(gx, gy, { ax: r[i][0], ay: r[i][1], bx: q[0], by: q[1] }) < 1.0; } return (b._owv = near || inRing(sx, sy, r) || inRing(gx, gy, r)); }
@@ -137,7 +140,7 @@ export class Barriers {
     // local obstacles
     const local = new SegHash(6), obs = [], st = ++this.stamp, bset = new Set();
     this.bar.each(x0, y0, x1, y1, s => { if (s.st === st) return; s.st = st; if (this.blocks(s, w)) { local.add(s); obs.push(s); } });
-    this.owKey = (this.owKey || 0) + 1; this.wall.each(x0, y0, x1, y1, s => { if (s.st === st) return; s.st = st; if (this.ownWall(s, sx, sy, gx, gy)) return; local.add(s); bset.add(s.b); });
+    this.owKey = (this.owKey || 0) + 1; this.wall.each(x0, y0, x1, y1, s => { if (s.st === st) return; s.st = st; if (!w.veh && this.ownWall(s, sx, sy, gx, gy)) return; local.add(s); bset.add(s.b); });
     if (this.visible(sx, sy, gx, gy, w, local)) { this.cache.set(ck, { t: performance.now(), r: [] }); return []; }
     // candidate corners: wherever obstacle ends/corners leave a reflex opening (> 180°), offset into it
     const off = w.veh ? 2.2 : 0.7, V = new Map(), key = (x, y) => Math.round(x * 5) + ',' + Math.round(y * 5);
