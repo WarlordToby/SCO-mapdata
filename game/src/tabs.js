@@ -1,4 +1,5 @@
 import * as G from './state.js';
+import { procureTerms } from './nations.js';
 import { ITEM, ITEMS, INF_SUBS, EQUIP_TABS, BASE_SIZES, MODULES, TEMPLATES, THREATS, isVehicle, isHeli } from './catalog.js';
 import { $, $$, esc, eur, num, big, bar, fmtDate, fmtDay, dur } from './util.js';
 import { badgeSVG } from './badge.js';
@@ -68,22 +69,23 @@ function tabOrg(S) {
 // ---------------- Equipment ----------------
 function tabEquip(S) {
   const tab = UI.eqTab;
-  const items = ITEMS.filter(i => tab === 'infantry' ? i.cat === 'infantry' : i.cat === tab);
+  const cc = S.nation?.cca2, ORD = { home: 0, allied: 1, export: 2, embargo: 3 };
+  const items = ITEMS.filter(i => tab === 'infantry' ? i.cat === 'infantry' : i.cat === tab).map(i => [i, procureTerms(cc, i)]).filter(([i, T]) => UI.eqCatalog || stockTotal(S, i.id, UI.eqBase)).sort((a, b) => ORD[a[1].tag] - ORD[b[1].tag]).map(([i]) => i);
   const rows = it => {
     const q = stockTotal(S, it.id, UI.eqBase);
     if (!UI.eqCatalog && !q) return '';
     const fielded = S.units.reduce((a, u) => a + (u.items[it.id] || 0), 0);
     const incoming = S.deliveries.filter(d => d.item === it.id).reduce((a, d) => a + d.qty, 0);
-    const locked = S.standing < it.standing;
+    const T = procureTerms(cc, it), locked = !T.ok || S.standing < T.standing;
     const open = UI.eqOpen === it.id;
     const spec = it.cat === 'infantry' ? (it.sub === 'gear' ? '' : `${it.cal} · ${it.range} m`) : `${it.crew}+${it.pax} · ${it.armor} · ${it.speed} km/h`;
-    return `<tr class="it" data-act="eqOpen" data-id="${it.id}"><td><b>${esc(it.name)}</b><div class="mut" style="font-size:11px">${esc(it.origin)}${spec ? ' · ' + spec : ''}</div></td>
+    return `<tr class="it" data-act="eqOpen" data-id="${it.id}"><td><b>${esc(it.name)}</b><div class="mut" style="font-size:11px">${esc(it.origin)}${spec ? ' · ' + spec : ''} · <span class="${T.tag === 'home' ? 'good' : T.tag === 'embargo' ? 'bad' : T.tag === 'allied' ? 'acc' : 'amb'}">${T.note}</span></div></td>
       <td class="n">${q || '<span class="mut">0</span>'}</td><td class="n mut">${fielded || ''}</td><td class="n amb">${incoming ? '+' + incoming : ''}</td></tr>
       ${open ? `<tr><td colspan="4" class="det"><div>${esc(it.desc)}</div>
         <div class="stats" style="margin:6px 0">${it.cat === 'infantry' ? (it.sub !== 'gear' ? `<span>Calibre</span><span>${it.cal}</span><span>Effective range</span><span>${it.range} m</span><span>Firepower</span><span>${it.power}</span>` : '') : `<span>Crew / passengers</span><span>${it.crew} / ${it.pax}</span><span>Armour</span><span>${it.armor}</span><span>Road speed</span><span>${it.speed} km/h</span><span>Armament</span><span>${esc(it.arm)}</span><span>Firepower</span><span>${it.power}</span>`}
-        <span>Unit cost</span><span>${eur(it.cost)}</span><span>Delivery</span><span>${it.lead} days</span><span>Required standing</span><span class="${locked ? 'bad' : ''}">${it.standing}</span></div>
+        <span>Supplier</span><span>${T.note}${T.tag === 'allied' ? ' (+30% cost, +50% time)' : T.tag === 'export' ? ' (+70% cost, twice the time)' : ''}</span><span>Unit cost</span><span>${eur(T.cost)}</span><span>Delivery</span><span>${T.lead} days</span><span>Required standing</span><span class="${S.standing < T.standing ? 'bad' : ''}">${T.standing}</span></div>
         ${S.bases.filter(b => b.storage[it.id]).map(b => `<div class="row"><span class="sp">${esc(b.name)}</span><span class="mono">${b.storage[it.id]}</span></div>`).join('')}
-        <div class="row" style="margin-top:6px"><button class="sm pri" data-act="order" data-id="${it.id}" ${locked ? 'disabled' : ''}>Procure…</button><button class="sm" data-act="transfer" data-id="${it.id}" ${q && S.bases.length > 1 ? '' : 'disabled'}>Transfer…</button>${locked ? '<span class="bad" style="font-size:11px">Standing too low</span>' : ''}</div></td></tr>` : ''}`;
+        <div class="row" style="margin-top:6px"><button class="sm pri" data-act="order" data-id="${it.id}" ${locked ? 'disabled' : ''}>Procure…</button><button class="sm" data-act="transfer" data-id="${it.id}" ${q && S.bases.length > 1 ? '' : 'disabled'}>Transfer…</button>${!T.ok ? '<span class="bad" style="font-size:11px">Embargoed — not sold to your country</span>' : locked ? '<span class="bad" style="font-size:11px">Standing too low</span>' : ''}</div></td></tr>` : ''}`;
   };
   let body;
   if (tab === 'infantry') body = INF_SUBS.map(([k, label]) => { const r = items.filter(i => i.sub === k).map(rows).join(''); return r ? `<tr><th colspan="4" style="padding-top:12px;color:var(--acc)">${label}</th></tr>${r}` : ''; }).join('');

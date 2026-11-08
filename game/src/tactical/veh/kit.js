@@ -6,7 +6,7 @@
 // damage and burning).
 import * as THREE from 'three';
 
-export const VP = { hull: 0, turret: 1, gun: 2, rotor: 3, tail: 4, door: 5, doorR: 6, track: 7, axle: 10 };
+export const VP = { hull: 0, turret: 1, gun: 2, rotor: 3, tail: 4, door: 5, doorR: 6, track: 7, rotor2: 8, axle: 10 };
 export const VS = { paint: 0, rubber: 1, metal: 2, glass: 3, light: 4, trim: 5, flag: 6, black: 7, beacon: 8, canvas: 9, hub: 10, chrome: 11, red: 12, interior: 13, livery: 14, amber: 15 };
 
 const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -136,7 +136,7 @@ export class VB {
 const VERT_HEAD = /* glsl */`
 attribute float aPart; attribute float aSlot; attribute vec2 aUV;
 attribute vec4 iA; attribute vec4 iB; attribute vec4 iP; attribute vec4 iM;
-uniform float uTime; uniform vec4 uAx[14]; uniform vec3 uTur; uniform vec3 uGun; uniform vec3 uRot; uniform vec3 uTail; uniform vec4 uDoor;
+uniform float uTime; uniform vec4 uAx[14]; uniform vec3 uTur; uniform vec3 uGun; uniform vec3 uRot; uniform vec3 uRot2; uniform vec3 uTail; uniform vec4 uDoor;
 varying vec3 vObj; varying float vSlot; varying float vPart; varying vec2 vUV; varying vec4 vP; varying vec4 vM; varying vec4 vB; varying float vSpin;
 mat3 ry(float a) { float c = cos(a), s = sin(a); return mat3(c, 0., -s, 0., 1., 0., s, 0., c); }
 mat3 rz(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0., -s, c, 0., 0., 0., 1.); }
@@ -149,6 +149,7 @@ const VERT_BODY = /* glsl */`
     vObj = position; vSlot = aSlot; vPart = aPart; vUV = aUV; vP = iP; vM = iM; vB = iB; vSpin = iA.w;
     if (pt >= 10) { vec4 a = uAx[pt - 10]; M = rz(-iA.w / max(a.z, 0.05)); transformed = M * (transformed - vec3(a.x, a.y, 0.)) + vec3(a.x, a.y, 0.); objectNormal = M * objectNormal; }
     if (pt == 3) { M = ry(iA.w); transformed = M * (transformed - uRot) + uRot; objectNormal = M * objectNormal; }
+    if (pt == 8) { M = ry(-iA.w); transformed = M * (transformed - uRot2) + uRot2; objectNormal = M * objectNormal; } // second main rotor (tandem / coaxial), counter-rotating
     if (pt == 4) { M = rz(iA.w * 4.7); transformed = M * (transformed - uTail) + uTail; objectNormal = M * objectNormal; }
     if (pt == 5) { float a = iB.y * (uDoor.w < 0.5 ? 1.25 : 1.6); M = uDoor.w < 0.5 ? rz(a) : ry(a); transformed = M * (transformed - uDoor.xyz) + uDoor.xyz; objectNormal = M * objectNormal; }
     if (pt == 6) { float a = iB.y * 1.6; vec3 pv = vec3(uDoor.x, uDoor.y, -uDoor.z); M = ry(-a); transformed = M * (transformed - pv) + pv; objectNormal = M * objectNormal; }
@@ -221,7 +222,7 @@ export function vehicleMaterial(geo) {
   const ud = geo.userData, m = new THREE.MeshLambertMaterial({ color: 0xffffff });
   const ax = Array.from({ length: 14 }, (_, i) => { const a = ud.axles[i]; return a ? new THREE.Vector4(a[0], a[1], a[2], 0) : new THREE.Vector4(0, 0, 1, 0); });
   const p = ud.piv || {}, V = a => new THREE.Vector3(...(a || [0, 0, 0]));
-  m.userData.u = { uTime: { value: 0 }, uAx: { value: ax }, uTur: { value: V(p.turret) }, uGun: { value: V(p.gun) }, uRot: { value: V(p.rotor) }, uTail: { value: V(p.tail) }, uDoor: { value: new THREE.Vector4(...(p.door || [0, 0, 0, 0])) } };
+  m.userData.u = { uTime: { value: 0 }, uAx: { value: ax }, uTur: { value: V(p.turret) }, uGun: { value: V(p.gun) }, uRot: { value: V(p.rotor) }, uRot2: { value: V(p.rotor2) }, uTail: { value: V(p.tail) }, uDoor: { value: new THREE.Vector4(...(p.door || [0, 0, 0, 0])) } };
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, m.userData.u);
     sh.vertexShader = VERT_HEAD + sh.vertexShader.replace('#include <beginnormal_vertex>', VERT_BODY).replace('#include <begin_vertex>', '');

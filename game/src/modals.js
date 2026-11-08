@@ -1,4 +1,5 @@
 import * as G from './state.js';
+import { procureTerms } from './nations.js';
 import { ITEM, ITEMS, MODULES, TEMPLATES, GEAR_OPTS, THREATS, BASE_SIZES, isVehicle, isHeli } from './catalog.js';
 import { $, $$, esc, eur, num, dur, fmtDate, fmtTime } from './util.js';
 import { distKm, compass, bearing } from './geo.js';
@@ -15,13 +16,13 @@ const err = msg => { const e = $('#modal .err'); if (e) e.textContent = msg || '
 
 // ---------------- Procurement / logistics ----------------
 export function orderDialog(id) {
-  const S = G.getS(), it = ITEM[id], bases = S.bases.filter(b => b.built || true);
+  const S = G.getS(), it = ITEM[id], bases = S.bases.filter(b => b.built || true), T = procureTerms(S.nation?.cca2, it);
   modal(`<h2>Procure — ${esc(it.name)}</h2><div class="mut">${esc(it.desc)}</div>
    <div class="row" style="margin-top:12px"><div class="col sp"><span class="lbl">Quantity</span><input id="oq" type="number" min="1" value="${isVehicle(id) ? 1 : 10}"></div>
    <div class="col sp"><span class="lbl">Deliver to</span><select id="ob">${bases.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></div></div>
-   <div class="stats" style="margin-top:10px"><span>Unit cost</span><span>${eur(it.cost)}</span><span>Total</span><span id="ot"></span><span>Delivery time</span><span>${it.lead} days</span><span>Funds</span><span>${eur(S.funds)}</span></div>
+   <div class="stats" style="margin-top:10px"><span>Supplier</span><span>${T.note}</span><span>Unit cost</span><span>${eur(T.cost)}</span><span>Total</span><span id="ot"></span><span>Delivery time</span><span>${T.lead} days</span><span>Funds</span><span>${eur(S.funds)}</span></div>
    <div class="err"></div><div class="foot"><button onclick="__close()">Cancel</button><button class="pri" id="ook">Place order</button></div>`);
-  const upd = () => { $('#ot').textContent = eur(it.cost * Math.max(1, +$('#oq').value || 1)); };
+  const upd = () => { $('#ot').textContent = eur(T.cost * Math.max(1, +$('#oq').value || 1)); };
   $('#oq').oninput = upd; upd();
   $('#ook').onclick = () => { const e = G.order(id, Math.max(1, Math.floor(+$('#oq').value || 1)), $('#ob').value); if (e) return err(e); closeModal(); };
 }

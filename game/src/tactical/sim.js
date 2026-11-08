@@ -4,6 +4,7 @@ import { FLAG, Grid, Heap } from './city.js';
 import { Barriers } from './barriers.js';
 import { ITEM } from '../catalog.js';
 import { installHostiles } from './hostiles.js';
+import { starterKit } from '../nations.js';
 
 export const TH = { // per-threat creature profiles
   undead: { vault: 2.2, hp: 110, speed: 1.4, dmg: 9, range: 1.8, aggro: 45, convert: 0.35, bDmg: 0.2, nest: 0, size: 1, sense: 260 },
@@ -90,7 +91,8 @@ export class Sim {
     for (let i = 0; i < n; i++) {
       const o = (i - (n - 1) / 2) * spacing, p = [px * o + dx * half * 0.12, py * o + dy * half * 0.12];
       const apc = i % 3 === 1;
-      const u = this.addUnit({ id: 'nat' + i, name: `${R.nation} ${apc ? 'APC ' : 'Platoon '}${i + 1}`, vehicle: apc ? 'm113' : null, pers: apc ? 3 : 24, items: apc ? {} : { rifle: 20, lmg: 4 }, approach: 'rear' });
+      const K = this._natKit || (this._natKit = starterKit(R.cc || 'FR')), rid = Object.keys(K.squad)[0], mid = Object.keys(K.squad)[1] || rid;
+      const u = this.addUnit({ id: 'nat' + i, name: `${R.nation} ${apc ? (ITEM[K.apc]?.name.split(/[ (]/)[0] || 'APC') + ' ' : 'Platoon '}${i + 1}`, vehicle: apc ? K.apc || 'm113' : null, pers: apc ? 3 : 24, items: apc ? {} : { [rid]: 20, [mid]: 4 }, approach: 'rear' });
       u.ai = true; u.x = p[0] + (Math.random() - .5) * 20; u.y = p[1] + (Math.random() - .5) * 20; u.home = [u.x, u.y]; this.order(u, { type: 'guard', p: [u.x, u.y] });
     }
     this.log(`${R.frontName}: the national line is holding ${n} positions. Waves are coming in from the ${['east', 'north-east', 'north', 'north-west', 'west', 'south-west', 'south', 'south-east'][Math.round(((Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / 4)) % 8]}. Hold for ${Math.round(R.duration * 6 / 3600)} hours.`, 'bad');

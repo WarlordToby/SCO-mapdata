@@ -1,9 +1,27 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.14.1';
+export const VERSION = '0.15.0';
 export const SAVE_FORMAT = 4; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.15.0', date: '2026-11-08', title: 'Mutants, the hive, and national armies',
+    items: [
+      'Mutant outbreaks are made of different kinds, each with its own model, gait and attacks: brutes (the rank and file, one oversized club arm), slitherers (fast masses of limbs and tentacles that drag victims away), spitters (corrosive bile at range), bloaters (burst into a caustic cloud when they reach you or die) and titans (eight-metre hulks that stamp cars flat, walk through garden walls, tear through buildings in their way and wreck light armour).',
+      'Mutants keep crawling out of the emergence site until it is cleared; a titan tears its way out a few minutes in, and more follow as the operation drags on.',
+      'The swarm is now a caste-based hive. Drones grow resin over buildings and turn them into hives with egg-nests; hunters carry people off alive to be cocooned; warriors fight. Cocooned civilians can be cut free by clearing the hive before they are digested into biomass.',
+      'Warriors spend the hive\'s biomass to moult into crushers (charge and crush, smashing vehicles), boilers (lob gas that eats through infantry without NRBC suits) and wardens (heavier warriors that guard the hives and Matriarchs).',
+      'Each caste can raise one Matriarch, much larger and better at its work: her caste is stronger while she lives and falters for a while after she dies.',
+      'Hives show resin nodules, spires, egg-nests and cocoons hanging on the walls; the HUD tracks hives, cocooned civilians, rescues, biomass and Matriarchs, and Matriarchs and titans carry labels with their health.',
+      'Swarm and mutant hits splash ichor and bile instead of blood; corpses fold up and stay; moulting leaves a husk.',
+      'The extraterrestrial threat has been withdrawn for now; running alien outbreaks in saved games become insectoid swarms.',
+      'National armies: the US, UK, Germany, Russia, China, Japan, India, Italy, Spain, Turkey, South Korea and Brazil each field their own vehicles, helicopters and small arms, about a hundred new models in all, from the Abrams, Bradley, Stryker and Chinook to the T-90, BMP-3, Ka-52, ZTZ-99, Type 10, Arjun, Centauro and K2. Every other country fields its bloc\'s typical kit (ex-Soviet, Western export, Gulf, Latin American, Chinese export, francophone African).',
+      'A new headquarters and its garrisons start with their own country\'s equipment and pre-formed units, and national troops in front-line battles carry their own rifles and carriers.',
+      'Procurement terms: domestic kit is cheapest and fastest; an allied supplier costs 30% more and takes half as long again; the export market costs 70% more and takes twice as long; kit across the bloc divide is embargoed. The catalogue shows the supplier for each item.',
+      'Fixed: the United States, Russia and other countries that cross the date line had no cities and could not be played.',
+      'Fixed: national troops in front-line battles had no firepower (their rifles were not real catalogue items).',
+    ],
+  },
   {
     v: '0.14.1', date: '2026-11-08', title: 'Audit fixes',
     items: [

@@ -357,3 +357,4 @@ export function lc70() {
 }
 
 export const MIL = { leclerc, leo2a4: leopard2, amx30, amx10rc, jaguar, vab, vbci, griffon, serval, amx10p, m113, trm2000, trm10000, gbc180, vlra, p4, vbl, sherpa, defender, lc70 };
+export { hull, hh, sec, tt, tracked, wheels, smoke, mg, rws, hatch, light, flags, ant, win, cabOver, bonnet, cargo, chassis, box4x4, rwProf };

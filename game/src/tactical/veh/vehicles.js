@@ -2,6 +2,7 @@
 // (turrets tracking targets, recoil and muzzle flash, wheels and tracks rolling, hull pitching over the
 // ground, commander head-out, doors opening as infantry dismount, damage, burning wrecks), helicopters
 // (rotors turning, nose down when flying), civilian traffic and the emergency services.
+import { NAT } from './nat.js';
 import * as THREE from 'three';
 import { Fleet } from './kit.js';
 import { MIL } from './mil.js';
@@ -10,7 +11,7 @@ import { CIV, EMERG } from './civ.js';
 import { militaryPaint, heliPaint, policeLivery, ambulanceLivery, fireLivery, civilianLook } from './paint.js';
 import { CLIP } from '../people.js';
 
-const BUILD = { ...MIL, ...HELI, ...CIV, ...EMERG };
+const BUILD = { ...MIL, ...HELI, ...NAT, ...CIV, ...EMERG };
 const CAP = m => MIL[m] ? 48 : HELI[m] ? 24 : EMERG[m] ? 300 : 2400;
 const hash = s => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return (h % 10007) / 10007; };
 

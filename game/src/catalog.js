@@ -1,3 +1,4 @@
+import { NAT_ITEMS } from './catalog-nat.js';
 // Equipment catalogue, base modules, unit templates and threat types.
 // Prices are rough EUR procurement/refurb figures; "standing" = minimum government standing to procure.
 
@@ -89,6 +90,7 @@ export const ITEMS = [
   V('nh90', 'NH90 Caïman', 'heli', 'Europe', 28000000, 45, 60, 3, 20, 'Light', 300, '7.62mm door guns', 3, 'Modern tactical transport.'),
   V('tigre', 'Tigre HAD', 'heli', 'Europe', 35000000, 60, 70, 2, 0, 'Light', 280, '30mm + rockets + ATGM', 14, 'Attack helicopter.'),
 ];
+ITEMS.push(...NAT_ITEMS);
 export const ITEM = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 export const isVehicle = id => ITEM[id] && ITEM[id].cat !== 'infantry';
 export const isHeli = id => ITEM[id] && ITEM[id].cat === 'heli';

@@ -37,7 +37,9 @@ export function regionsOf(cca2) { return DATA.regions[cca2] || null; }
 export function citiesOf(cca2, terr) {
   const raw = DATA.cities[cca2] || [];
   const [[x0, y0], [x1, y1]] = d3.geoBounds(terr);
-  return raw.filter(([n, lon, lat]) => lon > x0 - .3 && lon < x1 + .3 && lat > y0 - .3 && lat < y1 + .3 &&
+  // territories that cross the antimeridian (Russia, the US with the Aleutians, Fiji…) have x0 > x1
+  const inLon = lon => x0 <= x1 ? lon > x0 - .3 && lon < x1 + .3 : lon > x0 - .3 || lon < x1 + .3;
+  return raw.filter(([n, lon, lat]) => inLon(lon) && lat > y0 - .3 && lat < y1 + .3 &&
     (d3.geoContains(terr, [lon, lat]) || nearTerr(terr, [lon, lat])))
     .map(([name, lon, lat, pop, cap], i) => ({ id: 'c' + i, name, lon, lat, pop, capital: !!cap }));
 }
@@ -48,7 +50,7 @@ function nearTerr(terr, p) { // coastal tolerance ~12 km for coarse coastlines
 
 export function makeProjection(terr) {
   const [[x0, y0], [x1, y1]] = d3.geoBounds(terr);
-  const cx = (x0 + x1) / 2;
+  const cx = x0 <= x1 ? (x0 + x1) / 2 : ((x0 + x1 + 360) / 2 + 180) % 360 - 180;
   return d3.geoConicConformal().parallels([y0 + (y1 - y0) / 6, y1 - (y1 - y0) / 6]).rotate([-cx, 0]);
 }
 export { d3 };

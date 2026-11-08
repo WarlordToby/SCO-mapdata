@@ -156,3 +156,4 @@ export function tigre() {
 }
 
 export const HELI = { alouette3, gazelle, puma, cougar, nh90, h125, ec135: h135, tigre };
+export { ring, fuselage, rotor, tailRotor, fenestron, skids, wheelGear, flagH, fin, twinEngineHeli };

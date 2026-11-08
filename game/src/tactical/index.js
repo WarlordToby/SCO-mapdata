@@ -42,7 +42,7 @@ async function enterTactical_(o) {
     const [tdx, tdy] = gen.threatDir;
     R.cc.target.set(tdx * 300, city.heightAt(tdx * 300, tdy * 300), -tdy * 300); R.cc.dist = 1600; R.cc.yaw = Math.atan2(-tdx, tdy); R.cc.pitch = 0.8;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: gen.half * 1.5, supply: o.supply, severity: 1 });
-    sim.startRural(o.forces, { threatDir: gen.threatDir, half: gen.half, duration: o.rural.duration, waves: o.rural.waves, platoons: o.rural.platoons, nation: o.rural.nation, frontName: o.cityName });
+    sim.startRural(o.forces, { threatDir: gen.threatDir, half: gen.half, duration: o.rural.duration, waves: o.rural.waves, platoons: o.rural.platoons, nation: o.rural.nation, cc: o.rural.cc, frontName: o.cityName });
     figs = makeFigures(); vehs = makeVehicles(); beasts = figs.humanoid ? null : new Beasts(R.scene, sim, figs);
     window.__tac = { city, sim, R, gen, figs, vehs, beasts };
     $('#tRight', root).style.display = 'none';

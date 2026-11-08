@@ -104,7 +104,8 @@ export class MapView {
   cellsInView() {
     if (this._cells) return this._cells;
     const [[x0, y0], [x1, y1]] = d3.geoBounds(this.o.terr), out = [];
-    for (let lat = y0 - RES; lat <= y1 + RES; lat += RES) for (let lon = x0 - RES; lon <= x1 + RES; lon += RES) { const i = Math.floor((lon + 180) / RES), j = Math.floor((90 - lat) / RES); if (i < 0 || j < 0 || i >= GW || j >= GH) continue; const k = WG.idx[j * GW + i]; if (k >= 0) out.push(k); }
+    const xe = x1 < x0 ? x1 + 360 : x1; // across the antimeridian
+    for (let lat = y0 - RES; lat <= y1 + RES; lat += RES) for (let lon0 = x0 - RES; lon0 <= xe + RES; lon0 += RES) { const lon = lon0 > 180 ? lon0 - 360 : lon0, i = Math.floor((lon + 180) / RES), j = Math.floor((90 - lat) / RES); if (i < 0 || j < 0 || i >= GW || j >= GH) continue; const k = WG.idx[j * GW + i]; if (k >= 0) out.push(k); }
     return (this._cells = [...new Set(out)]);
   }
   cellQuad(ctx, k) {

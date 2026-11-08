@@ -1,4 +1,5 @@
 import { packFor } from './packs.js';
+import { lineupOf, starterKit, procureTerms } from './nations.js';
 import { ITEM, isVehicle, isHeli, STARTING_STOCK, GARRISON_STOCK, BASE_SIZES, MODULES, TEMPLATES, THREATS, DISTRICTS } from './catalog.js';
 import { VERSION, SAVE_FORMAT, migrate } from './version.js';
 import { WORLD, byCcn3, territoryOf, citiesOf, distKm, bearing, compass, interp } from './geo.js';
@@ -100,35 +101,34 @@ export function placeBase(lonlat, size, name) {
   };
   if (isHQ) {
     b.modules = ['barracks', 'barracks', 'armory', 'motorpool', 'motorpool', 'helipad'].map(type => ({ id: uid('m'), type, done: true }));
-    b.personnel = 64; b.storage = { ...STARTING_STOCK };
+    b.personnel = 64; b.storage = { ...(lineupOf(S.nation?.cca2).start || STARTING_STOCK) }; const K = starterKit(S.nation?.cca2), vn = id => ITEM[id].name.split(/[ (]/)[0];
     S.setupLeft = 2;
     S.bases.push(b);
     const g = { id: uid('g'), name: 'Contingency Group Alpha', unitIds: [] };
     S.groups.push(g);
     // Pre-formed starter units
     const mk = (tpl, name, items, gear) => { const r = formUnit(b.id, tpl, items, gear, name); if (typeof r !== 'string') g.unitIds.push(r.id); };
-    mk('rifle', '1st Rifle Squad', { famas: 6, aa52: 1, mas4956: 1 }, { vest: 8 });
-    mk('rifle', '2nd Rifle Squad', { famas: 6, aa52: 1, mas4956: 1 }, { vest: 8 });
-    mk('response', 'Response Team 1', { mat49: 6 }, { nrbc: 6 });
-    mk('vehicle', 'VAB 1', { vab: 1 }, {});
-    mk('vehicle', 'VAB 2', { vab: 1 }, {});
-    mk('vehicle', 'TRM Transport 1', { trm2000: 1 }, {});
-    mk('vehicle', 'Alouette 1', { alouette3: 1 }, {});
+    mk('rifle', '1st Rifle Squad', { ...K.squad }, { vest: 8 });
+    mk('rifle', '2nd Rifle Squad', { ...K.squad }, { vest: 8 });
+    mk('response', 'Response Team 1', { ...K.response }, { nrbc: 6 });
+    if (K.apc) { mk('vehicle', `${vn(K.apc)} 1`, { [K.apc]: 1 }, {}); mk('vehicle', `${vn(K.apc)} 2`, { [K.apc]: 1 }, {}); }
+    if (K.truck) mk('vehicle', `${vn(K.truck)} Transport 1`, { [K.truck]: 1 }, {});
+    if (K.heli) mk('vehicle', `${vn(K.heli)} 1`, { [K.heli]: 1 }, {});
     log('good', `Headquarters established near ${city?.name || 'the capital'}. Contingency Group Alpha formed.`);
   } else if (setup) {
     // Two regional garrisons granted with the charter, each with its own contingency group
     const L = ['Bravo', 'Charlie'][setupIdx - 1] || 'Delta';
     b.modules = ['barracks', 'armory', 'motorpool', 'helipad'].map(type => ({ id: uid('m'), type, done: true }));
-    b.personnel = 40; b.storage = { ...GARRISON_STOCK };
+    b.personnel = 40; b.storage = { ...(lineupOf(S.nation?.cca2).garrison || GARRISON_STOCK) }; const K = starterKit(S.nation?.cca2, true), vn = id => ITEM[id].name.split(/[ (]/)[0];
     S.bases.push(b);
     const g = { id: uid('g'), name: `Contingency Group ${L}`, unitIds: [] };
     S.groups.push(g);
     const mk = (tpl, name, items, gear) => { const r = formUnit(b.id, tpl, items, gear, name); if (typeof r !== 'string') g.unitIds.push(r.id); };
-    mk('rifle', `${L} Rifle Squad`, { famas: 6, aa52: 1, mas4956: 1 }, { vest: 8 });
-    mk('response', `${L} Response Team`, { mat49: 6 }, { nrbc: 6 });
-    mk('vehicle', `${L} VAB`, { vab: 1 }, {});
-    mk('vehicle', `${L} TRM Transport`, { trm2000: 1 }, {});
-    mk('vehicle', `Alouette ${setupIdx + 1}`, { alouette3: 1 }, {});
+    mk('rifle', `${L} Rifle Squad`, { ...K.squad }, { vest: 8 });
+    mk('response', `${L} Response Team`, { ...K.response }, { nrbc: 6 });
+    if (K.apc) mk('vehicle', `${L} ${vn(K.apc)}`, { [K.apc]: 1 }, {});
+    if (K.truck) mk('vehicle', `${L} ${vn(K.truck)} Transport`, { [K.truck]: 1 }, {});
+    if (K.heli) mk('vehicle', `${vn(K.heli)} ${setupIdx + 1}`, { [K.heli]: 1 }, {});
     S.setupLeft--; if (S.setupLeft <= 0) { S.needsHQ = false; log('good', 'All three charter bases are operational. Strategic command is live.'); }
     log('good', `${b.name} established near ${city?.name || ''}. Contingency Group ${L} formed.`);
   } else {
@@ -161,13 +161,14 @@ export function recruit(baseId, n) {
 }
 
 export function order(itemId, qty, baseId) {
-  const it = ITEM[itemId], b = S.bases.find(x => x.id === baseId);
-  if (S.standing < it.standing) return `Requires government standing ${it.standing}.`;
-  const cost = it.cost * qty; if (S.funds < cost) return 'Insufficient funds.';
+  const it = ITEM[itemId], b = S.bases.find(x => x.id === baseId), T = procureTerms(S.nation?.cca2, it);
+  if (!T.ok) return `${it.name} is embargoed for ${S.nation?.name || 'your country'}.`;
+  if (S.standing < T.standing) return `Requires government standing ${T.standing}.`;
+  const cost = T.cost * qty; if (S.funds < cost) return 'Insufficient funds.';
   const sp = spaceFor(b, itemId, qty); if (sp) return sp;
   S.funds -= cost; ledger(-cost, `Procurement: ${qty}× ${it.name}`);
-  S.deliveries.push({ id: uid('d'), item: itemId, qty, baseId, at: S.t + it.lead * DAY });
-  log('info', `Ordered ${qty}× ${it.name} for ${b.name}. Delivery in ${it.lead} days.`);
+  S.deliveries.push({ id: uid('d'), item: itemId, qty, baseId, at: S.t + T.lead * DAY });
+  log('info', `Ordered ${qty}× ${it.name} for ${b.name} (${T.note.toLowerCase()}). Delivery in ${T.lead} days.`);
   return null;
 }
 
