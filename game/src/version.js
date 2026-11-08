@@ -1,7 +1,7 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
 export const VERSION = '0.14.1';
-export const SAVE_FORMAT = 3; // bump when the save structure changes; add a step to migrate() below
+export const SAVE_FORMAT = 4; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
   {
@@ -224,6 +224,11 @@ export function migrate(s) {
   if (from < 3) {
     // 0.10: the global outbreak replaces timed incidents; a world outbreak is started on load (see state.load)
     s.saveFormat = 3; s.fronts = s.fronts || []; s.foreign = s.foreign || [];
+  }
+  if (from < 4) {
+    // 0.15: the extraterrestrial threat was withdrawn; running alien outbreaks become insectoid swarms
+    s.saveFormat = 4; const fix = o => { if (o && o.threat === 'alien') o.threat = 'swarm'; };
+    fix(s.world); for (const k of ['incidents', 'fronts', 'foreign']) for (const o of s[k] || []) fix(o);
   }
   s.gameVersion = VERSION;
   return { s, migratedFrom: from < SAVE_FORMAT ? from : null };

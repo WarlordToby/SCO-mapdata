@@ -494,7 +494,7 @@ export function recallFront(fid) {
   S.fronts = S.fronts.filter(x => x !== f); log('info', `${f.name}: units withdrawn${f.kia ? ` (${f.kia} killed while holding the line)` : ''}.`);
 }
 // ---- countryside battles at a front line ----
-const RURAL_WAVES = { undead: 260, mutant: 40, alien: 80, vampire: 70, lycan: 60, swarm: 500 };
+const RURAL_WAVES = { undead: 260, mutant: 40, vampire: 70, lycan: 60, swarm: 500 };
 export function frontBattle(fid) {
   const f = S.fronts.find(x => x.id === fid); if (!f || !S.world) return null;
   const k = f.k, ci = WG.country[k], x = S.world.inf[k], lc = Array.from(WG.lc.subarray(k * 7, k * 7 + 6)), m = WORLD[ci]?.meta || {};

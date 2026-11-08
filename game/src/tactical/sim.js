@@ -3,14 +3,14 @@
 import { FLAG, Grid, Heap } from './city.js';
 import { Barriers } from './barriers.js';
 import { ITEM } from '../catalog.js';
+import { installHostiles } from './hostiles.js';
 
 export const TH = { // per-threat creature profiles
   undead: { vault: 2.2, hp: 110, speed: 1.4, dmg: 9, range: 1.8, aggro: 45, convert: 0.35, bDmg: 0.2, nest: 0, size: 1, sense: 260 },
   mutant: { vault: 1.2, hp: 520, speed: 3.2, dmg: 45, range: 2.5, aggro: 70, convert: 0, bDmg: 6, nest: 0, size: 2.2, sense: 300 },
-  alien: { vault: 1.0, hp: 180, speed: 2.4, dmg: 14, range: 55, aggro: 120, convert: 0.05, bDmg: 1.5, nest: 0.02, size: 1.3, sense: 400, ranged: true },
   vampire: { vault: 0.5, hp: 240, speed: 4.2, dmg: 26, range: 2, aggro: 80, convert: 0.12, bDmg: 0.3, nest: 0, size: 1.2, sense: 350, night: true },
   lycan: { vault: 0.5, hp: 300, speed: 5.5, dmg: 32, range: 2.2, aggro: 90, convert: 0.06, bDmg: 0.8, nest: 0, size: 1.6, sense: 350 },
-  swarm: { vault: 0.7, hp: 18, speed: 3.0, dmg: 4, range: 1.5, aggro: 35, convert: 0, bDmg: 0.4, nest: 0.12, size: 0.55, sense: 220 },
+  swarm: { vault: 0.7, hp: 18, speed: 3.0, dmg: 4, range: 1.5, aggro: 35, convert: 0, bDmg: 0.4, nest: 0, size: 0.55, sense: 220 },
 };
 const NAMES_CC = { // country-specific name pools where a region is too broad
   DE: ['Lukas Anna Jonas Lena Felix Sophie Maximilian Marie Paul Laura Tobias Julia', 'Müller Schmidt Schneider Fischer Weber Becker Wagner Hoffmann Schulz Koch Richter Neumann'],
@@ -58,7 +58,8 @@ export class Sim {
   start(impactB, forces, stagingDirs) {
     const C = this.city; this.impact = impactB; this.origin = impactB.c;
     impactB.infest = 0.4; impactB.state = 1; impactB.known = true; this.infested.add(impactB);
-    const n = Math.round({ undead: 30, mutant: 7, alien: 14, vampire: 10, lycan: 8, swarm: 80 }[this.threat] * (this.o.severity || 1));
+    this.startHostiles(impactB);
+    const n = this.initialHostiles(impactB, this.o.severity || 1) ? 0 : Math.round({ undead: 30, mutant: 7, vampire: 10, lycan: 8, swarm: 80 }[this.threat] * (this.o.severity || 1));
     for (let i = 0; i < n; i++) this.spawnCreature(impactB.ent[0] + (Math.random() - .5) * 20, impactB.ent[1] + (Math.random() - .5) * 20);
     this.evacZones.push({ c: impactB.c, r: 450 });
     this.pickHVTs();
@@ -75,6 +76,7 @@ export class Sim {
   // ---------- countryside: hold the line ----------
   // R: { threatDir (unit vector towards the overrun side), half (map half-width), duration (sim s), waves (creatures), platoons, nation, frontName }
   startRural(forces, R) {
+    this.startHostiles(null);
     const C = this.city, [dx, dy] = R.threatDir, px = -dy, py = dx, half = R.half;
     this.rural = R; R.goal = -half * 0.35; this.origin = [dx * half * 0.9, dy * half * 0.9]; this.breach = 0; this.breachMax = Math.max(15, Math.round(R.waves * 0.18)); this.waveLeft = R.waves; this.waveAcc = 0;
     this.evacZones.push({ c: [0, 0], r: half * 3 });
@@ -359,6 +361,7 @@ export class Sim {
   spawnCreature(x, y, inB = null) {
     if (this.creatures.length > 3500) return null;
     const P = this.P, c = { id: ++this.cid, x, y, hp: P.hp, max: P.hp, inB, target: null, path: null, think: Math.random() * 2, atk: 0, hx: 1, hy: 0 };
+    if (this.kindSet()) this.assignKind(c);
     this.creatures.push(c); return c;
   }
   updateCreatures(dt) {
@@ -368,18 +371,19 @@ export class Sim {
     for (const c of this.creatures) if (!c.inB) this.cGrid.add(c.x, c.y, c);
     for (const c of this.creatures) {
       if (c.hp <= 0) continue;
-      c.think -= dt; c.atk -= dt;
+      c.think -= dt; c.atk -= dt; const Q = c.K || P;
       if (c.inB) { // inside a building: infest it, kill or convert occupants, damage it
         const b = c.inB;
         b.infest = Math.min(1, b.infest + dt * 0.02 * nightMul); b.state = 1; this.dirty(b); if (b.infest > 0.1) this.infested.add(b);
+        if (c.K && this.kindInBuilding(c, b, dt)) continue;
         if (b.occ > 0) {
           const k = Math.min(b.occ, dt * 1.2 * nightMul * (b.garrison.length ? 0.2 : 1));
-          b.occ -= k; b.dead += k; this.stats.civDead += k; if (b.dead > 3 && !b.known) { b.known = true; this.dirty(b); this.log(`Emergency calls from ${b.name || b.addr || 'a building'}: attack in progress.`, 'bad'); } b.convAcc = (b.convAcc || 0) + k * P.convert;
+          b.occ -= k; b.dead += k; this.stats.civDead += k; if (this.hive) this.hive.biomass += k * 0.3; if (b.dead > 3 && !b.known) { b.known = true; this.dirty(b); this.log(`Emergency calls from ${b.name || b.addr || 'a building'}: attack in progress.`, 'bad'); } b.convAcc = (b.convAcc || 0) + k * P.convert;
           while (b.convAcc >= 1) { b.convAcc--; this.spawnCreature(b.ent[0], b.ent[1], b); }
         }
         if (P.nest && Math.random() < P.nest * dt) this.spawnCreature(b.ent[0], b.ent[1], null);
-        if (P.bDmg) this.damageBuilding(b, P.bDmg * dt * 10);
-        if (b.garrison.length) { for (const u of b.garrison) this.hurtUnit(u, P.dmg * dt * 0.3); }
+        if (Q.bDmg) this.damageBuilding(b, Q.bDmg * dt * 10);
+        if (b.garrison.length) { for (const u of b.garrison) this.hurtUnit(u, Q.dmg * dt * 0.3); }
         if ((b.occ <= 0.5 && b.infest >= 0.95 && c.think <= 0) || (P.night && !night && false)) { c.inB = null; c.x = b.ent[0]; c.y = b.ent[1]; c.target = null; c.think = 1 + Math.random() * 3; }
         if (P.night && !night) continue; // nocturnal threats shelter by day
         continue;
@@ -391,14 +395,16 @@ export class Sim {
       // pick targets
       if (c.think <= 0) {
         c.think = 1.5 + Math.random() * 2;
-        let enemy = null, ed = P.aggro * P.aggro;
-        for (const u of this.units) { if (u.dead || u.inB || u.kind === 'heli') continue; const d = (u.x - c.x) ** 2 + (u.y - c.y) ** 2; if (d < ed) { ed = d; enemy = u; } }
-        if (!enemy && this.policeGrid) this.policeGrid.near(c.x, c.y, P.aggro, pc => { const d = (pc.x - c.x) ** 2 + (pc.y - c.y) ** 2; if (d < ed) { ed = d; enemy = null; c.target = { kind: 'p', p: [pc.x, pc.y] }; c.path = null; } });
+        let enemy = null, ed = Q.aggro * Q.aggro, pol = false; const busy = c.K && (c.K.build || c.carry);
+        if (!busy) for (const u of this.units) { if (u.dead || u.inB || u.kind === 'heli') continue; const d = (u.x - c.x) ** 2 + (u.y - c.y) ** 2; if (d < ed) { ed = d; enemy = u; } }
+        if (!enemy && !busy && this.policeGrid) this.policeGrid.near(c.x, c.y, Q.aggro, pc => { const d = (pc.x - c.x) ** 2 + (pc.y - c.y) ** 2; if (d < ed) { ed = d; enemy = null; pol = true; c.target = { kind: 'p', p: [pc.x, pc.y] }; c.path = null; } });
         if (enemy) c.target = { kind: 'u', u: enemy };
+        else if (pol) { /* closing on a police car */ }
+        else if (c.K && this.kindThink(c)) { /* the kind chose */ }
         else if (!c.target || c.target.kind !== 'b' || c.target.b.occ <= 0.5) {
           let best = null, bd = Infinity;
-          C.bGrid.near(c.x, c.y, P.sense, i => { const b = C.buildings[i]; if (b === c.noB || b.occ < 1 || !C.unlockedAt(b.c[0], b.c[1]) && Math.random() < 0.7) return; const d = (b.c[0] - c.x) ** 2 + (b.c[1] - c.y) ** 2 - b.occ * 40 + (b.garrison.length ? 1e5 : 0); if (d < bd) { bd = d; best = b; } });
-          for (const z of this.sites) if (z.kind === 'safezone' && z.people > 30) { const d = (z.p[0] - c.x) ** 2 + (z.p[1] - c.y) ** 2 - z.people * 60; if (d < bd && d < P.sense * P.sense * 2) { bd = d; best = null; c.target = { kind: 'z', z }; c.path = null; } }
+          C.bGrid.near(c.x, c.y, Q.sense, i => { const b = C.buildings[i]; if (b === c.noB || b.occ < 1 || !C.unlockedAt(b.c[0], b.c[1]) && Math.random() < 0.7) return; const d = (b.c[0] - c.x) ** 2 + (b.c[1] - c.y) ** 2 - b.occ * 40 + (b.garrison.length ? 1e5 : 0); if (d < bd) { bd = d; best = b; } });
+          for (const z of this.sites) if (z.kind === 'safezone' && z.people > 30) { const d = (z.p[0] - c.x) ** 2 + (z.p[1] - c.y) ** 2 - z.people * 60; if (d < bd && d < Q.sense * Q.sense * 2) { bd = d; best = null; c.target = { kind: 'z', z }; c.path = null; } }
           if (best) { c.target = { kind: 'b', b: best }; c.path = null; }
           else if (!c.target && this.rural) { c.target = { kind: 'p', p: this.marchPoint(c), march: true }; c.path = null; }
           else if (!c.target) { const a = Math.random() * Math.PI * 2; c.target = { kind: 'p', p: [c.x + Math.cos(a) * 200, c.y + Math.sin(a) * 200] }; c.path = null; }
@@ -406,8 +412,10 @@ export class Sim {
       }
       // civilians on foot nearby
       if (c.biteT > this.t) continue; // busy biting, feeding or getting up
+      if (c.charge && this.chargeStep(c, dt)) continue;
       if (Math.random() < dt * 2) this.pedGrid.near(c.x, c.y, 3, p => { if (!p.dead && !(c.biteT > this.t) && Math.hypot(p.x - c.x, p.y - c.y) < 2.5) {
-        p.dead = true; this.stats.civDead += p.people * 0.5; this.stats.evacuated -= p.people * 0.5;
+        if (c.K && this.kindTouchPed(c, p)) return;
+        p.dead = true; this.stats.civDead += p.people * 0.5; this.stats.evacuated -= p.people * 0.5; if (this.hive) this.hive.biomass += p.people * 0.4;
         const by = this.threat === 'lycan' ? 'claw' : P.convert > 0.2 ? 'bite' : 'claw', r = P.convert > 0.2 ? this.addRiser(p.x, p.y, { ped: p }) : null;
         c.biteT = this.t + (by === 'bite' ? 2.6 : 1.2); this.fxPush({ k: 'ped', p, by, a: c, riser: r });
       } });
@@ -415,29 +423,35 @@ export class Sim {
       const tg = c.target; if (!tg) continue;
       let tx, ty;
       if (tg.kind === 'u') { if (tg.u.dead || tg.u.inB) { c.target = null; continue; } tx = tg.u.x; ty = tg.u.y; }
-      else if (tg.kind === 'b') { tx = tg.b.ent[0]; ty = tg.b.ent[1]; }
-      else if (tg.kind === 'z') { tx = tg.z.p[0]; ty = tg.z.p[1]; if (Math.hypot(tx - c.x, ty - c.y) < tg.z.r * 0.6) { if (c.atk <= 0 && tg.z.people > 0) { c.atk = 1; const k = Math.min(tg.z.people, P.dmg * 0.15); tg.z.people -= k; this.stats.civDead += k; this.stats.evacuated -= k; if (P.convert > 0.2 && Math.random() < 0.3) this.spawnCreature(c.x, c.y); } if (tg.z.people <= 0) c.target = null; continue; } }
+      else if (tg.kind === 'b') { tx = tg.b.ent[0]; ty = tg.b.ent[1]; if (tg.b.destroyed) { c.target = null; continue; } }
+      else if (tg.kind === 'ped') { const p = tg.p; if (p.dead || p.captive) { c.target = null; c.think = 0; continue; } tx = p.x; ty = p.y; if (Math.hypot(tx - c.x, ty - c.y) < (c.K?.capture ? 5 : 2.2)) { // hunters lunge the last few metres
+          if (c.K?.capture) { c.x = p.x - (p.x - c.x) * 0.2; c.y = p.y - (p.y - c.y) * 0.2; }
+          if (!this.kindTouchPed(c, p)) c.target = null; continue; } }
+      else if (tg.kind === 'z') { tx = tg.z.p[0]; ty = tg.z.p[1]; if (Math.hypot(tx - c.x, ty - c.y) < tg.z.r * 0.6) { if (c.atk <= 0 && tg.z.people > 0) { c.atk = 1; const k = Math.min(tg.z.people, Q.dmg * 0.15); tg.z.people -= k; this.stats.civDead += k; this.stats.evacuated -= k; if (P.convert > 0.2 && Math.random() < 0.3) this.spawnCreature(c.x, c.y); } if (tg.z.people <= 0) c.target = null; continue; } }
       else { tx = tg.p[0]; ty = tg.p[1]; }
       const d = Math.hypot(tx - c.x, ty - c.y);
       let los = null;
-      if (tg.kind === 'u' && d <= P.range + 1 && P.ranged && d > 4 && tg.u.kind !== 'heli') { los = C.bars.sight(c.x, c.y, tx, ty); if (!los.clear) los = false; }
-      if (tg.kind === 'u' && d <= P.range + 1 && los !== false) {
-        if (c.atk <= 0) { c.atk = 1; this.hurtUnit(tg.u, P.dmg * nightMul * (los ? los.cover : 1), P.ranged ? null : c); if (P.ranged) this.tracers.push({ a: [c.x, c.y, 2], b: [tx, ty, 1.5], t: 0.12, enemy: true }); }
+      if (tg.kind === 'u' && c.K?.charge && this.maybeCharge(c, tg.u, d)) continue;
+      if (tg.kind === 'u' && d <= Q.range + 1 && Q.ranged && d > 4 && tg.u.kind !== 'heli') { los = C.bars.sight(c.x, c.y, tx, ty); if (!los.clear) los = false; }
+      if (tg.kind === 'u' && d <= Q.range + 1 && los !== false) {
+        if (c.atk <= 0) { c.atk = 1; if (!(c.K && this.kindAttack(c, tg.u, d, los))) { this.hurtUnit(tg.u, Q.dmg * nightMul * (los ? los.cover : 1), Q.ranged ? null : c); if (Q.ranged) this.tracers.push({ a: [c.x, c.y, 2], b: [tx, ty, 1.5], t: 0.12, enemy: true }); } }
         continue;
       }
       if (tg.kind === 'b' && d < 3) {
         const b = tg.b;
-        if (b.garrison.length) { if (c.atk <= 0) { c.atk = 1; this.damageBuilding(b, P.dmg * 2); for (const u of b.garrison) this.hurtUnit(u, P.dmg * 0.25); } continue; }
+        if (tg.deposit && this.kindArrive(c, tg)) continue;
+        if (b.garrison.length) { if (c.atk <= 0) { c.atk = 1; this.damageBuilding(b, Q.dmg * 2); for (const u of b.garrison) this.hurtUnit(u, Q.dmg * 0.25); } continue; }
         c.inB = b; c.target = null; c.path = null; b.state = 1; continue;
       }
       if (tg.kind === 'p' && d < 4) { c.target = null; continue; }
-      const cs = P.speed * nightMul * dt * (c.crawl ? 0.22 : 1);
+      const cs = Q.speed * nightMul * dt * (c.crawl ? 0.22 : 1) * (c.K ? Math.min(1.25, this.boost(c)) : 1);
+      if (c.K?.smash) this.titanStep(c, dt);
       if (tg.march && this.flow && this.flowMove(c, cs)) continue;
       this.stepAlongPath(c, tx, ty, cs, true);
     }
     // remove dead
     const before = this.creatures.length;
-    for (const c of this.creatures) if (c.hp <= 0 && !c.through && !c._dn) { c._dn = true; this.fxPush({ k: 'cdie', c, by: c.lastBy || 'rifle' }); }
+    for (let pass = 0; pass < 2; pass++) for (const c of this.creatures) if (c.hp <= 0 && !c.through && !c._dn) { c._dn = true; if (c.K) this.kindDeath(c); this.fxPush({ k: 'cdie', c, by: c.lastBy || 'rifle' }); }
     this.creatures = this.creatures.filter(c => c.hp > 0);
     // buildings with no creatures inside slowly lose infestation status only when cleared by force (see clearing)
   }
@@ -472,8 +486,10 @@ export class Sim {
         const w = Barriers.who(o, ITEM), hx = o.x + ux * sm * hit.t, hy = o.y + uy * sm * hit.t;
         if (hit.s && !B.blocks(hit.s, w)) {
           if (w.veh) { B.breakAt(hit.s, hx, hy); o.crash = 0.8; }
-          else { o.x = hx - ux * 0.25; o.y = hy - uy * 0.25; o.hx = ux; o.hy = uy; o.vault = { left: o.kind === 'squad' ? 1.1 : (this.P?.vault ?? 1.5), x: hx + ux * 0.45, y: hy + uy * 0.45 }; return; }
+          else { o.x = hx - ux * 0.25; o.y = hy - uy * 0.25; o.hx = ux; o.hy = uy; o.vault = { left: o.kind === 'squad' ? 1.1 : ((o.K || this.P)?.vault ?? 1.5), x: hx + ux * 0.45, y: hy + uy * 0.45 }; return; }
         } else {
+          // titans tear through the building in their way
+          if (o.K?.smash && hit.wall) { this.damageBuilding(hit.wall.b, 650 * dt); if (Math.random() < dt * 3) this.fxPush({ k: 'smash', x: hx, y: hy, c: o, small: true }); return; }
           // blocked: find a way round (a limited number of searches per tick; others wait a tick)
           if (this.routeBudget <= 0) return;
           this.routeBudget--;
@@ -541,7 +557,7 @@ export class Sim {
     return out.reverse();
   }
   damageBuilding(b, d) {
-    if (b.hp <= 0) return; b.hp -= d; this.dirty(b); (this.damaged || (this.damaged = new Set())).add(b);
+    if (b.hp <= 0) return; if (b.hive) d *= 1 - 0.5 * b.hive; b.hp -= d; this.dirty(b); (this.damaged || (this.damaged = new Set())).add(b);
     if (b.hp <= 0) { b.hp = 0; b.destroyed = true; this.stats.bDestroyed++; const k = b.occ * 0.6; b.occ -= k; b.dead += k; this.stats.civDead += k; for (const u of b.garrison.slice()) this.ungarrison(u); if (this.stats.bDestroyed % 5 === 1) this.log(`Building collapsed: ${b.name || b.addr || 'block'}.`, 'bad'); }
   }
 
@@ -566,7 +582,7 @@ export class Sim {
   hurtUnit(u, dmg, src = null) {
     if (u.dead) return;
     const gearBonus = u.gear && this.P && ((this.threat === 'undead' || this.threat === 'swarm' || this.threat === 'mutant') && u.gear === 'nrbc' || (this.threat === 'vampire' || this.threat === 'alien') && u.gear === 'nvg') ? 0.75 : 1;
-    const d = dmg * (1 - u.armor) * gearBonus * (u.inB ? 0.45 : 1);
+    const ap = src?.K?.smash ? 0.35 : src?.K?.charge ? 0.6 : 1, d = dmg * (1 - u.armor * ap) * gearBonus * (u.inB ? 0.45 : 1);
     u.hp -= d;
     const kk = u.ai ? 'natKIA' : 'soldiersKIA';
     if (u.kind === 'squad') { const men = Math.max(0, Math.ceil(u.hp / 100)); if (men < u.men) { for (let i = u.men - 1; i >= men; i--) this.manDown(u, i, src, kk); u.men = men; } }
@@ -683,8 +699,8 @@ export class Sim {
       const dps = u.fire * (u.kind === 'squad' ? u.men : 1) * 0.5;
       if (u.cool <= 0 && u.ammo > 0) {
         u.cool = 0.5; u.ammo -= 0.35;
-        if (inside.length) { const c = inside[0]; c.hp -= dps * 1.2; if (c.hp <= 0) { this.stats.kills++; u.kills++; } this.hurtUnit(u, this.P.dmg * 0.4 * Math.min(4, inside.length)); }
-        else { b.infest = Math.max(0, b.infest - 0.06); if (b.infest <= 0) { b.state = 2; this.infested.delete(b); this.dirty(b); this.stats.specimens += 1; this.log(`${u.name} cleared ${b.name || b.addr || 'a building'} — samples taken.`, 'good'); u.order = this.garrisonMarks.has(b.idx) ? { type: 'garrison', b } : null; } }
+        if (inside.length) { const c = inside[0]; c.hp -= dps * 1.2; if (c.hp <= 0) { this.stats.kills++; u.kills++; } this.hurtUnit(u, (c.K || this.P).dmg * 0.4 * Math.min(4, inside.length)); }
+        else { b.infest = Math.max(0, b.infest - 0.06 * (1 - 0.6 * (b.hive || 0))); if (b.infest <= 0) { if (b.hive) this.clearHive(b); b.state = 2; this.infested.delete(b); this.dirty(b); this.stats.specimens += 1; this.log(`${u.name} cleared ${b.name || b.addr || 'a building'} — samples taken.`, 'good'); u.order = this.garrisonMarks.has(b.idx) ? { type: 'garrison', b } : null; } }
         this.dirty(b);
       }
       return;
@@ -826,7 +842,7 @@ export class Sim {
         this.cGrid.near(c.x, c.y, 75, k => { if (k.hp <= 0) return; const d = (k.x - c.x) ** 2 + (k.y - c.y) ** 2; if (d < bd) { bd = d; best = k; } });
         if (best) { c.cool = 0.8; c.fireT = this.t; c.aimAt = [best.x, best.y]; best.hp -= 7 * (best.max > 300 ? 0.5 : 1); this.tracers.push({ a: [c.x, c.y, 1.3], b: [best.x, best.y, 1.2], t: 0.06, police: true }); if (best.hp <= 0) this.stats.kills++; }
       }
-      this.cGrid.near(c.x, c.y, Math.max(4, P.range + 1), k => { if (k.hp > 0 && Math.hypot(k.x - c.x, k.y - c.y) < Math.max(4, P.range + 1)) c.hp -= P.dmg * dt * 0.8; });
+      this.cGrid.near(c.x, c.y, 6, k => { const K = k.K || P; if (k.hp > 0 && !K.ranged && Math.hypot(k.x - c.x, k.y - c.y) < Math.max(4, K.range + 1)) c.hp -= K.dmg * dt * 0.8; });
       if (c.hp <= 0) { lost.push(c); this.stats.policeLost += 2; const q = this.carPos(c), rs = this.P.convert > 0.2 ? [this.addRiser(q[0] + q[4] * 2.1, q[1] - q[3] * 2.1, { car: c, i: 0 }), this.addRiser(q[0] - q[4] * 2.1, q[1] + q[3] * 2.1, { car: c, i: 1 })] : null; this.fxPush({ k: 'police', car: c, risers: rs, pos: q }); }
     }
     if (lost.length) { const ls = new Set(lost); this.cars = this.cars.filter(c => !ls.has(c)); if (this.stats.policeLost % 6 === 2) this.log(`Police patrol overrun — ${this.stats.policeLost} officers lost so far.`, 'bad'); }
@@ -875,7 +891,7 @@ export class Sim {
     }
     this.nades = this.nades.filter(g => { if (t < g.t1) return true; this.explode(g.x, g.y, 7, 240, g.u); this.stats.supplyUsed += 0.3; return false; });
     // ---- collisions ----
-    const rad = { lycan: 0.55, mutant: 0.8, alien: 0.4, swarm: 0.25 }[this.threat] || 0.36;
+    const rad = { lycan: 0.55, mutant: 0.8, swarm: 0.25 }[this.threat] || 0.36;
     const push = (o, dx, dy) => { const nx = o.x + dx, ny = o.y + dy; if (Math.abs(dx) + Math.abs(dy) > 0.04 && C.bars.firstHit(o.x, o.y, nx, ny)) return; o.x = nx; o.y = ny; };
     for (const c of this.creatures) {
       if (c.inB || c.hp <= 0) continue;
@@ -902,7 +918,7 @@ export class Sim {
       this.cGrid.near(q[0], q[1], 2.4, c => { if (c.inB || c.hp <= 0 || Math.hypot(c.x - q[0], c.y - q[1]) > 2.2) return; c.hp -= 40 + car.v * 9; c.lastBy = 'crush'; c.hitT = t; if (c.hp > 0 && this.limbable && Math.random() < 0.3) this.loseLimb(c, 'crush'); car.v *= 0.35; this.fxPush({ k: 'runover', c, car }); }); } }
   }
   step(dt) {
-    this.dtNow = dt; this.routeBudget = 16;
+    this.dtNow = dt; this.routeBudget = 28;
     this.t += dt; this.clock += dt * 1000 * 6; // compressed clock: 1 s of action = 6 s on the clock
     while (this.pending.length && this.clock >= this.pending[0].at) { const p = this.pending.shift(); const u = this.addUnit(p.f); this.log(`${u.name} arrived at staging ${p.f.approach}.`, 'good'); }
     this.zoneT -= dt; if (this.zoneT <= 0) { this.zoneT = 1; this.computeZone(); }
@@ -911,6 +927,7 @@ export class Sim {
     this.updatePeds(dt);
     if (this.rural) this.stepRural(dt);
     this.updateCreatures(dt);
+    if (this.gas) this.stepHostiles(dt);
     this.intelT -= dt; if (this.intelT <= 0) { this.intelT = 0.5; this.updateIntel(); }
     this.policeT = (this.policeT || 0) - dt; if (this.policeT <= 0) { this.policeT = 0.2; this.updatePolice(0.2); }
     this.updateUnits(dt);
@@ -989,3 +1006,4 @@ export class Sim {
     this.sumT = this.t; return (this.sumCache = { pop0, inside, infested, known, creatures: this.creatures.length, tracked: this.creatures.filter(c => c.vis).length, integrity, cars: this.cars.length, peds: this.peds.length });
   }
 }
+installHostiles(Sim);

@@ -4,6 +4,7 @@ import { City } from './city.js';
 import { Renderer, USE_COLORS } from './render.js';
 import { Sim } from './sim.js';
 import { generateRural } from './rural.js';
+import { Beasts } from './beasts.js';
 import { Figures } from './figures.js';
 import { Vehicles } from './veh/vehicles.js';
 import { ITEM } from '../catalog.js';
@@ -26,6 +27,7 @@ async function enterTactical_(o) {
   const city = new City(o.base, gen);
   const GORE_NAMES = ['Off', 'Reduced', 'Full'];
   let vehs = null; const makeVehicles = () => new Vehicles(R.scene, sim, { region: city.m.region, cc: city.m.country, playerCc: o.playerCc || city.m.country, nationCc: o.rural?.cc || city.m.country });
+  let beasts = null;
   let figs = null; const makeFigures = () => { const f = new Figures(R.scene, sim, { gore: (() => { try { const v = localStorage.getItem('sco.gore'); return v === null ? 2 : +v; } catch (_) { return 2; } })(), region: city.m.region, cc: city.m.country, month: new Date(o.clock).getUTCMonth(), lat: city.m.center?.lat ?? 45, arid: !!city.m.climate?.arid, playerCc: o.playerCc || city.m.country, nationCc: o.rural?.cc || city.m.country }); $('#tGore', root).textContent = 'Gore: ' + GORE_NAMES[f.goreLevel]; return f; };
   let R, sim, raf, alive = true, speed = 1, mode = null, sel = [], selB = null, lastHud = 0, dragging = null, keys = {}, result = null;
   if (gen) try {
@@ -41,8 +43,8 @@ async function enterTactical_(o) {
     R.cc.target.set(tdx * 300, city.heightAt(tdx * 300, tdy * 300), -tdy * 300); R.cc.dist = 1600; R.cc.yaw = Math.atan2(-tdx, tdy); R.cc.pitch = 0.8;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: gen.half * 1.5, supply: o.supply, severity: 1 });
     sim.startRural(o.forces, { threatDir: gen.threatDir, half: gen.half, duration: o.rural.duration, waves: o.rural.waves, platoons: o.rural.platoons, nation: o.rural.nation, frontName: o.cityName });
-    figs = makeFigures(); vehs = makeVehicles();
-    window.__tac = { city, sim, R, gen, figs, vehs };
+    figs = makeFigures(); vehs = makeVehicles(); beasts = figs.humanoid ? null : new Beasts(R.scene, sim, figs);
+    window.__tac = { city, sim, R, gen, figs, vehs, beasts };
     $('#tRight', root).style.display = 'none';
     $('#tLoad', root).style.display = 'none';
   } catch (e) {
@@ -75,8 +77,8 @@ async function enterTactical_(o) {
     R.cc.target.set(impact.c[0], impact.z, -impact.c[1]); R.cc.dist = 900; R.cc.yaw = 0.7; R.cc.pitch = 0.85;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: R0, supply: o.supply, severity: o.severity });
     sim.start(impact, o.forces, o.forces.map(f => f.approach));
-    figs = makeFigures(); vehs = makeVehicles();
-    window.__tac = { city, sim, R, figs, vehs };
+    figs = makeFigures(); vehs = makeVehicles(); beasts = figs.humanoid ? null : new Beasts(R.scene, sim, figs);
+    window.__tac = { city, sim, R, figs, vehs, beasts };
     $('#tLoad', root).style.display = 'none';
   } catch (e) {
     console.error(e); setLoad('Failed to load the city: ' + e.message); await new Promise(r => setTimeout(r, 2500)); root.remove(); return { aborted: true };
@@ -214,7 +216,7 @@ async function enterTactical_(o) {
     function flash(t) { sim.log(t, 'warn'); }
 
     // ---------------- painting ----------------
-    const tmp = new THREE.Color(), dark = new THREE.Color(0x14161a), amber = new THREE.Color(0xe0a030), blue = new THREE.Color(0x3d7dff), teal = new THREE.Color(0x40d0b0), pale = new THREE.Color(0x9fd8ff), white = new THREE.Color(0xffffff);
+    const resinCol = new THREE.Color(0x4a3416), tmp = new THREE.Color(), dark = new THREE.Color(0x14161a), amber = new THREE.Color(0xe0a030), blue = new THREE.Color(0x3d7dff), teal = new THREE.Color(0x40d0b0), pale = new THREE.Color(0x9fd8ff), white = new THREE.Color(0xffffff);
     function paintBuildings() {
       const list = sim.dirtyB || []; if (!list.length) return;
       const batch = list.splice(0, 900);
@@ -228,6 +230,7 @@ async function enterTactical_(o) {
         if (b.evac && b.occ < b.pop0 * 0.1) lerp(dark, 0.3);
         if (b.state === 2) lerp(teal, 0.35);
         if (b.infest > 0.05) lerp(threatCol, 0.4 + b.infest * 0.5);
+        if (b.hive > 0.05) lerp(resinCol, Math.min(0.85, 0.3 + b.hive * 0.55));
         if (sim.garrisonMarks.has(b.idx)) lerp(pale, 0.35);
         if (b.garrison.length) lerp(blue, 0.6);
         const dmg = 1 - b.hp / b.hp0; if (dmg > 0) lerp(dark, dmg * 0.75);
@@ -246,15 +249,13 @@ async function enterTactical_(o) {
       if (far) for (const c of sim.cars) { const p = sim.carPos(c), k = c.kind === 'police' ? [0.3, 0.5, 1] : c.kind === 'ambulance' ? [1, 1, 1] : [0.75, 0.75, 0.7]; blip(p[0], p[1], p[2], ...k); }
       if (far) for (const p of sim.peds) blip(p.x, p.y, city.heightAt(p.x, p.y), 0.9, 0.85, 0.6);
       const figScale = Math.min(2.2, Math.max(1, R.cc.dist / 450));
-      figs.onDraw = () => vehs.update({ heightAt: (x, y) => city.heightAt(x, y), figs, gore: figs.gore, view: [R.cc.target.x, -R.cc.target.z, R.cc.dist * 2.4 + 160], far, scale: Math.max(1, R.cc.dist / 500), night: sim.isNight() });
+      figs.onDraw = () => { beasts?.update({ heightAt: (x, y) => city.heightAt(x, y), view: [R.cc.target.x, -R.cc.target.z, R.cc.dist * 2.4 + 160], far, scale: Math.max(1, R.cc.dist / 450) }); vehs.update({ heightAt: (x, y) => city.heightAt(x, y), figs, gore: figs.gore, view: [R.cc.target.x, -R.cc.target.z, R.cc.dist * 2.4 + 160], far, scale: Math.max(1, R.cc.dist / 500), night: sim.isNight() }); };
       figs.update(!far, figScale, (x, y) => city.heightAt(x, y), [R.cc.target.x, -R.cc.target.z, R.cc.dist * 2.4 + 120]);
       // creatures
-      let ncr = 0; const cs = Math.max(1, R.cc.dist / 450) * sim.P.size;
-      for (const c of sim.creatures) { if (c.inB || !c.vis) continue; const z = city.heightAt(c.x, c.y); if (!figs.humanoid && ncr < 4000) R.setInst(D.creatures, ncr++, c.x, c.y, z, c.hx, c.hy, cs, o.threatColor); if (far) blip(c.x, c.y, z, 1, 0.25, 0.25); }
-      R.commit(D.creatures, ncr);
+      if (far) for (const c of sim.creatures) { if (c.inB || !c.vis) continue; blip(c.x, c.y, city.heightAt(c.x, c.y), 1, 0.25, 0.25); }
       // forces
       let nr = 0, nd = 0;
-      if (!figs.humanoid || R.cc.dist > 420) for (const c of sim.creatures) { if (c.inB || nd > 3000 || !(c.vis || c.ghost)) continue; R.setInstS(D.discs, nd++, c.x, c.y, city.heightAt(c.x, c.y) + 0.35, (c.vis ? 2.4 : 1.6) * cs, 1, (c.vis ? 2.4 : 1.6) * cs, c.vis ? 0xff3b3b : 0x7a3030); }
+      if (R.cc.dist > 420) for (const c of sim.creatures) { if (c.inB || nd > 3000 || !(c.vis || c.ghost)) continue; const cs = Math.max(1, R.cc.dist / 450) * (c.K?.size || sim.P.size) * (c.M ? 1.8 : 1); R.setInstS(D.discs, nd++, c.x, c.y, city.heightAt(c.x, c.y) + 0.35, (c.vis ? 2.4 : 1.6) * cs, 1, (c.vis ? 2.4 : 1.6) * cs, c.vis ? 0xff3b3b : 0x7a3030); }
       const us = Math.max(1, R.cc.dist / 500);
       for (const u of sim.units) {
         if (u.dead) continue;
@@ -315,6 +316,7 @@ async function enterTactical_(o) {
       // priority: endangered HVTs, selected units, sites, other HVTs, districts
       for (const h of sim.hvts) { if (h.state !== 'inside' && h.state !== 'escorted' || !(h.danger > 0.2)) continue; const s = R.toScreen(h.x, h.y, h.state === 'inside' ? h.b.z1 + 32 : 40); if (vis(s)) lbl('hvt d', s[0], s[1], '★ ' + h.name); }
       for (const u of sel) { if (u.dead) continue; const s = R.toScreen(u.x, u.y, (u.kind === 'heli' ? 60 : city.heightAt(u.x, u.y)) + 12); if (vis(s)) lbl('unit', s[0], s[1], u.name); }
+      if (R.cc.dist < 2200) for (const c of sim.creatures) { if (!(c.M || c.kind === 'titan') || c.inB || !c.vis) continue; const s = R.toScreen(c.x, c.y, city.heightAt(c.x, c.y) + (c.K?.size || 1) * 2.4 + 6); if (vis(s)) lbl('hvt d', s[0], s[1], (c.M ? c.K.name + ' Matriarch' : 'Titan') + ` · ${Math.round(c.hp / c.max * 100)}%`); }
       for (const st of sim.sites) { const s = R.toScreen(st.p[0], st.p[1], city.heightAt(st.p[0], st.p[1]) + 22); if (vis(s)) lbl('site', s[0], s[1], st.name + (st.kind === 'safezone' ? ` · ${Math.round(st.people)} civilians` : st.built ? '' : ' (setting up)')); }
       if (R.cc.dist < 3000) for (const h of sim.hvts) { if (h.state !== 'inside' && h.state !== 'escorted' || h.danger > 0.2) continue; const s = R.toScreen(h.x, h.y, h.state === 'inside' ? h.b.z1 + 32 : 40); if (vis(s)) lbl('hvt', s[0], s[1], '★ ' + h.name); }
       if (R.cc.dist < 2600) for (const d of city.districts) { if (!d.buildings.length || !city.unlockedAt(d.x, d.y)) continue; const s = R.toScreen(d.x, d.y, 40); if (vis(s)) lbl('dist' + (sim.quarantine.has(d.id) ? ' q' : ''), s[0], s[1], d.name + (sim.quarantine.has(d.id) ? ' · QUARANTINE' : '')); }
@@ -331,7 +333,10 @@ async function enterTactical_(o) {
         ['Hostiles', s.creatures, s.creatures ? 'bad' : 'good'], ['Infested', s.infested, s.infested ? 'bad' : ''], ['Police', sim.cars.filter(c => c.kind === 'police').length + (sim.stats.policeLost ? ` (−${sim.stats.policeLost})` : '')], ['Safe zones', sim.sites.filter(z => z.kind === 'safezone').reduce((a, z) => a + Math.round(z.people), 0)], ['HVT', `${st.hvtSaved}✓ ${st.hvtLost}✗ / ${sim.hvts.length}`], ['Supply', Math.round(sim.supply)], ['KIA', st.soldiersKIA, st.soldiersKIA ? 'bad' : ''], ['Samples', st.specimens],
       ];
       if (sim.rural) { const left = Math.max(0, sim.rural.duration - sim.t) * 6, nat = sim.units.filter(u => u.ai && !u.dead).length; allStats.unshift(['Hold', `${Math.floor(left / 3600)}h ${String(Math.floor(left % 3600 / 60)).padStart(2, '0')}m`, left < 1800 ? 'good' : ''], ['Breakthroughs', `${sim.breach}/${sim.breachMax}`, sim.breach > sim.breachMax * 0.6 ? 'bad' : ''], ['National line', `${nat} units`, nat < sim.rural.platoons / 2 ? 'bad' : ''], ['Waves to come', sim.waveLeft]); }
-      const primary = sim.rural ? ['Hold', 'Breakthroughs', 'National line', 'Hostiles', 'Evacuated', 'Civ. casualties', 'Supply'] : ['Integrity', 'Hostiles', 'Infested', 'Civ. casualties', 'Evacuated', 'HVT', 'Supply'];
+      const hv = sim.hiveSummary?.();
+      if (hv) allStats.splice(6, 0, ['Hives', hv.hives + (hv.eggs ? ` · ${hv.eggs} egg-nests` : ''), hv.hives ? 'bad' : ''], ['Cocooned', num(hv.cocooned + (st.captured ? 0 : 0)), hv.cocooned ? 'bad' : ''], ['Rescued', num(st.rescued || 0), st.rescued ? 'good' : ''], ['Biomass', hv.biomass], ['Matriarchs', hv.matriarchs.length ? hv.matriarchs.join(', ') : 'none', hv.matriarchs.length ? 'bad' : '']);
+      if (sim.threat === 'mutant') { const tn = sim.countKind('titan'); allStats.splice(6, 0, ['Titans', tn, tn ? 'bad' : '']); }
+      const primary = sim.rural ? ['Hold', 'Breakthroughs', 'National line', 'Hostiles', 'Evacuated', 'Civ. casualties', 'Supply'] : hv ? ['Integrity', 'Hostiles', 'Hives', 'Cocooned', 'Civ. casualties', 'Evacuated', 'HVT', 'Supply'] : ['Integrity', 'Hostiles', 'Infested', 'Civ. casualties', 'Evacuated', 'HVT', 'Supply'];
       $('#tStats', root).innerHTML = allStats.filter(x => primary.includes(x[0])).map(statRow).join('') + `<div class="tsMore"><span>More</span><b>⋯</b><div class="tsPop">${allStats.filter(x => !primary.includes(x[0])).map(statRow).join('')}</div></div>`;
       root.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === speed));
       if (!root.querySelector('#tLeft:hover') || force) $('#tUnits', root).innerHTML = sim.units.filter(u => !u.ai).map(u => {
@@ -350,7 +355,7 @@ async function enterTactical_(o) {
       $('#tMode', root).textContent = mode === 'outpost' ? 'Click the map to place a supply outpost (12 supply)' : mode === 'camp' ? 'Click the map to place a forward camp (30 supply)' : mode === 'quarantine' ? 'Click a building to quarantine its district' : sel.length ? 'Right-click: move · right-click building: garrison / clear / extract HVT' : 'Drag to select forces · middle-drag rotate · wheel zoom · WASD pan';
       if (selB) {
         const b = selB, d = city.districts[b.district], hv = sim.hvts.find(h => h.b === b);
-        const state = b.destroyed ? '<b class="bad">Collapsed</b>' : b.infest > 0.1 ? `<b class="bad">Infested ${Math.round(b.infest * 100)}%</b>` : b.garrison.length ? '<b class="acc">Garrisoned</b>' : b.state === 2 ? '<b class="good">Cleared</b>' : b.evac ? 'Evacuating' : 'Normal';
+        const state = b.destroyed ? '<b class="bad">Collapsed</b>' : b.hive > 0.05 ? `<b class="bad">${b.hive >= 1 ? 'Hive' : 'Resin ' + Math.round(b.hive * 100) + '%'}${b.eggs ? ` · ${b.eggs} egg-nest${b.eggs > 1 ? 's' : ''}` : ''}${b.cocoons?.length ? ` · ${b.cocoons.length} cocooned — clear it to free them` : ''}</b>` : b.infest > 0.1 ? `<b class="bad">Infested ${Math.round(b.infest * 100)}%</b>` : b.garrison.length ? '<b class="acc">Garrisoned</b>' : b.state === 2 ? '<b class="good">Cleared</b>' : b.evac ? 'Evacuating' : 'Normal';
         P.innerHTML = `<div class="title">${esc(b.name || b.addr || city.codes.use[b.use])}</div><div class="mut">${esc(b.name && b.addr ? b.addr + ' · ' : '')}${esc(d?.name || '')}</div>
           <div class="stats"><span>Use</span><span>${city.codes.use[b.use]}${b.gen ? ' <span class="mut">(estimated building)</span>' : ''}</span><span>Floors / height</span><span>${b.levels} / ${b.h.toFixed(0)} m${b.est ? ' (est.)' : ''}</span><span>Occupants</span><span>${num(b.occ)} / ${num(b.pop0)}</span><span>Status</span><span>${state}</span><span>Structure</span><span>${Math.round(b.hp / b.hp0 * 100)}%</span>${b.dead >= 1 ? `<span>Casualties</span><span class="bad">${num(b.dead)}</span>` : ''}${hv ? `<span>HVT</span><span class="amb">★ ${esc(hv.name)} (${hv.state})</span>` : ''}</div>
           <div class="row wrap" style="margin-top:8px"><button data-c="mark">${sim.garrisonMarks.has(b.idx) ? 'Unmark garrison' : 'Mark for garrison (G)'}</button><button data-c="evac">Evacuate 300 m</button><button data-c="qsel">${sim.quarantine.has(b.district) ? 'Lift quarantine' : 'Quarantine ' + esc(d?.name || 'district')}</button></div>`;
@@ -403,7 +408,7 @@ async function enterTactical_(o) {
           : `<span>City integrity</span><span>${Math.round(s.integrity)}%</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Soldiers killed</span><span>${st.soldiersKIA}</span><span>Wounded evacuated</span><span>${sim.units.reduce((a, u) => a + (u.wounded || 0), 0)}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Police officers lost</span><span>${st.policeLost || 0}</span><span>Buildings destroyed</span><span>${st.bDestroyed}</span><span>HVTs evacuated / lost</span><span>${st.hvtSaved} / ${st.hvtLost}</span><span>Samples recovered</span><span>${st.specimens}</span>`}</div>
         <div class="foot"><button class="pri" id="tBack">Return to strategic command</button></div></div>`;
       M.style.display = 'flex';
-      $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); figs?.dispose(); vehs?.dispose(); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
+      $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); figs?.dispose(); vehs?.dispose(); beasts?.dispose(); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
     }
     function confirm_() { const s = sim.summary(); if (sim.rural || s.creatures || s.infested) { if (!root.dataset.confirmEnd) { root.dataset.confirmEnd = 1; sim.log('Hostiles remain. Click "End operation" again to withdraw (counts as a failure).', 'warn'); setTimeout(() => delete root.dataset.confirmEnd, 5000); return false; } } return true; }
     hud(); updateSel();

@@ -28,21 +28,21 @@ export class Gore {
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._v = new THREE.Vector3(); this._s = new THREE.Vector3(); this._c = new THREE.Color(); this._e = new THREE.Euler();
   }
   // ---- emitters (positions in game coords: x east, y north, z up) ----
-  blood(x, y, z, n, dx = 0, dy = 0, force = 3) {
+  blood(x, y, z, n, dx = 0, dy = 0, force = 3, pal = BLOOD) {
     if (!this.level) return; n = Math.round(n * (this.level === 1 ? 0.35 : 1));
     const S = this.spray.items;
-    for (let i = 0; i < n; i++) { if (S.length >= this.spray.cap) S.shift(); const a = Math.random() * 6.283, sp = force * (0.3 + Math.random()); S.push({ x, y, z, vx: Math.cos(a) * sp * 0.6 + dx * force, vy: Math.sin(a) * sp * 0.6 + dy * force, vz: 1 + Math.random() * force * 0.8, c: BLOOD[i & 3], s: 0.6 + Math.random() * 0.9, t: 0 }); }
+    for (let i = 0; i < n; i++) { if (S.length >= this.spray.cap) S.shift(); const a = Math.random() * 6.283, sp = force * (0.3 + Math.random()); S.push({ x, y, z, vx: Math.cos(a) * sp * 0.6 + dx * force, vy: Math.sin(a) * sp * 0.6 + dy * force, vz: 1 + Math.random() * force * 0.8, c: pal[i & 3], s: 0.6 + Math.random() * 0.9, t: 0 }); }
   }
-  pool(x, y, z, r, grow = 8) {
+  pool(x, y, z, r, grow = 8, pal = BLOOD) {
     if (!this.level) return; if (this.level === 1) r *= 0.6;
     const P = this.pools.items; if (P.length >= this.pools.cap) P.shift();
-    P.push({ x, y, z: z + 0.025 + Math.random() * 0.01, r0: r * 0.15, r, grow, t: 0, rot: Math.random() * 6.28, c: BLOOD[Math.floor(Math.random() * 4)] });
+    P.push({ x, y, z: z + 0.025 + Math.random() * 0.01, r0: r * 0.15, r, grow, t: 0, rot: Math.random() * 6.28, c: pal[Math.floor(Math.random() * 4)] });
   }
-  gib(x, y, z, n, force = 6) {
+  gib(x, y, z, n, force = 6, pal = GIB) {
     if (this.level < 2) return;
     const G = this.gibs.items;
-    for (let i = 0; i < n; i++) { if (G.length >= this.gibs.cap) G.shift(); const a = Math.random() * 6.283, sp = force * (0.3 + Math.random()); G.push({ x, y, z: z + 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: 2 + Math.random() * force, c: GIB[Math.floor(Math.random() * GIB.length)], s: 0.6 + Math.random() * 1.4, rx: Math.random() * 6, ry: Math.random() * 6, w: (Math.random() - 0.5) * 20, t: 0, rest: false }); }
-    for (let i = 0; i < Math.min(5, n / 3); i++) this.pool(x + (Math.random() - .5) * 4, y + (Math.random() - .5) * 4, z, 0.4 + Math.random() * 0.6, 2);
+    for (let i = 0; i < n; i++) { if (G.length >= this.gibs.cap) G.shift(); const a = Math.random() * 6.283, sp = force * (0.3 + Math.random()); G.push({ x, y, z: z + 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, vz: 2 + Math.random() * force, c: pal[Math.floor(Math.random() * pal.length)], s: 0.6 + Math.random() * 1.4, rx: Math.random() * 6, ry: Math.random() * 6, w: (Math.random() - 0.5) * 20, t: 0, rest: false }); }
+    for (let i = 0; i < Math.min(5, n / 3); i++) this.pool(x + (Math.random() - .5) * 4, y + (Math.random() - .5) * 4, z, 0.4 + Math.random() * 0.6, 2, pal === GIB ? BLOOD : pal);
   }
   boom(x, y, z, r) {
     const F = this.flash.items; if (F.length >= this.flash.cap) F.shift(); F.push({ x, y, z: z + 0.8, r, t: 0 });
@@ -60,7 +60,7 @@ export class Gore {
     // spray: ballistic droplets that leave a spot where they land
     let n = 0; const S = this.spray.items, keep = [];
     for (const p of S) { p.t += dt; p.vz -= 9.8 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; const g = heightAt(p.x, p.y);
-      if (p.z <= g + 0.03) { if (Math.random() < 0.25) this.pool(p.x, p.y, g, 0.08 + Math.random() * 0.14, 0.5); continue; }
+      if (p.z <= g + 0.03) { if (Math.random() < 0.25) this.pool(p.x, p.y, g, 0.08 + Math.random() * 0.14, 0.5, [p.c, p.c, p.c, p.c]); continue; }
       if (p.t > 2) continue; keep.push(p);
       v.set(p.x, p.z, -p.y); sc.setScalar(p.s); m.compose(v, q.identity(), sc); this.spray.mesh.setMatrixAt(n, m); this.spray.mesh.setColorAt(n, col.setHex(p.c)); n++; }
     this.spray.items = keep; this.fin(this.spray, n);

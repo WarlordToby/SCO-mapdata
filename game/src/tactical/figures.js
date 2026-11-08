@@ -57,7 +57,7 @@ export class Figures {
     for (let i = Math.max(0, this.fxi - base); i < F.length; i++) {
       const e = F[i]; this.fxi = base + i + 1;
       if (e.k === 'hit') {
-        const c = e.c; if (!this.humanoid && th !== 'mutant' && th !== 'alien') continue;
+        const c = e.c; if (!this.humanoid) continue;
         const dx = c.x - e.from[0], dy = c.y - e.from[1], d = Math.hypot(dx, dy) || 1;
         if (Math.random() < (e.by === 'rifle' ? 0.35 : 0.8)) this.gore.blood(c.x, c.y, this.hAt(c.x, c.y) + 1.2, e.by === 'rifle' ? 3 : e.by === 'cannon' ? 16 : 7, dx / d, dy / d, e.by === 'rifle' ? 2.5 : 4);
       } else if (e.k === 'limb') {
@@ -74,7 +74,7 @@ export class Figures {
         else if (e.by === 'rifle' && Math.random() < 0.08 && !(lost & 1)) { lost |= 1; this.sever(c.x, c.y, z, f, 1, Math.random() - .5, Math.random() - .5, 3); } // head shot
         this.addCorpse(c.x, c.y, c._fm?.h ?? 0, f, (c.id * 0.31) % 1, { lost });
       } else if (e.k === 'ped') {
-        const p = e.p, f = p._fig || (p._fig = W.civ(p.id)); this.victim(e, f, p.x, p.y, p._fm?.h);
+        if (e.drag) continue; const p = e.p, f = p._fig || (p._fig = W.civ(p.id)); this.victim(e, f, p.x, p.y, p._fm?.h);
       } else if (e.k === 'man') {
         const u = e.u, cc = u.ai ? this.nationCc : this.playerCc, f = (u._figs || [])[e.i] || W.soldier(this.uSeed(u) + e.i * 0.013, cc);
         { const n = u.men + 1, cols = n > 12 ? 6 : n > 6 ? 4 : 3, h = u._fm?.h ?? Math.atan2(u.hy, u.hx), hx = Math.cos(h), hy = Math.sin(h), ox = -Math.floor(e.i / cols) * 2.4, oy = ((e.i % cols) - (cols - 1) / 2) * 2.4; e.x = u.x + ox * hx - oy * hy; e.y = u.y + ox * hy + oy * hx; if (e.riser) { e.riser.x = e.x; e.riser.y = e.y; } }

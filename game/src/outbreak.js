@@ -9,7 +9,6 @@ import { G, W, cellOf, cellLonLat, landAt } from './world.js';
 export const PROFILE = { // growth/day, spread, long-range jumps, detection threshold, how hard to push back, special
   undead: { growth: 0.46, spread: 0.9, jump: 0.25, detect: 0.04, resist: 1.0, crowd: 1.3 },
   mutant: { growth: 0.32, spread: 0.45, jump: 0.05, detect: 0.03, resist: 0.7, crowd: 0.8 },
-  alien: { growth: 0.36, spread: 0.42, jump: 0.02, detect: 0.02, resist: 0.6, crowd: 0.9, sites: 4 },
   vampire: { growth: 0.4, spread: 0.55, jump: 0.45, detect: 0.12, resist: 0.9, crowd: 1.4 },
   lycan: { growth: 0.45, spread: 0.8, jump: 0.1, detect: 0.06, resist: 0.85, crowd: 0.9, woods: true },
   swarm: { growth: 0.62, spread: 1.3, jump: 0.15, detect: 0.03, resist: 1.3, crowd: 1.0 },

@@ -74,6 +74,7 @@ export class Barriers {
 
   // who: { veh: false } on foot, or { veh: true, armour: 1 light car | 2 truck/APC/tank }
   static who(o, ITEM) {
+    if (o.K?.smash) return { veh: true, armour: 3 }; // titans walk through garden walls
     // jeeps and other light cars flatten fences and hedges; trucks, APCs and tanks also push through masonry garden walls
     if (o.kind === 'vehicle' || o.riding) { const it = ITEM[o.vehicle || o.carrier]; return { veh: true, armour: it && it.cat !== 'light' ? 2 : 1 }; }
     return { veh: false };
@@ -86,7 +87,7 @@ export class Barriers {
   firstHit(x0, y0, x1, y1, gx = x1, gy = y1) {
     let best = null, bt = 2; const st = ++this.stamp;
     this.bar.each(x0, y0, x1, y1, s => { if (s.st === st || s.down || s.dead) return; s.st = st; const t = crossT(x0, y0, x1, y1, s); if (t >= 0 && t < bt) { bt = t; best = { t, s }; } });
-    this.wall.each(x0, y0, x1, y1, w => { if (w.st === st) return; w.st = st; const t = crossT(x0, y0, x1, y1, w); if (t >= 0 && t < bt && !this.ownWall(w, x0, y0, gx, gy)) { bt = t; best = { t, wall: w }; } });
+    this.wall.each(x0, y0, x1, y1, w => { if (w.st === st) return; w.st = st; if (w.b.destroyed) return; const t = crossT(x0, y0, x1, y1, w); if (t >= 0 && t < bt && !this.ownWall(w, x0, y0, gx, gy)) { bt = t; best = { t, wall: w }; } });
     return best;
   }
   ownWall(w, sx, sy, gx, gy) { const b = w.b; if (b._ow === this.owKey) return b._owv; b._ow = this.owKey; let near = false; const r = b.ring; for (let i = 0; i < r.length && !near; i++) { const q = r[(i + 1) % r.length]; near = segD(gx, gy, { ax: r[i][0], ay: r[i][1], bx: q[0], by: q[1] }) < 1.0; } return (b._owv = near || inRing(sx, sy, r) || inRing(gx, gy, r)); }

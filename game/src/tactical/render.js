@@ -469,9 +469,6 @@ export class Renderer {
     const lam = c => new THREE.MeshLambertMaterial({ color: c });
     const blipG = new THREE.BufferGeometry(); blipG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12000 * 3), 3)); blipG.setAttribute('color', new THREE.BufferAttribute(new Float32Array(12000 * 3), 3));
     this.dyn.blips = new THREE.Points(blipG, new THREE.PointsMaterial({ size: 3.2, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true, opacity: 0.9 })); this.dyn.blips.frustumCulled = false; this.dyn.blips.renderOrder = 5; this.scene.add(this.dyn.blips);
-    const crG = new THREE.OctahedronGeometry(1.1, 0); crG.scale(1, 1.4, 1); crG.translate(0, 1.4, 0);
-    this.dyn.creatures = mk(crG, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x220000 }), 4000);
-    this.dyn.creatures.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(4000 * 3), 3);
     const ringG = new THREE.RingGeometry(0.93, 1, 48); ringG.rotateX(-Math.PI / 2);
     this.dyn.rings = mk(ringG, new THREE.MeshBasicMaterial({ color: 0x7fe3ff, transparent: true, opacity: 0.85, depthTest: false }), 400); this.dyn.rings.renderOrder = 6;
     const discG = new THREE.CircleGeometry(1, 20); discG.rotateX(-Math.PI / 2);

@@ -47,6 +47,8 @@ export class Vehicles {
       const emerg = c.kind !== 'civ' && (c.task || c.role === 'patrol' || (c.fireT !== undefined && t - c.fireT < 20)) ? 1 : 0;
       this.fleet(look.model).put(this.pose(p[0], p[1], h, g.userData, heightAt, 0.02), [0, 0, 0, m.d], [0, 0, 0, emerg + lights], look.P, look.M);
     }
+    // cars a titan has stamped flat: burnt-out wrecks where they were crushed
+    if (!far) for (const w of sim.carWrecks || []) { if (!inView(w.x, w.y)) continue; const c = w.car, look = c._look || (c._look = c.kind === 'police' ? policeLivery(ccLocal, reg, hash(c.id)) : c.kind === 'ambulance' ? ambulanceLivery(ccLocal) : c.kind === 'fire' ? fireLivery(ccLocal) : civilianLook(reg, ccLocal, (c.id * 0.6180339) % 1)); const g = this.geo(look.model); this.fleet(look.model).put(this.pose(w.x, w.y, w.h, g.userData, heightAt, -0.12), [0, 0, 0, 0], [1, 0, 1, 0], look.P, look.M); }
     // ---------- military: player's and national units, carriers of motorised squads, parked carriers ----------
     const vs = Math.min(2.4, Math.max(1, scale));
     for (const u of sim.units) {
