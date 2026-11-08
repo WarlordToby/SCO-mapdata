@@ -177,6 +177,8 @@ export class Sim {
     for (let i = 0; i < n && js.length; i++) { const j = js[Math.floor(Math.random() * js.length)]; const c = this.spawnCar(j.p, 'police'); if (c) c.role = i % 2 === 0 ? 'patrol' : null; }
     this.stats.policeLost = 0;
     for (const h of hospitals.slice(0, 6)) for (let i = 0; i < 2; i++) this.spawnCar(h.ent, 'ambulance');
+    const fireSt = C.buildings.filter(b => b.use === C.use.fire_station && C.unlockedAt(b.c[0], b.c[1])); this.fireStations = fireSt;
+    for (const f of fireSt.slice(0, 6)) for (let i = 0; i < 2; i++) this.spawnCar(f.ent, 'fire');
   }
 
   // ---------- routing fields ----------
@@ -756,6 +758,12 @@ export class Sim {
         let goal;
         if (targets && targets.length) { const cp = targets[Math.floor(Math.random() * targets.length)]; cp.police++; goal = cp.b; }
         else { const z = this.evacZones[0]; const a = Math.random() * Math.PI * 2; goal = [z.c[0] + Math.cos(a) * (z.r + 60), z.c[1] + Math.sin(a) * (z.r + 60)]; }
+        const j = this.city.nearestJunction(goal[0], goal[1], j => j.in.length > 0, 200); if (!j) continue;
+        c.task = { field: this.fieldTo('j' + j.id, [j.id]), park: true };
+      }
+      if (c.kind === 'fire' && !c.task) { // fire engines go to burning and badly damaged buildings and stand by
+        const b = [...(this.damaged || [])].find(b => !b.destroyed && b.hp < b.hp0 * 0.7 && !b.fireCrew) || [...this.infested].find(b => b.infest > 0.35 && !b.fireCrew && !b.destroyed);
+        const goal = b ? b.ent : null; if (!goal) continue; b.fireCrew = true;
         const j = this.city.nearestJunction(goal[0], goal[1], j => j.in.length > 0, 200); if (!j) continue;
         c.task = { field: this.fieldTo('j' + j.id, [j.id]), park: true };
       }

@@ -232,6 +232,7 @@ export class Figures {
       m2.makeTranslation(-C[0], -C[1], -C[2]); m4.multiply(m2);
       this.crowd(this.roleOf(p.fig), p.fig.key).putMatrix(m4, p.fig.look, CLIP.idle, 0, 0, 0.5, { keep: p.bit, wound: 0.6 });
     }
+    this.onDraw?.(); // vehicles draw here so their crews (commander head-out) join this frame's crowds
     for (const c of this.crowds.values()) c.end(t);
     this.gore.update(dt, t, heightAt);
   }

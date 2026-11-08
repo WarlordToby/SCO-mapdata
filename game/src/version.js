@@ -1,9 +1,24 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.13.0';
+export const VERSION = '0.14.0';
 export const SAVE_FORMAT = 3; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.14.0', date: '2026-11-08', title: 'Vehicles',
+    items: [
+      'Every vehicle now has a proper model, built from its real dimensions out of faceted hulls and turrets rather than boxes: Leclerc, Leopard 2A4, AMX-30B2, AMX-10RC, EBRC Jaguar, VAB, VBCI, Griffon, Serval, AMX-10P, M113A2, TRM 2000 and 10000, GBC 180, ACMAT VLRA, P4, VBL, Sherpa, Defender and Land Cruiser.',
+      'Helicopters: Alouette III, Gazelle, Puma, Cougar, Caïman, Écureuil, H135 and Tigre, with turning rotors (and fenestrons), flying nose-down and settling lower when they hover.',
+      'Turrets and weapon stations traverse onto their targets and elevate; main guns recoil with a muzzle flash and smoke every few seconds, machine guns flash with each burst.',
+      'Wheels and road wheels roll at ground speed and tracks run; hulls pitch and roll over the terrain and bob when driving fast.',
+      'Commanders ride head-out of their hatches when not fighting. A motorised squad’s carrier parks where they get out and opens its ramp or rear doors.',
+      'Damage scorches the paint; destroyed vehicles explode, burn and stay as blackened wrecks, and tanks and IFVs can lose their turrets.',
+      'National paint: vehicles wear the camouflage of the army operating them (French Centre-Europe, German NATO three-tone, Swedish splinter, Ukrainian digital, Gulf desert sand, …) with national markings; helicopters in their service colours.',
+      'Traffic: a regional car mix (hatchbacks and vans in Europe, SUVs and pickups in North America, minibuses in Africa, tuk-tuks in South Asia, local taxi colours) in realistic colours, with headlights at night.',
+      'Emergency services: police cars and vans in national liveries (white with blue band in France, blue-silver in Germany, Battenburg checks in Britain and the Nordics, black-and-white in the US and Japan, …) with flashing beacons on call; ambulances; fire engines now turn out from fire stations to damaged and burning buildings.',
+      'Unit markers are sized to each vehicle and fade when zoomed in, so the models stay visible.',
+    ],
+  },
   {
     v: '0.13.0', date: '2026-11-08', title: 'Flesh and blood',
     items: [

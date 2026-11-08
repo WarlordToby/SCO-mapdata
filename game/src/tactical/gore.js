@@ -21,7 +21,8 @@ export class Gore {
     // irregular puddle: wobble the rim
     { const a = pg.attributes.position; for (let i = 1; i < a.count; i++) { const k = 0.75 + 0.5 * Math.abs(Math.sin(i * 2.7) * Math.cos(i * 1.3)); a.setX(i, a.getX(i) * k); a.setZ(i, a.getZ(i) * k); } }
     this.pools = new Pool(scene, pg, pm, 2400);
-    this.flash = new Pool(scene, new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), 24);
+    this.flash = new Pool(scene, new THREE.IcosahedronGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }), 96);
+    this.flames = new Pool(scene, new THREE.ConeGeometry(0.5, 1.6, 6), new THREE.MeshBasicMaterial({ color: 0xff7a20, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }), 80); this.fires = [];
     this.nade = new Pool(scene, new THREE.IcosahedronGeometry(0.07, 0), lam(), 64);
     this.smoke = []; // transient smoke sources handed to the renderer's smoke system
     this._m = new THREE.Matrix4(); this._q = new THREE.Quaternion(); this._v = new THREE.Vector3(); this._s = new THREE.Vector3(); this._c = new THREE.Color(); this._e = new THREE.Euler();
@@ -48,6 +49,9 @@ export class Gore {
     this.smoke.push({ x, y, z: z + 1, rate: 30, left: 1.2, big: true });
     const P = this.pools.items; if (P.length >= this.pools.cap) P.shift(); P.push({ x, y, z: z + 0.02, r0: r * 0.5, r: r * 0.55, grow: 0.3, t: 0, rot: Math.random() * 6, c: 0x1a1612, scorch: true });
   }
+  muzzle(x, y, z, r = 0.6) { const F = this.flash.items; if (F.length >= this.flash.cap) F.shift(); F.push({ x, y, z, r, t: 0.18 }); }
+  // a burning wreck: flames and smoke for a while
+  burn(x, y, z, dur = 90, size = 1) { this.fires.push({ x, y, z, t: 0, dur, size }); this.smoke.push({ x, y, z: z + 1, rate: 5 * size, left: dur * 1.5 }); }
   throwNade(x0, y0, z0, x1, y1, z1, t0, t1) { const N = this.nade.items; if (N.length >= this.nade.cap) N.shift(); N.push({ x0, y0, z0, x1, y1, z1, t0, t1 }); }
 
   // ---- per frame ----
@@ -79,6 +83,10 @@ export class Gore {
     n = 0; this.flash.items = this.flash.items.filter(f => (f.t += dt) < 0.35);
     for (const f of this.flash.items) { const k = f.t / 0.35; v.set(f.x, f.z, -f.y); sc.setScalar(f.r * (0.3 + k * 0.6)); m.compose(v, q.identity(), sc); this.flash.mesh.setMatrixAt(n++, m); }
     this.flash.mesh.material.opacity = 0.85; this.fin(this.flash, n);
+    // flames on burning wrecks
+    n = 0; this.fires = this.fires.filter(f => (f.t += dt) < f.dur);
+    for (const f of this.fires) { const k = Math.min(1, (f.dur - f.t) / 20) * f.size; for (let i = 0; i < 3 && n < this.flames.cap; i++) { const fl = 0.7 + 0.5 * Math.abs(Math.sin(t * (9 + i * 3.7) + i * 2.1 + f.x)); v.set(f.x + (i - 1) * 0.5 * f.size, f.z + 0.5 * fl * k, -(f.y + ((i * 0.37) % 1 - 0.5) * 0.8 * f.size)); sc.set(k * fl * 0.9, k * fl * 1.2, k * fl * 0.9); m.compose(v, q.identity(), sc); this.flames.mesh.setMatrixAt(n++, m); } }
+    this.fin(this.flames, n);
     // grenades in the air
     n = 0; this.nade.items = this.nade.items.filter(g => t < g.t1);
     for (const g of this.nade.items) { const k = Math.max(0, (t - g.t0) / (g.t1 - g.t0)), x = g.x0 + (g.x1 - g.x0) * k, y = g.y0 + (g.y1 - g.y0) * k, z = g.z0 + (g.z1 - g.z0) * k + Math.sin(k * Math.PI) * Math.max(3, Math.hypot(g.x1 - g.x0, g.y1 - g.y0) * 0.3);
@@ -87,5 +95,5 @@ export class Gore {
     this.smoke = this.smoke.filter(s => (s.left -= dt) > 0);
   }
   fin(P, n) { P.mesh.count = n; P.mesh.instanceMatrix.needsUpdate = true; if (P.mesh.instanceColor) P.mesh.instanceColor.needsUpdate = true; }
-  dispose() { for (const P of [this.spray, this.gibs, this.pools, this.flash, this.nade]) P.dispose(); }
+  dispose() { for (const P of [this.spray, this.gibs, this.pools, this.flash, this.nade, this.flames]) P.dispose(); }
 }
