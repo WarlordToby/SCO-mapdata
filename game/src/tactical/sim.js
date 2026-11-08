@@ -148,13 +148,18 @@ export class Sim {
   }
   stagingPoint(dir) {
     const a = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'].indexOf(dir) * Math.PI / 4;
-    const x = this.origin[0] + Math.sin(a) * (this.unlockR - 250), y = this.origin[1] + Math.cos(a) * (this.unlockR - 250);
-    const j = this.city.nearestJunction(x, y, j => j.out.length && j.in.length && this.city.unlockedAt(j.p[0], j.p[1]), 600);
-    return j ? [j.p[0], j.p[1]] : [x, y];
+    // a road junction in that direction; on a coast or river, swing round and come closer until there is land with roads
+    const ok = j => j.out.length && j.in.length && this.city.unlockedAt(j.p[0], j.p[1]);
+    for (const r of [this.unlockR - 250, this.unlockR - 600, this.unlockR - 1000, 700]) for (const da of [0, 0.35, -0.35, 0.7, -0.7, 1.1, -1.1]) {
+      const x = this.origin[0] + Math.sin(a + da) * r, y = this.origin[1] + Math.cos(a + da) * r, j = this.city.nearestJunction(x, y, ok, 350);
+      if (j) return [j.p[0], j.p[1]];
+    }
+    const j = this.city.nearestJunction(this.origin[0], this.origin[1], ok, 5000);
+    return j ? [j.p[0], j.p[1]] : [this.origin[0], this.origin[1]];
   }
   pickHVTs() {
     const C = this.city, U = C.use;
-    const roles = [[U.civic, ['Préfet', 'Deputy', 'Mayor', 'Councillor'], 'politician'], [U.university, ['Professor', 'Dr.'], 'scientist'], [U.hospital, ['Dr.', 'Chief virologist'], 'scientist'], [U.military, ['General', 'Colonel'], 'military'], [U.office, ['Director', 'CEO'], 'executive'], [U.police, ['Commissaire'], 'police']];
+    const roles = [[U.civic, [C.m.country === 'FR' ? 'Préfet' : 'Governor', 'Deputy', 'Mayor', 'Councillor'], 'politician'], [U.university, ['Professor', 'Dr.'], 'scientist'], [U.hospital, ['Dr.', 'Chief virologist'], 'scientist'], [U.military, ['General', 'Colonel'], 'military'], [U.office, ['Director', 'CEO'], 'executive'], [U.police, ['Commissaire'], 'police']];
     const have = new Set(this.hvts.map(h => h.b.idx));
     for (const [use, titles, role] of roles) {
       const cands = C.buildings.filter(b => b.use === use && C.unlockedAt(b.c[0], b.c[1]) && !have.has(b.idx) && b.occ > 0).sort(() => Math.random() - .5);
@@ -170,7 +175,9 @@ export class Sim {
     const C = this.city, police = C.buildings.filter(b => b.use === C.use.police && C.unlockedAt(b.c[0], b.c[1]));
     const hospitals = C.buildings.filter(b => (b.use === C.use.hospital) && C.unlockedAt(b.c[0], b.c[1]) && b.area > 600);
     this.policeStations = police; this.hospitals = hospitals;
-    for (const p of police) for (let i = 0; i < 10; i++) this.spawnCar(p.ent, 'police');
+    // up to 10 cars a station, but cities with many small posts (Tokyo's kōban) share a realistic total
+    const perSt = Math.max(1, Math.min(10, Math.floor(80 / Math.max(1, police.length))));
+    for (const [k, p] of police.entries()) if (k * perSt < 120) for (let i = 0; i < perSt; i++) this.spawnCar(p.ent, 'police');
     // municipal + national police patrols already on the streets across the area
     const area = Math.PI * this.unlockR * this.unlockR / 1e6, n = Math.round(area * 4);
     const js = [...C.junctions.values()].filter(j => j.out.length && C.unlockedAt(j.p[0], j.p[1]));
@@ -441,7 +448,12 @@ export class Sim {
     if (o.vault) { o.vault.left -= dt; if (o.vault.left <= 0) { o.x = o.vault.x; o.y = o.vault.y; o.vault = null; } return; }
     if (o.crash > 0) { o.crash -= dt; step *= 0.45; }
     const far = Math.hypot(tx - o.x, ty - o.y) > 60, tk = Math.round(tx / 4) + ',' + Math.round(ty / 4);
-    if (far && (!o.path || o.pathT !== tk)) { o.path = this.walkPath([o.x, o.y], [tx, ty], walk === false || o.kind === 'vehicle'); o.pathT = tk; o.pathFresh = true; }
+    if (far && (!o.path || o.pathT !== tk)) { o.path = this.walkPath([o.x, o.y], [tx, ty], walk === false || o.kind === 'vehicle'); o.pathT = tk; o.pathFresh = true;
+      // join the route at the nearest point we can reach in a straight line, not always at its first junction: a unit
+      // halfway along a curving street would otherwise cut the corner into the buildings
+      if (B && o.path.length > 1) { let bk = -1, bdd = Infinity; B.owKey = (B.owKey || 0) + 1;
+        for (let k = 0; k < Math.min(16, o.path.length); k++) { const q = o.path[k], dd = Math.hypot(q[0] - o.x, q[1] - o.y); if (dd < bdd && dd < 150 && !B.firstHit(o.x, o.y, q[0], q[1])) { bdd = dd; bk = k; } }
+        if (bk > 0) o.path.splice(0, bk); } }
     let gx = tx, gy = ty, offNet = true;
     if (far && o.path && o.path.length) {
       gx = o.path[0][0]; gy = o.path[0][1]; offNet = !!o.pathFresh;
@@ -469,6 +481,8 @@ export class Sim {
           const fd = Math.hypot(fx - o.x, fy - o.y), near = fd > 140, rx = near ? o.x + (fx - o.x) / fd * 110 : fx, ry = near ? o.y + (fy - o.y) / fd * 110 : fy;
           let r = B.route(o.x, o.y, rx, ry, w);
           if (r === null && this.rural) r = B.route(o.x, o.y, rx, ry, w, 260);
+          // a unit that has wandered off the network into a pocket (courtyard, service lane) retraces its own tracks out
+          if ((r === null || !r.length) && o.trail && o.trail.length > 1 && !o.retrace) { o.detour = o.trail.slice().reverse(); o.detourK = gk; o.retrace = true; o.trail = null; o.stuck = 0; return; }
           if (r === null) { this.onBlocked(o); return; }
           if (!r || !r.length) { o.stuck = (o.stuck || 0) + dt * 4; if (o.stuck > 6) { o.stuck = 0; this.onBlocked(o); } return; }
           o.detour = r.slice(); o.detourK = gk; o.stuck = 0;
@@ -477,6 +491,10 @@ export class Sim {
       }
     }
     o.x = nx; o.y = ny; o.hx = ux; o.hy = uy;
+    if (o.order !== undefined) { // player units keep a short breadcrumb trail of their off-network legs
+      if (!offNet) { o.trail = [[nx, ny]]; o.retrace = false; }
+      else if (!o.retrace) { const T = o.trail || (o.trail = [[nx, ny]]), l = T[T.length - 1]; if (Math.hypot(l[0] - nx, l[1] - ny) > 6) { T.push([nx, ny]); if (T.length > 80) T.shift(); } }
+    }
   }
   onBlocked(o) {
     o.detour = null; o.path = null;
@@ -488,10 +506,22 @@ export class Sim {
       o.target = null; o.think = 0.5 + Math.random();
     }
   }
+  netComp(drive) { // connected components of the drive / walk graphs, rebuilt when streamed tiles add junctions
+    const C = this.city, key = drive ? '_compD' : '_compW', n = C.junctions.size;
+    if (this[key] && this[key].n === n) return this[key].m;
+    const m = new Map(); let k = 0;
+    for (const j0 of C.junctions.values()) { if (m.has(j0.id)) continue; k++; const st = [j0.id]; m.set(j0.id, k);
+      while (st.length) { const J = C.junctions.get(st.pop()); if (!J) continue; const nb = drive ? [...J.out.map(o => o.e), ...J.in.map(o => o.e)] : J.walk;
+        for (const e of nb) { const o = e.a === J.id ? e.b : e.a; if (!m.has(o)) { m.set(o, k); st.push(o); } } } }
+    this[key] = { n, m }; return m;
+  }
   walkPath(a, b, drive = false) {
     const C = this.city;
     const filt = drive ? (j => j.out.length + j.in.length > 0) : (j => j.walk.length > 0);
-    const s = C.nearestJunction(a[0], a[1], filt, 400), t = C.nearestJunction(b[0], b[1], filt, 400);
+    // start and end on the same connected piece of network, so a unit parked by an isolated service road or courtyard
+    // lane still finds a way out instead of pushing straight at the buildings
+    const comp = this.netComp(drive), t = C.nearestJunction(b[0], b[1], filt, 400), tc = t && comp.get(t.id);
+    const s = t && (C.nearestJunction(a[0], a[1], j => filt(j) && comp.get(j.id) === tc, 400) || C.nearestJunction(a[0], a[1], filt, 400));
     if (!s || !t || s === t) return [];
     const open = new Heap(), g = new Map([[s.id, 0]]), prev = new Map(); open.push(0, s.id); let n = 0;
     const tp = t.p;
@@ -520,7 +550,7 @@ export class Sim {
     const it = f.vehicle ? ITEM[f.vehicle] : null, kind = it ? (it.cat === 'heli' ? 'heli' : 'vehicle') : 'squad';
     const base = this.staging[f.approach] || Object.values(this.staging)[0];
     const fire = it ? it.power * 7 : Object.entries(f.items).reduce((s, [id, q]) => s + ((ITEM[id]?.power || 0) * q), 0) * 1.6 / Math.max(1, f.pers);
-    const range = it ? (it.power >= 9 ? 400 : it.power >= 4 ? 250 : 0) : Math.min(300, Math.max(120, ...Object.keys(f.items).map(id => ITEM[id]?.range || 0)));
+    const range = it ? (it.arm && it.arm !== '—' ? (it.power >= 9 ? 400 : it.power >= 4 ? 250 : 180) : 0) : Math.min(300, Math.max(120, ...Object.keys(f.items).map(id => ITEM[id]?.range || 0)));
     const vest = (f.items.vest || 0) >= f.pers ? 0.35 : 0;
     const gear = f.items.nrbc ? 'nrbc' : f.items.nvg ? 'nvg' : null;
     const armor = it ? ({ None: 0, Light: 0.5, Medium: 0.7, Heavy: 0.88 })[it.armor] : vest;

@@ -11,7 +11,6 @@ import { ITEM } from '../catalog.js';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = v => Math.round(v).toLocaleString('en-US');
-const CIV_COLS = [0x8a8f96, 0xb8bcc2, 0x3c4a5c, 0x6b2b2b, 0x2f4f3a, 0xd0c8b0, 0x404448, 0x7a6a50, 0x1f2a44, 0x9c9ea0];
 
 export async function enterTactical(o) {
   window.__tacBusy = true;
@@ -244,13 +243,8 @@ async function enterTactical_(o) {
       let nc = 0, np = 0, nb = 0;
       const bp = D.blips.geometry.attributes.position, bc = D.blips.geometry.attributes.color;
       const blip = (x, y, z, r, g, b) => { if (nb >= 12000) return; bp.setXYZ(nb, x, z + 2, -y); bc.setXYZ(nb, r, g, b); nb++; };
-      for (const c of sim.cars) {
-        const p = sim.carPos(c);
-        if (far) { const k = c.kind === 'police' ? [0.3, 0.5, 1] : c.kind === 'ambulance' ? [1, 1, 1] : [0.75, 0.75, 0.7]; blip(p[0], p[1], p[2], ...k); continue; }
-      }
-      R.commit(D.cars, 0);
+      if (far) for (const c of sim.cars) { const p = sim.carPos(c), k = c.kind === 'police' ? [0.3, 0.5, 1] : c.kind === 'ambulance' ? [1, 1, 1] : [0.75, 0.75, 0.7]; blip(p[0], p[1], p[2], ...k); }
       if (far) for (const p of sim.peds) blip(p.x, p.y, city.heightAt(p.x, p.y), 0.9, 0.85, 0.6);
-      R.commit(D.peds, 0);
       const figScale = Math.min(2.2, Math.max(1, R.cc.dist / 450));
       figs.onDraw = () => vehs.update({ heightAt: (x, y) => city.heightAt(x, y), figs, gore: figs.gore, view: [R.cc.target.x, -R.cc.target.z, R.cc.dist * 2.4 + 160], far, scale: Math.max(1, R.cc.dist / 500), night: sim.isNight() });
       figs.update(!far, figScale, (x, y) => city.heightAt(x, y), [R.cc.target.x, -R.cc.target.z, R.cc.dist * 2.4 + 120]);
@@ -259,7 +253,7 @@ async function enterTactical_(o) {
       for (const c of sim.creatures) { if (c.inB || !c.vis) continue; const z = city.heightAt(c.x, c.y); if (!figs.humanoid && ncr < 4000) R.setInst(D.creatures, ncr++, c.x, c.y, z, c.hx, c.hy, cs, o.threatColor); if (far) blip(c.x, c.y, z, 1, 0.25, 0.25); }
       R.commit(D.creatures, ncr);
       // forces
-      let ns = 0, nv = 0, nh = 0, nr = 0, nd = 0;
+      let nr = 0, nd = 0;
       if (!figs.humanoid || R.cc.dist > 420) for (const c of sim.creatures) { if (c.inB || nd > 3000 || !(c.vis || c.ghost)) continue; R.setInstS(D.discs, nd++, c.x, c.y, city.heightAt(c.x, c.y) + 0.35, (c.vis ? 2.4 : 1.6) * cs, 1, (c.vis ? 2.4 : 1.6) * cs, c.vis ? 0xff3b3b : 0x7a3030); }
       const us = Math.max(1, R.cc.dist / 500);
       for (const u of sim.units) {
@@ -272,7 +266,7 @@ async function enterTactical_(o) {
         if (sel.includes(u)) R.setInstS(D.rings, nr++, u.x, u.y, (u.kind === 'heli' ? hz : u.inB ? u.inB.z1 : z) + 0.5, 7 * us, 1, 7 * us);
       }
       { const close = R.cc.dist < 320; D.discs.material.opacity = close ? 0.2 : 0.55; D.discs.material.depthTest = close; }
-      R.commit(D.discs, nd); R.commit(D.soldiers, ns); R.commit(D.vehicles, 0); R.commit(D.helis, 0);
+      R.commit(D.discs, nd);
       // sites (rings) and markers (HVT beacons, checkpoints, sites)
       let nm = 0;
       for (const s of sim.sites) { R.setInstS(D.rings, nr++, s.p[0], s.p[1], city.heightAt(s.p[0], s.p[1]) + 0.6, s.r, 1, s.r); R.setInstS(D.markers, nm++, s.p[0], s.p[1], city.heightAt(s.p[0], s.p[1]), 3, s.built ? 18 : 8, 3, s.kind === 'staging' ? 0x7fe36f : s.kind === 'safezone' ? 0xffffff : s.built ? 0x7fe3ff : 0xc9a227); }

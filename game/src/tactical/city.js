@@ -43,7 +43,7 @@ export class City {
       let cx = 0, cy = 0; for (const p of b.ring) { cx += p[0]; cy += p[1]; } b.c = [cx / b.ring.length, cy / b.ring.length];
       let a = 0; for (let k = 0, j = b.ring.length - 1; k < b.ring.length; j = k++) a += b.ring[j][0] * b.ring[k][1] - b.ring[k][0] * b.ring[j][1]; b.area = Math.abs(a / 2);
       b.pop0 = Math.round(b.res * 0.55 + b.jobs * 0.45); b.occ = b.pop0; b.hp = Math.min(4000, 400 + b.area * b.levels * 0.6); b.hp0 = b.hp;
-      b.infest = 0; b.state = 0; b.garrison = []; b.evac = false; b.dead = 0; b.colorDirty = false;
+      b.z1 = b.z + b.h; b.infest = 0; b.state = 0; b.garrison = []; b.evac = false; b.dead = 0; b.colorDirty = false;
       this.buildings.push(b); tile.bIdx.push(i); this.bGrid.add(b.c[0], b.c[1], i);
       const d = this.districts[b.district]; if (d) { d.buildings.push(i); d.pop0 += b.pop0; }
     }

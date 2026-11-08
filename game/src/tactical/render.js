@@ -85,6 +85,17 @@ export class Renderer {
     const t = c.target;
     { const nn = Math.max(0.4, Math.min(2, c.dist * 0.04)); if (Math.abs(nn - this.cam.near) > 0.05) { this.cam.near = nn; this.cam.updateProjectionMatrix(); } }
     this.cam.position.set(t.x + Math.sin(c.yaw) * Math.cos(c.pitch) * c.dist, t.y + Math.sin(c.pitch) * c.dist, t.z + Math.cos(c.yaw) * Math.cos(c.pitch) * c.dist);
+    // close in among buildings: lift the camera over any roof between it and the target so it never ends up inside a block
+    if (c.dist < 400 && this.city?.bGrid) {
+      const P = this.cam.position, C = this.city; let need = -1e9;
+      for (const f of [1, 0.75, 0.5]) {
+        const gx = t.x + (P.x - t.x) * f, gy = -(t.z + (P.z - t.z) * f);
+        C.bGrid.near(gx, gy, 45, i => { const b = C.buildings[i]; if (!b || b.destroyed) return; const r = b.ring; let inside = false;
+          for (let a = 0, k = r.length - 1; a < r.length; k = a++) { const p1 = r[a], p2 = r[k]; if ((p1[1] > gy) !== (p2[1] > gy) && gx < (p2[0] - p1[0]) * (gy - p1[1]) / (p2[1] - p1[1]) + p1[0]) inside = !inside; }
+          if (inside) need = Math.max(need, t.y + ((b.z1 ?? b.z + 10) + 1.5 - t.y) / f); });
+      }
+      if (P.y < need) { P.y = need; this.cam.lookAt(t); }
+    }
     this.cam.lookAt(t);
     this.scene.fog.near = c.dist * (1.8 + 6 * U.uTac.value); this.scene.fog.far = c.dist * (5 + 12 * U.uTac.value) + 2500;
     // blend: realistic street level → clean tactical map
@@ -456,23 +467,11 @@ export class Renderer {
   initDynamic() {
     const mk = (geo, mat, n) => { const m = new THREE.InstancedMesh(geo, mat, n); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.count = 0; m.frustumCulled = false; this.scene.add(m); return m; };
     const lam = c => new THREE.MeshLambertMaterial({ color: c });
-    const carG = new THREE.BoxGeometry(4.3, 1.5, 1.85); carG.translate(0, 0.75, 0);
-    this.dyn.cars = mk(carG, new THREE.MeshLambertMaterial({ vertexColors: false }), 6000);
-    this.dyn.cars.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(6000 * 3), 3);
-    const pedG = new THREE.CylinderGeometry(0.35, 0.35, 1.75, 5); pedG.translate(0, 0.88, 0);
-    this.dyn.peds = mk(pedG, lam(0xd8d0c0), 6000);
     const blipG = new THREE.BufferGeometry(); blipG.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12000 * 3), 3)); blipG.setAttribute('color', new THREE.BufferAttribute(new Float32Array(12000 * 3), 3));
     this.dyn.blips = new THREE.Points(blipG, new THREE.PointsMaterial({ size: 3.2, sizeAttenuation: false, vertexColors: true, depthTest: false, transparent: true, opacity: 0.9 })); this.dyn.blips.frustumCulled = false; this.dyn.blips.renderOrder = 5; this.scene.add(this.dyn.blips);
     const crG = new THREE.OctahedronGeometry(1.1, 0); crG.scale(1, 1.4, 1); crG.translate(0, 1.4, 0);
     this.dyn.creatures = mk(crG, new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x220000 }), 4000);
     this.dyn.creatures.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(4000 * 3), 3);
-    const solG = new THREE.CapsuleGeometry(0.38, 1.1, 2, 6); solG.translate(0, 0.95, 0);
-    this.dyn.soldiers = mk(solG, lam(0x4f6b45), 3000);
-    const vehG = new THREE.BoxGeometry(6.5, 2.4, 2.8); vehG.translate(0, 1.2, 0);
-    const turret = new THREE.BoxGeometry(2.2, 0.9, 1.9); turret.translate(0, 2.8, 0);
-    this.dyn.vehicles = mk(mergeGeos([vehG, turret]), lam(0x55654a), 400);
-    const heliG = mergeGeos([(() => { const g = new THREE.CapsuleGeometry(1.2, 6, 2, 8); g.rotateZ(Math.PI / 2); return g; })(), (() => { const g = new THREE.BoxGeometry(13, 0.15, 0.5); g.translate(0, 1.6, 0); return g; })(), (() => { const g = new THREE.BoxGeometry(0.5, 0.15, 13); g.translate(0, 1.6, 0); return g; })()]);
-    this.dyn.helis = mk(heliG, lam(0x5d6b55), 60);
     const ringG = new THREE.RingGeometry(0.93, 1, 48); ringG.rotateX(-Math.PI / 2);
     this.dyn.rings = mk(ringG, new THREE.MeshBasicMaterial({ color: 0x7fe3ff, transparent: true, opacity: 0.85, depthTest: false }), 400); this.dyn.rings.renderOrder = 6;
     const discG = new THREE.CircleGeometry(1, 20); discG.rotateX(-Math.PI / 2);

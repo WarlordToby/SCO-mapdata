@@ -2,6 +2,19 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.14.1 — Audit fixes (2026-11-08)
+
+- Light armoured cars and door-gun helicopters (VBL, P4, Puma and others with a weapon) now fire; before, anything below a set firepower never engaged.
+- Vehicles no longer get stuck partway along a curving street: they join their route at the nearest point they can reach, and a unit that wanders into a courtyard or service lane retraces its tracks out.
+- Path-finding starts and ends on the same connected piece of road network, so units parked by an isolated lane still find a way.
+- Staging areas are placed on land near a road junction; coastal cities such as Mumbai no longer stage in the sea.
+- The camera no longer clips into buildings at close zoom; it rises over roofs instead.
+- Garrisoned units, their markers and picking now use correct roof heights.
+- Police turnout is capped by city: Tokyo fielded over 400 patrol cars from its many kōban, now about 80 across all its stations.
+- Fire engines turn out correctly (fixed a crash in the infested-building lookup).
+- The prefect you are asked to evacuate is only a Préfet in France; elsewhere he is the Governor.
+- Removed leftover placeholder markers and unused geometry from the renderer.
+
 ## v0.14.0 — Vehicles (2026-11-08)
 
 - Every vehicle now has a proper model, built from its real dimensions out of faceted hulls and turrets rather than boxes: Leclerc, Leopard 2A4, AMX-30B2, AMX-10RC, EBRC Jaguar, VAB, VBCI, Griffon, Serval, AMX-10P, M113A2, TRM 2000 and 10000, GBC 180, ACMAT VLRA, P4, VBL, Sherpa, Defender and Land Cruiser.
