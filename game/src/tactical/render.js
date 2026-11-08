@@ -81,8 +81,9 @@ export class Renderer {
   V(x, y, z = 0) { return new THREE.Vector3(x, z, -y); }
 
   updateCamera() {
-    const c = this.cc; c.pitch = Math.max(0.25, Math.min(1.45, c.pitch)); c.dist = Math.max(40, Math.min(6000, c.dist));
+    const c = this.cc; c.pitch = Math.max(0.25, Math.min(1.45, c.pitch)); c.dist = Math.max(9, Math.min(6000, c.dist));
     const t = c.target;
+    { const nn = Math.max(0.4, Math.min(2, c.dist * 0.04)); if (Math.abs(nn - this.cam.near) > 0.05) { this.cam.near = nn; this.cam.updateProjectionMatrix(); } }
     this.cam.position.set(t.x + Math.sin(c.yaw) * Math.cos(c.pitch) * c.dist, t.y + Math.sin(c.pitch) * c.dist, t.z + Math.cos(c.yaw) * Math.cos(c.pitch) * c.dist);
     this.cam.lookAt(t);
     this.scene.fog.near = c.dist * (1.8 + 6 * U.uTac.value); this.scene.fog.far = c.dist * (5 + 12 * U.uTac.value) + 2500;

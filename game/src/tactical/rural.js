@@ -233,7 +233,7 @@ export function generateRural(o) {
     for (const t of tiles.values()) { const c = clipRing(ring, [t.origin[0], t.origin[1], t.origin[0] + T, t.origin[1] + T]); if (c.length >= 3) t.areas.push({ kind: CODES.area.indexOf('water'), ring: c, holes: [] }); }
   }
   const districts = villages.map(v => ({ name: v.name, kind: 'village', x: Math.round(v.c[0]), y: Math.round(v.c[1]) }));
-  const manifest = { format: 'sco-rural', name: o.name || villages[0].name, country: o.cc, region, climate: { arid }, tileSize: T, codes: CODES, districts, tiles: [...tiles.keys()].map(key => ({ key })), stats: { buildings: buildings.length, villages: villages.length, people: Math.round(people) } };
+  const manifest = { format: 'sco-rural', name: o.name || villages[0].name, country: o.cc, center: { lon: o.lon, lat: o.lat }, region, climate: { arid }, tileSize: T, codes: CODES, districts, tiles: [...tiles.keys()].map(key => ({ key })), stats: { buildings: buildings.length, villages: villages.length, people: Math.round(people) } };
   return { manifest, tiles, villages, threatDir: o.threatDir, half };
 }
 // threshold such that roughly a share q of the map lies below it (sampled)

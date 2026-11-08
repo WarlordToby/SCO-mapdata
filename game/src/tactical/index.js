@@ -4,6 +4,7 @@ import { City } from './city.js';
 import { Renderer, USE_COLORS } from './render.js';
 import { Sim } from './sim.js';
 import { generateRural } from './rural.js';
+import { Figures } from './figures.js';
 import { ITEM } from '../catalog.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -23,6 +24,7 @@ async function enterTactical_(o) {
   const setLoad = t => { $('#tLoad b', root).textContent = t; };
   const gen = o.rural ? generateRural(o.rural) : null;
   const city = new City(o.base, gen);
+  let figs = null; const makeFigures = () => new Figures(R.scene, sim, { region: city.m.region, cc: city.m.country, month: new Date(o.clock).getUTCMonth(), lat: city.m.center?.lat ?? 45, arid: !!city.m.climate?.arid, playerCc: o.playerCc || city.m.country, nationCc: o.rural?.cc || city.m.country });
   let R, sim, raf, alive = true, speed = 1, mode = null, sel = [], selB = null, lastHud = 0, dragging = null, keys = {}, result = null;
   if (gen) try {
     setLoad('Laying out the countryside…');
@@ -37,7 +39,8 @@ async function enterTactical_(o) {
     R.cc.target.set(tdx * 300, city.heightAt(tdx * 300, tdy * 300), -tdy * 300); R.cc.dist = 1600; R.cc.yaw = Math.atan2(-tdx, tdy); R.cc.pitch = 0.8;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: gen.half * 1.5, supply: o.supply, severity: 1 });
     sim.startRural(o.forces, { threatDir: gen.threatDir, half: gen.half, duration: o.rural.duration, waves: o.rural.waves, platoons: o.rural.platoons, nation: o.rural.nation, frontName: o.cityName });
-    window.__tac = { city, sim, R, gen };
+    figs = makeFigures();
+    window.__tac = { city, sim, R, gen, figs };
     $('#tRight', root).style.display = 'none';
     $('#tLoad', root).style.display = 'none';
   } catch (e) {
@@ -70,7 +73,8 @@ async function enterTactical_(o) {
     R.cc.target.set(impact.c[0], impact.z, -impact.c[1]); R.cc.dist = 900; R.cc.yaw = 0.7; R.cc.pitch = 0.85;
     sim = new Sim(city, { threat: o.threat, threatName: o.threatName, cityName: o.cityName, clock: o.clock, unlockR: R0, supply: o.supply, severity: o.severity });
     sim.start(impact, o.forces, o.forces.map(f => f.approach));
-    window.__tac = { city, sim, R };
+    figs = makeFigures();
+    window.__tac = { city, sim, R, figs };
     $('#tLoad', root).style.display = 'none';
   } catch (e) {
     console.error(e); setLoad('Failed to load the city: ' + e.message); await new Promise(r => setTimeout(r, 2500)); root.remove(); return { aborted: true };
@@ -113,7 +117,7 @@ async function enterTactical_(o) {
     cv.addEventListener('wheel', e => {
       e.preventDefault(); const c = R.cc, f = Math.exp(e.deltaY * 0.0012), r = cv.getBoundingClientRect();
       const hit = R.groundPick(e.clientX - r.left, e.clientY - r.top);
-      const nd = Math.max(40, Math.min(6000, c.dist * f));
+      const nd = Math.max(9, Math.min(6000, c.dist * f));
       if (hit && f < 1) { const k = 1 - nd / c.dist; c.target.x += (hit.p[0] - c.target.x) * k; c.target.z += (-hit.p[1] - c.target.z) * k; }
       c.dist = nd;
     }, { passive: false });
@@ -242,21 +246,22 @@ async function enterTactical_(o) {
         if (nc < 6000) R.setInst(D.cars, nc++, p[0], p[1], p[2], p[3], p[4], 1, c.kind === 'police' ? (Math.floor(sim.t * 3) % 2 ? 0x2a5bd7 : 0xf0f0f0) : c.kind === 'ambulance' ? 0xf2f2f2 : CIV_COLS[Math.floor(c.id * 10)]);
       }
       R.commit(D.cars, far ? 0 : nc);
-      for (const p of sim.peds) { const z = city.heightAt(p.x, p.y); if (far) { blip(p.x, p.y, z, 0.9, 0.85, 0.6); continue; } if (np < 6000) R.setInst(D.peds, np++, p.x, p.y, z, 1, 0); }
-      R.commit(D.peds, far ? 0 : np);
+      if (far) for (const p of sim.peds) blip(p.x, p.y, city.heightAt(p.x, p.y), 0.9, 0.85, 0.6);
+      R.commit(D.peds, 0);
+      const figScale = Math.min(2.2, Math.max(1, R.cc.dist / 450));
+      figs.update(!far, figScale, (x, y) => city.heightAt(x, y), [R.cc.target.x, -R.cc.target.z, R.cc.dist * 2.4 + 120]);
       // creatures
       let ncr = 0; const cs = Math.max(1, R.cc.dist / 450) * sim.P.size;
-      for (const c of sim.creatures) { if (c.inB || !c.vis) continue; const z = city.heightAt(c.x, c.y); if (ncr < 4000) R.setInst(D.creatures, ncr++, c.x, c.y, z, c.hx, c.hy, cs, o.threatColor); if (far) blip(c.x, c.y, z, 1, 0.25, 0.25); }
+      for (const c of sim.creatures) { if (c.inB || !c.vis) continue; const z = city.heightAt(c.x, c.y); if (!figs.humanoid && ncr < 4000) R.setInst(D.creatures, ncr++, c.x, c.y, z, c.hx, c.hy, cs, o.threatColor); if (far) blip(c.x, c.y, z, 1, 0.25, 0.25); }
       R.commit(D.creatures, ncr);
       // forces
       let ns = 0, nv = 0, nh = 0, nr = 0, nd = 0;
-      for (const c of sim.creatures) { if (c.inB || nd > 3000 || !(c.vis || c.ghost)) continue; R.setInstS(D.discs, nd++, c.x, c.y, city.heightAt(c.x, c.y) + 0.35, (c.vis ? 2.4 : 1.6) * cs, 1, (c.vis ? 2.4 : 1.6) * cs, c.vis ? 0xff3b3b : 0x7a3030); }
+      if (!figs.humanoid || R.cc.dist > 420) for (const c of sim.creatures) { if (c.inB || nd > 3000 || !(c.vis || c.ghost)) continue; R.setInstS(D.discs, nd++, c.x, c.y, city.heightAt(c.x, c.y) + 0.35, (c.vis ? 2.4 : 1.6) * cs, 1, (c.vis ? 2.4 : 1.6) * cs, c.vis ? 0xff3b3b : 0x7a3030); }
       const us = Math.max(1, R.cc.dist / 500);
       for (const u of sim.units) {
         if (u.dead) continue;
         const z = city.heightAt(u.x, u.y);
         if (u.kind === 'squad' && u.riding) R.setInst(D.vehicles, nv++, u.x, u.y, z, u.hx, u.hy, us * 0.8);
-        else if (u.kind === 'squad' && !u.inB) { const cols = 3; for (let i = 0; i < u.men; i++) { const ox = ((i % cols) - 1) * 2.2 * us, oy = (Math.floor(i / cols) - 1) * 2.2 * us; const rx = ox * u.hy + oy * u.hx, ry = -ox * u.hx + oy * u.hy; R.setInst(D.soldiers, ns++, u.x + rx, u.y + ry, z, u.hx, u.hy, us); } }
         if (u.kind === 'vehicle') R.setInst(D.vehicles, nv++, u.x, u.y, z, u.hx, u.hy, us);
         if (u.kind === 'heli') R.setInst(D.helis, nh++, u.x, u.y, 60, u.hx, u.hy, us);
         if (far) blip(u.x, u.y, u.kind === 'heli' ? 60 : z, 0.5, 1, 0.45);
@@ -363,7 +368,7 @@ async function enterTactical_(o) {
     // ---------------- unlock & end ----------------
     let unlocking = false;
     async function checkUnlock() {
-      if (unlocking || !sim.checkSpread()) return;
+      if (unlocking || sim.rural || !sim.checkSpread()) return;
       unlocking = true; const nr = sim.unlockR + 1000;
       sim.log(`The outbreak is spreading beyond the operation area — area expanded to ${(nr / 1000).toFixed(1)} km.`, 'warn');
       const keysIn = tilesAround(city, sim.origin, nr), ring = tilesAround(city, sim.origin, nr + 1100);
@@ -399,7 +404,7 @@ async function enterTactical_(o) {
           : `<span>City integrity</span><span>${Math.round(s.integrity)}%</span><span>Civilians evacuated</span><span>${num(st.evacuated)}</span><span>Civilian casualties</span><span class="bad">${num(st.civDead)}</span><span>Hostiles killed</span><span>${st.kills}</span><span>Soldiers killed</span><span>${st.soldiersKIA}</span><span>Vehicles lost</span><span>${st.vehiclesLost}</span><span>Police officers lost</span><span>${st.policeLost || 0}</span><span>Buildings destroyed</span><span>${st.bDestroyed}</span><span>HVTs evacuated / lost</span><span>${st.hvtSaved} / ${st.hvtLost}</span><span>Samples recovered</span><span>${st.specimens}</span>`}</div>
         <div class="foot"><button class="pri" id="tBack">Return to strategic command</button></div></div>`;
       M.style.display = 'flex';
-      $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
+      $('#tBack', root).onclick = () => { alive = false; cancelAnimationFrame(raf); removeEventListener('keydown', kd); removeEventListener('keyup', ku); figs?.dispose(); R.dispose(); root.remove(); window.__tac = null; resolve(result); };
     }
     function confirm_() { const s = sim.summary(); if (sim.rural || s.creatures || s.infested) { if (!root.dataset.confirmEnd) { root.dataset.confirmEnd = 1; sim.log('Hostiles remain. Click "End operation" again to withdraw (counts as a failure).', 'warn'); setTimeout(() => delete root.dataset.confirmEnd, 5000); return false; } } return true; }
     hud(); updateSel();

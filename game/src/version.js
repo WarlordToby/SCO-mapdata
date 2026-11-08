@@ -1,9 +1,22 @@
 // Single source of truth for the game version. Bump VERSION and add a CHANGELOG entry with every release.
 // Versioning: MAJOR.MINOR.PATCH — MINOR for new features/content, PATCH for fixes and balance.
-export const VERSION = '0.11.0';
+export const VERSION = '0.12.0';
 export const SAVE_FORMAT = 3; // bump when the save structure changes; add a step to migrate() below
 
 export const CHANGELOG = [
+  {
+    v: '0.12.0', date: '2026-11-08', title: 'People',
+    items: [
+      'Civilians, police, soldiers and humanoid threats are now animated low-poly figures instead of markers: walking, running and fleeing, aiming and firing, kneeling, shambling, clawing, loping and falling.',
+      'Every soldier of a squad is shown: rifle squads move in formation, half kneel when they open fire, and men who fall stay where they fell.',
+      'Uniforms by country: national police patrol dress (e.g. Police nationale navy, German Polizei blue, British black with hi-vis) and army camouflage (French BME, German Flecktarn, Swedish M90 splinter, Russian digital, desert patterns in the Gulf, …). Your units wear your nation’s uniform abroad; national troops wear their own.',
+      'Civilian clothing follows region and season: winter coats in northern Europe in winter, thobes and ghutras and abayas in the Gulf, kurtas, salwar and saris in South Asia, bright prints and head wraps in West Africa.',
+      'Police officers step out beside their stopped patrol cars and open fire with pistols when hostiles come close.',
+      'Undead are ragged, grey-skinned and bloodied civilians (and the odd turned soldier); vampires are pale and dark-clad; lycans are hunched, clawed werewolves.',
+      'The fallen (civilians, officers, soldiers and hostiles) stay on the ground for a while.',
+      'The camera can now zoom in much closer (about 9 m) to watch the people.',
+    ],
+  },
   {
     v: '0.11.0', date: '2026-11-08', title: 'Countryside battles',
     items: [

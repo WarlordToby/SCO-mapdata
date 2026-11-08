@@ -2,6 +2,17 @@
 
 Special Containment Organization — game versions (MAJOR.MINOR.PATCH). The same entries are shown on the main menu.
 
+## v0.12.0 — People (2026-11-08)
+
+- Civilians, police, soldiers and humanoid threats are now animated low-poly figures instead of markers: walking, running and fleeing, aiming and firing, kneeling, shambling, clawing, loping and falling.
+- Every soldier of a squad is shown: rifle squads move in formation, half kneel when they open fire, and men who fall stay where they fell.
+- Uniforms by country: national police patrol dress (e.g. Police nationale navy, German Polizei blue, British black with hi-vis) and army camouflage (French BME, German Flecktarn, Swedish M90 splinter, Russian digital, desert patterns in the Gulf, …). Your units wear your nation’s uniform abroad; national troops wear their own.
+- Civilian clothing follows region and season: winter coats in northern Europe in winter, thobes and ghutras and abayas in the Gulf, kurtas, salwar and saris in South Asia, bright prints and head wraps in West Africa.
+- Police officers step out beside their stopped patrol cars and open fire with pistols when hostiles come close.
+- Undead are ragged, grey-skinned and bloodied civilians (and the odd turned soldier); vampires are pale and dark-clad; lycans are hunched, clawed werewolves.
+- The fallen (civilians, officers, soldiers and hostiles) stay on the ground for a while.
+- The camera can now zoom in much closer (about 9 m) to watch the people.
+
 ## v0.11.0 — Countryside battles (2026-11-08)
 
 - When the outbreak presses hard on one of your front lines, you are offered command of the battle: take command in 3D or let the national forces hold on their own.

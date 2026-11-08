@@ -188,7 +188,7 @@ export function showHandoff(inc) {
   if (tac) tac.onclick = async () => {
     closeModal(); S.speed = 0;
     const forces = us.filter(u => u.status === 'onscene' || u.status === 'transit').map(u => ({ id: u.id, name: u.name, tpl: u.tpl, pers: u.pers, items: u.items, vehicle: u.vehicle, approach: u.approach, carrier: u.vehicle ? null : u.carrier, arriveIn: u.status === 'transit' ? Math.max(0, u.route.arr - S.t) : 0 }));
-    const res = await enterTactical({ base: packUrl(packOf(city)), threat: inc.threat, threatName: T.name, threatColor: T.color, cityName: city.name, district: inc.district, clock: S.t, forces, supply: 120, severity: 1 + inc.infest / 30 });
+    const res = await enterTactical({ playerCc: S.nation.cca2, base: packUrl(packOf(city)), threat: inc.threat, threatName: T.name, threatColor: T.color, cityName: city.name, district: inc.district, clock: S.t, forces, supply: 120, severity: 1 + inc.infest / 30 });
     if (res.aborted) return UI.refresh();
     const r = G.resolveTactical(inc.id, res); G.save(); UI.refresh();
     modal(`<h2>${r.success ? 'Threat eliminated' : 'Containment failed'} — ${esc(city.name)}</h2><div class="stats"><span>Soldiers killed</span><span>${r.kia}</span><span>Units lost</span><span>${r.lost.length ? esc(r.lost.join(', ')) : 'None'}</span><span>Civilian casualties</span><span>${num(r.civDead)}</span><span>Evacuated</span><span>${num(r.evacuated)}</span><span>HVTs evacuated / lost</span><span>${r.hvtSaved} / ${r.hvtLost}</span><span>Government standing</span><span>${Math.round(S.standing)}</span><span>Public trust</span><span>${Math.round(S.trust)}</span></div><div class="foot"><button class="pri" onclick="__close()">Continue</button></div>`);
@@ -265,7 +265,7 @@ export function frontBattleDialog(fid) {
   $('#fbAuto').onclick = () => { closeModal(); done(G.resolveFront(fid, {})); };
   $('#fbTac').onclick = async () => {
     closeModal(); S.speed = 0;
-    const res = await enterTactical({ ...b.tac, rural });
+    const res = await enterTactical({ ...b.tac, rural, playerCc: S.nation.cca2 });
     if (res.aborted) { done(G.resolveFront(fid, {})); return; }
     done(G.resolveFront(fid, res));
   };

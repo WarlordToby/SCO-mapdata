@@ -579,7 +579,7 @@ export class Sim {
         }
         if (best) {
           const dps = u.fire * (u.kind === 'squad' ? u.men : 1);
-          u.cool = 0.5;
+          u.cool = 0.5; u.fireT = this.t; u.aimAt = [best.x, best.y];
           const dist = Math.sqrt(bd), acc = Math.max(0.35, 1 - dist / (r * 1.6));
           best.hp -= dps * 0.5 * acc * cover * (best.max > 300 && u.kind === 'squad' ? 0.6 : 1);
           u.ammo -= u.kind === 'squad' ? 0.25 : 0.4; this.stats.supplyUsed += 0.02;
@@ -752,7 +752,7 @@ export class Sim {
       if (c.cool <= 0) {
         let best = null, bd = 75 * 75;
         this.cGrid.near(c.x, c.y, 75, k => { if (k.hp <= 0) return; const d = (k.x - c.x) ** 2 + (k.y - c.y) ** 2; if (d < bd) { bd = d; best = k; } });
-        if (best) { c.cool = 0.8; best.hp -= 7 * (best.max > 300 ? 0.5 : 1); this.tracers.push({ a: [c.x, c.y, 1.3], b: [best.x, best.y, 1.2], t: 0.06, police: true }); if (best.hp <= 0) this.stats.kills++; }
+        if (best) { c.cool = 0.8; c.fireT = this.t; c.aimAt = [best.x, best.y]; best.hp -= 7 * (best.max > 300 ? 0.5 : 1); this.tracers.push({ a: [c.x, c.y, 1.3], b: [best.x, best.y, 1.2], t: 0.06, police: true }); if (best.hp <= 0) this.stats.kills++; }
       }
       this.cGrid.near(c.x, c.y, Math.max(4, P.range + 1), k => { if (k.hp > 0 && Math.hypot(k.x - c.x, k.y - c.y) < Math.max(4, P.range + 1)) c.hp -= P.dmg * dt * 0.8; });
       if (c.hp <= 0) { lost.push(c); this.stats.policeLost += 2; }
